@@ -10,9 +10,9 @@ import {
   remove
 } from './queries.js';
 
-const groupMethods = (database, table, tx, dbClient, by, config) => {
+const groupMethods = (args) => {
   const makeMethod = (method) => {
-    return async (query) => await group({ db: database, table, by, method, query, tx, dbClient, ...config });
+    return async (query) => await group({ query, method, ...args });
   }
   const result = {};
   const methods = ['count', 'avg', 'min', 'max', 'sum', 'array'];
@@ -23,22 +23,22 @@ const groupMethods = (database, table, tx, dbClient, by, config) => {
 }
 
 const basic = {
-  insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
-  insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
-  update: (database, table, tx) => async (options) => await update(database, table, options, tx),
-  upsert: (database, table, tx) => async (options) => await upsert(database, table, options, tx),
-  exists: (database, table, tx) => async (query, config) => await exists({ db: database, table, query, tx, ...config }),
-  groupBy: (database, table, tx, dbClient) => (by, config) => groupMethods(database, table, tx, dbClient, by, config),
-  count: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'count', ...config }),
-  avg: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'avg', ...config }),
-  min: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'min', ...config }),
-  max: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'max', ...config }),
-  sum: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'sum', ...config }),
-  get: (database, table, tx) => async (query, columns, config) => await all({ db: database, table, query, columns, first: true, tx, ...config }),
-  many: (database, table, tx) => async (query, columns, config) => await all({ db: database, table, query, columns, tx, ...config }),
-  query: (database, table, tx, dbClient) => async (query, config) => await all({ db: database, table, query, tx, dbClient, type: 'complex', ...config }),
-  first: (database, table, tx, dbClient) => async (query, config) => await all({ db: database, table, query, first: true, tx, dbClient, type: 'complex', ...config }),
-  remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
+  insert: (args) => async (values) => await insert({ values, ...args }),
+  insertMany: (args) => async (items) => await insertMany({ items, ...args }),
+  update: (args) => async (options) => await update({ options, ...args }),
+  upsert: (args) => async (options) => await upsert({ options, ...args }),
+  exists: (args) => async (query, config) => await exists({ query, ...config, ...args }),
+  groupBy: (args) => (by, config) => groupMethods({ by, ...config, ...args }),
+  count: (args) => async (query, config) => await aggregate({ query, method: 'count', ...config, ...args }),
+  avg: (args) => async (query, config) => await aggregate({ query, method: 'avg', ...config, ...args }),
+  min: (args) => async (query, config) => await aggregate({ query, method: 'min', ...config, ...args }),
+  max: (args) => async (query, config) => await aggregate({ query, method: 'max', ...config, ...args }),
+  sum: (args) => async (query, config) => await aggregate({ query, method: 'sum', ...config, ...args }),
+  get: (args) => async (query, columns, config) => await all({ query, columns, first: true, ...config, ...args }),
+  many: (args) => async (query, columns, config) => await all({ query, columns, ...config, ...args }),
+  query: (args) => async (query, config) => await all({ query, type: 'complex', ...config, ...args }),
+  first: (args) => async (query, config) => await all({ query, first: true, type: 'complex', ...config, ...args }),
+  remove: (args) => async (query) => await remove({ query, ...args })
 }
 
 const getConverters = (key, value, db, converters, keys = [], optional = []) => {
@@ -117,7 +117,14 @@ const getResultType = (columns) => {
   }
 }
 
-const makeQueryHandler = (table, db, tx, dbClient) => {
+const makeQueryHandler = (options) => {
+  const { 
+    table,
+    db,
+    tx,
+    dbClient,
+    subquery
+  } = options;
   return {
     get: function(target, method) {
       if (method === 'compute') {
@@ -125,7 +132,13 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
       }
       if (!target[method]) {
         const makeQuery = basic[method];
-        const run = makeQuery(db, table, tx, dbClient);
+        const run = makeQuery({ 
+          db,
+          table,
+          tx,
+          dbClient,
+          subquery
+        });
         if (method === 'groupBy') {
           target[method] = (...args) => {
             return run(...args);
@@ -163,8 +176,24 @@ const makeClient = (db, tx) => {
         db[table] = db[table].bind(db);
         return db[table];
       }
+      if (table === 'use') {
+        return (subquery) => {
+          return new Proxy({}, makeQueryHandler({ 
+            table, 
+            db, 
+            tx, 
+            dbClient, 
+            subquery 
+          }));
+        }
+      }
       if (!target[table]) {
-        target[table] = new Proxy({}, makeQueryHandler(table, db, tx, dbClient));
+        target[table] = new Proxy({}, makeQueryHandler({ 
+          table,
+          db,
+          tx,
+          dbClient
+        }));
       }
       return target[table];
     }

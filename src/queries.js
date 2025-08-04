@@ -166,10 +166,13 @@ const verify = (columns) => {
   }
 }
 
-const upsert = async (db, table, options, tx) => {
-  if (!db.initialized) {
-    await db.initialize();
-  }
+const upsert = async (args) => {
+  const { 
+    db,
+    table,
+    options,
+    tx
+  } = args;
   const { values, target, set } = options;
   const params = {};
   const query = adjust(db, table, values);
@@ -196,7 +199,13 @@ const upsert = async (db, table, options, tx) => {
   return await processInsert(db, sql, params, primaryKey, tx);
 }
 
-const insert = async (db, table, values, tx) => {
+const insert = async (args) => {
+  const { 
+    db,
+    table,
+    values,
+    tx
+  } = args;
   const columns = Object.keys(values);
   verify(columns);
   const adjusted = adjust(db, table, values);
@@ -226,10 +235,13 @@ const batchInserts = async (tx, db, table, items) => {
   await db.insertBatch(inserts);
 }
 
-const insertMany = async (db, table, items, tx) => {
-  if (!db.initialized) {
-    await db.initialize();
-  }
+const insertMany = async (args) => {
+  const {
+    db,
+    table,
+    items,
+    tx
+  } = args;
   if (items.length === 0) {
     return;
   }
@@ -343,10 +355,13 @@ const createSetClause = (db, table, query, params, adjuster) => {
   return statements.join(', ');
 }
 
-const update = async (db, table, options, tx) => {
-  if (!db.initialized) {
-    await db.initialize();
-  }
+const update = async (args) => {
+  const { 
+    db,
+    table,
+    options,
+    tx
+  } = args;
   const { where, set } = options;
   const keys = Object.keys(set);
   verify(keys);
@@ -377,86 +392,6 @@ const update = async (db, table, options, tx) => {
     tx
   };
   return await db.run(runOptions);
-}
-
-const expandStar = (db, table) => {
-  const columnTypes = db.columns[table];
-  const names = Object.keys(columnTypes);
-  if (!db.hasJson[table]) {
-    const clause = names.join(', ');
-    return {
-      names,
-      clause
-    }
-  }
-  const statements = [];
-  for (const [column, type] of Object.entries(columnTypes)) {
-    const sql = db.computed[table][column];
-    if (sql) {
-      statements.push(`${sql} as ${column}`);
-    }
-    else if (type === 'json') {
-      statements.push(`json(${column}) as ${column}`);
-    }
-    else {
-      statements.push(column);
-    }
-  }
-  return {
-    names,
-    clause: statements.join(', ')
-  }
-}
-
-const toSelect = (db, table, columns, types, params) => {
-  if (columns) {
-    if (typeof columns === 'string') {
-      verify(columns);
-      let clause;
-      const sql = db.computed[table][columns];
-      if (sql) {
-        clause = `${sql} as ${columns}`;
-      }
-      else if (types[columns] === 'json') {
-        clause = `json(${columns}) as ${columns}`;
-      }
-      else {
-        clause = columns;
-      }
-      return {
-        names: [columns],
-        clause
-      }
-    }
-    else if (Array.isArray(columns) && columns.length > 0) {
-      const names = [];
-      const statements = [];
-      for (const column of columns) {
-        if (typeof column === 'string') {
-          verify(column);
-          names.push(column);
-          let statement;
-          const sql = db.computed[table][column];
-          if (sql) {
-            statement = `${sql} as ${column}`;
-          }
-          else if (types[column] === 'json') {
-            statement = `json(${column}) as ${column}`;
-          }
-          else {
-            statement = column;
-          }
-          statements.push(statement);
-        }
-      }
-      return {
-        names,
-        clause: statements.join(', ')
-      }
-    }
-    return expandStar(db, table);
-  }
-  return expandStar(db, table);
 }
 
 const getOrderBy = (orderBy, params, adjuster) => {
@@ -504,9 +439,6 @@ const toKeywords = (keywords, params, adjuster) => {
 }
 
 const getVirtual = async (db, table, query, tx, keywords, select, returnValue, once) => {
-  if (!db.initialized) {
-    await db.initialize();
-  }
   let params = {};
   const keys = Object.keys(db.columns[table]).filter(k => k !== 'rowid');
   if (keywords && keywords.highlight) {
@@ -614,9 +546,6 @@ const exists = async (config) => {
     groupKeys,
     debugResult
   } = config;
-  if (!db.initialized) {
-    await db.initialize();
-  }
   const query = config.query || {};
   if (groupKeys.length > 0) {
     const result = await aggregate({ db, table, query, tx, method: 'count', groupKeys });
@@ -728,9 +657,6 @@ const group = async (config) => {
     dbClient,
     partitionBy
   } = config;
-  if (!db.initialized) {
-    await db.initialize();
-  }
   const { select, column, distinct, where, include, debug, ...keywords } = query;
   const alias = Object.keys(select || column || distinct).at(0);
   verify(alias);
@@ -1055,9 +981,6 @@ const aggregate = async (config) => {
     groupKeys,
     debugResult
   } = config;
-  if (!db.initialized) {
-    await db.initialize();
-  }
   const params = {};
   const query = config.query || {};
   const { where, column, distinct } = query;
@@ -1148,7 +1071,13 @@ const processInclude = (key, handler, debugResult) => {
   const tableTarget = {};
   const tableHandler = {
     get: function(target, property) {
-      if (!target.table) {
+      if (property === 'use') {
+        return (query) => {
+          target.query = query;
+          return tableProxy;
+        }
+      }
+      if (!target.table && !target.query) {
         target.table = property;
         return tableProxy;
       }
@@ -1316,7 +1245,10 @@ const processInclude = (key, handler, debugResult) => {
       args.push(config);
     }
     let included;
-    const run = db[tableTarget.table][queryMethod];
+    let run = db[tableTarget.table][queryMethod];
+    if (tableTarget.query) {
+      run = db.use(tableTarget.query)[queryMethod];
+    }
     if (method === 'groupBy') {
       const { aggregate, aggregateArgs } = tableTarget;
       included = await run(...tableTarget.args)[aggregate](...aggregateArgs);
@@ -1467,20 +1399,86 @@ const invertOmit = (all, omit) => {
   return all.filter(t => !remove.includes(t));
 }
 
-const all = async (config) => {
-  const { 
-    db, 
-    table, 
-    first, 
-    tx, 
-    dbClient, 
-    partitionBy, 
-    singleRow,
-    type 
-  } = config;
-  if (!db.initialized) {
-    await db.initialize();
+const expandStar = (types, computed) => {
+  const names = Object.keys(types);
+  const statements = [];
+  for (const [column, type] of Object.entries(types)) {
+    const sql = computed[column];
+    if (sql) {
+      statements.push(`${sql} as ${column}`);
+    }
+    else if (type === 'json') {
+      statements.push(`json(${column}) as ${column}`);
+    }
+    else {
+      statements.push(column);
+    }
   }
+  return {
+    names,
+    clause: statements.join(', ')
+  }
+}
+
+const toSelect = (args) => {
+  const { 
+    columns,
+    types,
+    computed
+  } = args;
+  const toSql = (column) => {
+    verify(column);
+    const sql = computed[column];
+    if (sql) {
+      return `${sql} as ${column}`;
+    }
+    else if (types[column] === 'json') {
+      return `json(${column}) as ${column}`;
+    }
+    else {
+      return column;
+    }
+  }
+  if (columns) {
+    if (typeof columns === 'string') {
+      const clause = toSql(columns);
+      return {
+        names: [columns],
+        clause
+      }
+    }
+    else if (Array.isArray(columns) && columns.length > 0) {
+      const names = [];
+      const statements = [];
+      for (const column of columns) {
+        if (typeof column === 'string') {
+          const clause = toSql(column);
+          names.push(column);
+          statements.push(clause);
+        }
+      }
+      return {
+        names,
+        clause: statements.join(', ')
+      }
+    }
+    return expandStar(types, computed);
+  }
+  return expandStar(types, computed);
+}
+
+const all = async (config) => {
+  const {
+    db,
+    table,
+    first,
+    tx,
+    dbClient,
+    subquery,
+    partitionBy,
+    singleRow,
+    type
+  } = config;
   const params = {};
   let query = config.query || {};
   let columns = config.columns;
@@ -1526,9 +1524,12 @@ const all = async (config) => {
       columns.push(...remove);
     }
   }
-  const customFields = {};
-  const columnTypes = db.columns[table];
-  const select = toSelect(db, table, columns, columnTypes, params);
+  const types = subquery ? subquery.columns : db.columns[table];
+  const select = toSelect({ 
+    columns,
+    types,
+    computed: db.computed[table] || {}
+  });
   const adjuster = (name) => adjustName({
     db,
     table,
@@ -1606,7 +1607,8 @@ const all = async (config) => {
     if (keywords && keywords.distinct) {
       sql += 'distinct ';
     }
-    sql += `${select.clause} from ${table}`;
+    const tableClause = subquery ? `(${subquery.sql})` : table;
+    sql += `${select.clause} from ${tableClause}`;
     const clause = toWhere({
       query,
       params,
@@ -1651,28 +1653,32 @@ const all = async (config) => {
     }
     const sample = rows[0];
     const keys = Object.keys(sample);
-    const needsParsing = db.needsParsing(table, keys);
-    let adjusted;
-    if (needsParsing) {
-      adjusted = [];
-      for (const row of rows) {
-        const created = {};
-        for (const [key, value] of Object.entries(row)) {
-          if (customFields.hasOwnProperty(key)) {
-            created[key] = value;
-            continue;
-          }
-          created[key] = db.convertToJs(table, key, value);
-        }
-        adjusted.push(created);
-      }
+    let parsers;
+    if (subquery) {
+      parsers = Object.entries(subquery.columns)
+        .map(entry => {
+          const [column, type] = entry;
+          const converter = db.getDbToJsConverter(type);
+          return [column, converter];
+        })
+        .filter(item => item[1] !== null);
     }
     else {
-      adjusted = rows;
+      parsers = keys
+        .map(key => [key, db.getDbToJsConverter(db.columns[table][key])])
+        .filter(item => item[1] !== null);
+    }
+    if (parsers.length > 0) {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        for (const [key, parser] of parsers) {
+          row[key] = parser(row[key]);
+        }
+      }
     }
     if (returnValue) {
       const key = keys[0];
-      const mapped = adjusted.map(item => item[key]);
+      const mapped = rows.map(item => item[key]);
       if (first) {
         if (mapped.length > 0) {
           return mapped.at(0);
@@ -1682,12 +1688,12 @@ const all = async (config) => {
       return mapped;
     }
     if (first) {
-      if (adjusted.length > 0) {
-        return adjusted.at(0);
+      if (rows.length > 0) {
+        return rows.at(0);
       }
       return undefined;
     }
-    return adjusted;
+    return rows;
   };
   if (tx && tx.isBatch) {
     return await processBatch(db, options, post);
@@ -1754,10 +1760,13 @@ const all = async (config) => {
   }
 }
 
-const remove = async (db, table, query, tx) => {
-  if (!db.initialized) {
-    await db.initialize();
-  }
+const remove = async (args) => {
+  const { 
+    db,
+    table,
+    query,
+    tx
+  } = args;
   let sql = `delete from ${table}`;
   const params = {};
   const adjuster = (name) => adjustName({

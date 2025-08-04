@@ -577,7 +577,8 @@ const toHash = (index) => {
 const indexToSql = (table, index) => {
   const { type, on, where } = index;
   const hash = toHash(index);
-  const indexName = `${table}_${hash}`;
+  const adjusted = table.replaceAll(/([a-z])([A-Z])/gm, '$1_$2');
+  const indexName = `${adjusted}_${hash}`;
   let sql = `create `;
   if (type === 'unique') {
     sql += 'unique ';

@@ -9,7 +9,7 @@ interface Keywords<T, K> {
 }
 
 interface Includes<T, R> {
-  [key: string]: (tables: T, columns: R) => any;
+  [key: string]: (tables: T & { use: <S>(query: S) => ToQuery<undefined, S> }, columns: R) => any;
 }
 
 type ObjectFunction = {
