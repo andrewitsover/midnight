@@ -880,6 +880,16 @@ type ClassFields<T extends new (...args: any[]) => any> = {
   [K in keyof InstanceType<T>]: InstanceType<T>[K];
 };
 
+type RemoveUpperCase<T> = {
+  [K in keyof T as K extends string
+    ? K extends `${infer First}${string}`
+      ? First extends Lowercase<First>
+        ? K
+        : never
+      : never
+    : never]: T[K];
+};
+
 type ExtractColumns<T> = {
   [K in keyof T as K extends string
     ? K extends `${infer First}${string}`
@@ -891,7 +901,6 @@ type ExtractColumns<T> = {
 };
 
 type PkType = PkNumber | PkString | PkDate | PkBuffer;
-
 
 type ToInsert<T> = {
   [K in keyof T as T[K] extends PkType | DbTypes
@@ -1046,13 +1055,13 @@ export class Table {
     null: N,
     index?: false
   }): GetPrimaryKey<InstanceType<T>> | DbNull;
-  References<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  References<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends true>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
@@ -1066,11 +1075,11 @@ export class Table {
     null: N,
     index?: false
   }): GetPrimaryKey<InstanceType<T>> | DbNull;
-  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
+  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
+  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends true>(table: T, options?: {
     column: K,
     null: N,
     index?: false
