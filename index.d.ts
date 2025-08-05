@@ -8,7 +8,7 @@ interface Keywords<T, K> {
   distinct?: boolean;
 }
 
-type ReadQueries<T> = Pick<ToQuery<undefined, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists'>;
+type ReadQueries<T> = Pick<ToQuery<undefined, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists' | 'groupBy'>;
 
 interface Includes<T, R> {
   [key: string]: (tables: T & { use: <S>(query: S) => ReadQueries<S> }, columns: R) => any;
