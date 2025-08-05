@@ -8,8 +8,10 @@ interface Keywords<T, K> {
   distinct?: boolean;
 }
 
+type ReadQueries<T> = Pick<ToQuery<undefined, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists'>;
+
 interface Includes<T, R> {
-  [key: string]: (tables: T & { use: <S>(query: S) => ToQuery<undefined, S> }, columns: R) => any;
+  [key: string]: (tables: T & { use: <S>(query: S) => ReadQueries<S> }, columns: R) => any;
 }
 
 type ObjectFunction = {
@@ -605,7 +607,6 @@ interface Queries<T, I, W, R, Y> {
   sum<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
   exists(params: W | null): Promise<boolean>;
   groupBy<K extends keyof T>(columns: K | Array<K>): AggregateMethods<T, W, K, Y>;
-  compute(properties: Compute<T>): void;
   remove(params?: W): Promise<number>;
 }
 
@@ -1008,7 +1009,7 @@ interface TypedDb<P, C> {
   query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
   queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
-  use<S>(query: S): ToQuery<undefined, S>;
+  use<S>(query: S): ReadQueries<S>;
 }
 
 type ToComputed<T> =
