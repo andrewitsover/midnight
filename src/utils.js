@@ -183,9 +183,20 @@ const addAlias = (clause, alias) => {
   return result;
 }
 
+const jsonSelector = (type, sql) => {
+  if (type === 'boolean') {
+    return `iif(${sql} = 1, json('true'), ${sql} = 0, json('false'))`;
+  }
+  else if (type === 'json') {
+    return `json(${sql})`;
+  }
+  return sql;
+}
+
 export {
   addAlias,
   toValues,
+  jsonSelector,
   getPlaceholder,
   expressionHandler
 }

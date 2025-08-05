@@ -1,4 +1,4 @@
-import { getPlaceholder, expressionHandler } from './utils.js';
+import { getPlaceholder, expressionHandler, jsonSelector } from './utils.js';
 import { compareOperators } from './methods.js';
 
 const aggregateMethods = [
@@ -598,12 +598,9 @@ const addClauses = (table, query, params) => {
 const makeJsonArray = (types, columns) => {
   let sql = `json_group_array(json_object(`;
   const mapped = columns.map(column => {
-    let selector;
-    if (types && types[column] === 'json') {
-      selector = `json(${column})`;
-    }
-    else {
-      selector = column;
+    let selector = column;
+    if (types) {
+      selector = jsonSelector(types[column], column);
     }
     return `'${column}', ${selector}`;
   });
@@ -655,6 +652,7 @@ const group = async (config) => {
     query,
     tx,
     dbClient,
+    subquery,
     partitionBy
   } = config;
   const { select, column, distinct, where, include, debug, ...keywords } = query;
@@ -681,7 +679,7 @@ const group = async (config) => {
   const hasKeywords = Object.keys(keywords).length > 0;
   const rawBy = Array.isArray(config.by) ? config.by : [config.by];
   const params = {};
-  const computed = db.computed[table][alias];
+  const computed = subquery ? null : db.computed[table][alias];
   if (computed) {
     throw Error(`The alias cannot have the same name as a computed field.`);
   }
@@ -726,14 +724,9 @@ const group = async (config) => {
       includeResults.push({ column, result });
     }
   }
-  const needsParsing = new Map();
   const columnTypes = db.columns[table];
   const byClause = by.join(', ');
-  for (const column of rawBy) {
-    if (db.needsParsing(table, column)) {
-      needsParsing.set(column, { type: 'value' });
-    }
-  }
+  const tableClause = subquery ? `(${subquery.sql})` : table;
   let sql = `select ${byClause}, `;
   if (method !== 'array') {
     const options = column || distinct;
@@ -754,16 +747,13 @@ const group = async (config) => {
       });
     }
     const actualMethod = method === 'sum' ? 'total' : method;
-    sql += `${actualMethod}(${body}) as ${method} from ${table}`;
+    sql += `${actualMethod}(${body}) as ${method} from ${tableClause}`;
   }
   else {
-    const types = db.columns[table];
     let columns;
-    let rawColumns;
     const fields = select[alias];
     if (fields === true) {
       columns = Object.keys(db.columns[table]);
-      rawColumns = columns;
     }
     else if (Array.isArray(fields)) {
       columns = fields.map(column => adjustName({
@@ -772,17 +762,9 @@ const group = async (config) => {
         params,
         computed
       }));
-      rawColumns = select;
     }
     if (columns) {
       sql += makeJsonArray(columnTypes, columns);
-      const fields = new Map();
-      for (const column of rawColumns) {
-        if (db.needsParsing(table, column) && types[column] !== 'json') {
-          fields.set(column, true);
-        }
-      }
-      needsParsing.set(alias, { jsonParse: true, fields });
     }
     else {
       const column = fields;
@@ -793,13 +775,8 @@ const group = async (config) => {
         computed
       });
       sql += `json_group_array(${name})`;
-      let field;
-      if (db.needsParsing(table, column) && types[column] !== 'json') {
-        field = column;
-      }
-      needsParsing.set(alias, { jsonParse: true, field });
     }
-    sql += ` as ${method} from ${table}`;
+    sql += ` as ${method} from ${tableClause}`;
   }
   if (adjustedWhere) {
     const adjuster = (name) => adjustName({
@@ -836,7 +813,7 @@ const group = async (config) => {
       params,
       computed
     });
-    sql += toKeywords(null, keywords, params, adjuster);
+    sql += toKeywords(keywords, params, adjuster);
   }
   else if (partitionBy) {
     const withTable = 'flyweight_wrapped';
@@ -905,50 +882,31 @@ const group = async (config) => {
     });
   }
   const post = (rows) => {
-    if (rows.length === 0 || needsParsing.size === 0) {
+    if (rows.length === 0) {
       return rows;
     }
-    const adjusted = [];
-    for (const row of rows) {
-      const created = {};
-      for (const [key, value] of Object.entries(row)) {
-        const parse = needsParsing.get(key);
-        if (!parse) {
-          created[key] = value;
-        }
-        else {
-          if (parse.jsonParse) {
-            const items = JSON.parse(value);
-            if (parse.field) {
-              created[key] = items.map(item => db.convertToJs(table, parse.field, item));
-            }
-            else if (parse.fields) {
-              created[key] = items.map(item => {
-                const adjusted = {};
-                for (const [key, value] of Object.entries(item)) {
-                  if (parse.fields.has(key)) {
-                    adjusted[key] = db.convertToJs(table, key, value);
-                  }
-                  else {
-                    adjusted[key] = value;
-                  }
-                }
-                return adjusted;
-              });
-            }
-            else {
-              created[key] = items;
-            }
-          }
-          else {
-            created[key] = db.convertToJs(table, key, value);
-          }
-        }
-      }
-      adjusted.push(created);
+    let byParser;
+    if (subquery) {
+      byParser = db.getDbToJsConverter(subquery.columns[by]);
     }
-    return adjusted;
-  };
+    else {
+      byParser = db.getDbToJsConverter(db.columns[table][by]);
+    }
+    const selectColumn = select ? Object.keys(select).at(0) : null;
+    if (!byParser && !selectColumn) {
+      return rows;
+    }
+    const parser = db.getDbToJsConverter('json');
+    for (let i = 0; i < rows.length; i++) {
+      if (byParser) {
+        rows[i][by] = byParser(rows[i][by]);
+      }
+      if (selectColumn) {
+        rows[i][selectColumn] = parser(rows[i][selectColumn]);
+      }
+    }
+    return rows;
+  }
   if (tx && tx.isBatch) {
     return await processBatch(db, options, post);
   }
@@ -1655,11 +1613,11 @@ const all = async (config) => {
     const keys = Object.keys(sample);
     let parsers;
     if (subquery) {
-      parsers = Object.entries(subquery.columns)
-        .map(entry => {
-          const [column, type] = entry;
+      parsers = keys
+        .map(key => {
+          const type = subquery.columns[key];
           const converter = db.getDbToJsConverter(type);
-          return [column, converter];
+          return [key, converter];
         })
         .filter(item => item[1] !== null);
     }

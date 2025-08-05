@@ -1,5 +1,5 @@
 import returnTypes from './types.js';
-import { getPlaceholder } from './utils.js';
+import { getPlaceholder, jsonSelector } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
 
 const addParam = (options) => {
@@ -69,12 +69,7 @@ const processArg = (options) => {
     let sql = request.selector || request.sql || request.name;
     const type = request.type;
     if (inJson) {
-      if (type === 'boolean') {
-        sql = `iif(${request.selector} = 1, json('true'), ${request.selector} = 0, json('false'))`;
-      }
-      else if (type === 'json') {
-        sql = `json(${request.selector})`;
-      }
+      sql = jsonSelector(type, request.selector);
     }
     return {
       sql,

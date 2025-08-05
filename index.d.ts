@@ -284,6 +284,12 @@ interface GroupArrayValue<A extends string, W, K, U, S> extends GroupArrayKeywor
   }
 }
 
+type DateToString<T> = T extends Date
+  ? string
+  : T extends object
+    ? { [K in keyof T]: T[K] extends Date ? string : T[K] }
+    : T;
+
 interface AggregateMethods<T, W, K extends keyof T, Y> {
   count<A extends string, U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryCountStarColumn<A, T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
   count<A extends string, U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryCountStarDistinct<A, T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
@@ -295,9 +301,9 @@ interface AggregateMethods<T, W, K extends keyof T, Y> {
   min<A extends string, U extends Includes<Y, (Pick<T, K> & { min: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'min', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
   sum<A extends string, U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
   sum<A extends string, U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
-  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArrayValue<A, W & ToWhere<{ sum: number }>, K, U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<T[S]> }, U>>>;
-  array<A extends string, U extends Includes<Y, Pick<T, K>>>(params: GroupArray<A, W & ToWhere<{ sum: number }>, K, U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<T> }, U>>>;
-  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArraySelect<A, W & ToWhere<{ sum: number }>, K, U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<Pick<T, S>> }, U>>>;
+  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArrayValue<A, W, K, U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<DateToString<T[S]>> }, U>>>;
+  array<A extends string, U extends Includes<Y, Pick<T, K>>>(params: GroupArray<A, W, K, U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<DateToString<T>> }, U>>>;
+  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArraySelect<A, W, K, U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<DateToString<Pick<T, S>>> }, U>>>;
 }
 
 type IfOddArgs<T> = 
@@ -993,6 +999,7 @@ interface TypedDb<P, C> {
   query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
   queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
+  use<S>(query: S): ToQuery<undefined, S>;
 }
 
 type ToComputed<T> =

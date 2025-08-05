@@ -179,11 +179,11 @@ const makeClient = (db, tx) => {
       if (table === 'use') {
         return (subquery) => {
           return new Proxy({}, makeQueryHandler({ 
-            table, 
-            db, 
-            tx, 
-            dbClient, 
-            subquery 
+            table,
+            db,
+            tx,
+            dbClient,
+            subquery
           }));
         }
       }
