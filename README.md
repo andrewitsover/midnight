@@ -467,7 +467,7 @@ class Animals extends Table {
   name = this.Text;
   ownerId = this.References(Sightings, {
     column: 'personId',
-    null: true,
+    notNull: false,
     index: false,
     onDelete: 'set null',
     onUpdate: 'cascade'
@@ -631,6 +631,14 @@ const animals = await db.query(c => {
     },
     join: [a.id, animalId, 'left']
   }
+});
+```
+
+Subqueries can also be used instead of tables in the stanadard API with the ```use``` method.
+
+```js
+const sightings = await db.use(sighted).many({ 
+  animalId: 1
 });
 ```
 

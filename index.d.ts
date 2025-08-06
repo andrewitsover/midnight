@@ -1046,10 +1046,10 @@ export class Table {
     onUpdate?: ForeignActions,
     index?: false
   }): GetPrimaryKey<InstanceType<T>>;
-  References<T extends abstract new (...args: any[]) => any, N extends true>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any, N extends false>(table: T, options?: {
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
-    null: N,
+    notNull: N,
     index?: false
   }): GetPrimaryKey<InstanceType<T>> | DbNull;
   References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
@@ -1058,27 +1058,27 @@ export class Table {
     onUpdate?: ForeignActions,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends true>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends false>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
-    null: N,
+    notNull: N,
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
   Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     index?: false
   }): GetPrimaryKey<InstanceType<T>>;
-  Cascade<T extends abstract new (...args: any[]) => any, N extends true>(table: T, options?: {
-    null: N,
+  Cascade<T extends abstract new (...args: any[]) => any, N extends false>(table: T, options?: {
+    notNull: N,
     index?: false
   }): GetPrimaryKey<InstanceType<T>> | DbNull;
   Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends true>(table: T, options?: {
+  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends false>(table: T, options?: {
     column: K,
-    null: N,
+    notNull: N,
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
