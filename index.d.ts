@@ -828,7 +828,7 @@ type BooleanParam = boolean | DbBoolean | ComputedBoolean;
 type BooleanResult = DbBoolean | DbNull;
 
 type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
-type ExtractResult = DbString | DbNumber | DbNull;
+type ExtractResult = DbString | DbNumber | DbBoolean | DbNull;
 type JsonResult = DbJson | DbNull;
 
 type DbTypes = number | string | boolean | Date | Buffer | null;
