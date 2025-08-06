@@ -8,10 +8,10 @@ interface Keywords<T, K> {
   distinct?: boolean;
 }
 
-type ReadQueries<T> = Pick<ToQuery<undefined, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists' | 'groupBy'>;
+type ReadQueries<P, T> = Pick<ToQuery<P, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists' | 'groupBy'>;
 
 interface Includes<T, R> {
-  [key: string]: (tables: T & { use: <S>(query: S) => ReadQueries<S> }, columns: R) => any;
+  [key: string]: (tables: T & { use: <S>(query: S) => ReadQueries<T, S> }, columns: R) => any;
 }
 
 type ObjectFunction = {
@@ -450,13 +450,11 @@ interface WindowOptions {
 
 type ToJson<T> =
   T extends DbDate ? DbString :
-  T extends (infer U)[] ? ToJson<U>[] :
-  T extends object ? InterfaceToJson<T> :
-  T;
-
-type InterfaceToJson<T> = {
-  [K in keyof T]: ToJson<T[K]>;
-};
+  T extends (infer U)[] ? U extends DbDate ? DbString[] : U[] :
+  T extends object ? { 
+    [K in keyof T]: T[K] extends DbDate 
+      ? DbString : T[K] 
+  } : T;
 
 type ToDbType<T> =
   T extends null ? DbNull :
@@ -551,7 +549,6 @@ interface Compute<T> {
 }
 
 interface VirtualQueries<T, W> {
-  [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, columns: Array<keyof T>): Promise<Pick<T, K> | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
@@ -570,7 +567,6 @@ interface VirtualQueries<T, W> {
 }
 
 interface Queries<T, I, W, R, Y> {
-  [key: string]: any;
   insert(params: I): Promise<R>;
   insertMany(params: Array<I>): Promise<void>;
   update(options: UpdateQuery<W, I>): Promise<number>;
@@ -672,14 +668,14 @@ type OptionalToNull<T> = {
   [K in keyof T]-?: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K];
 };
 
+type Primitive = string | number | boolean | Date;
+
 type ReplaceJson<T> =
   null extends T
-    ? ReplaceJson<Exclude<T, null>> | null
-    : JsonObject extends T
-      ? string
-      : [] extends T
-        ? string
-        : T;
+    ? Exclude<T, null> extends Primitive ? T : string | null
+    : T extends Primitive
+      ? T
+      : string;
 
 type ToWhere<T> = {
   [K in keyof T]?: WhereField<ReplaceJson<T[K]>>;
@@ -1009,7 +1005,7 @@ interface TypedDb<P, C> {
   query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
   queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
-  use<S>(query: S): ReadQueries<S>;
+  use<S>(query: S): ReadQueries<P, S>;
 }
 
 type ToComputed<T> =
