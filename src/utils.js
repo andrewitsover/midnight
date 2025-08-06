@@ -70,19 +70,10 @@ const expressionHandler = (expression) => {
     ['divide', '/'],
     ['multiply', '*']
   ]);
-  const createClause = (options) => {
-    const {
-      params,
-      alias,
-      adjuster 
-    } = options;
-    let aliasClause = '';
-    if (alias) {
-      aliasClause = ` as ${alias}`;
-    }
+  const createClause = (params) => {
     const processColumn = (column) => {
       if (column.path.length === 0) {
-        return adjuster ? adjuster(column.name) : column.name;
+        return column.name;
       }
       const placeholder = getPlaceholder();
       const path = `$.${column.path.join('.')}`;
@@ -123,7 +114,7 @@ const expressionHandler = (expression) => {
     else {
       statement = processMethod(method);
     }
-    return `${statement}${aliasClause}`;
+    return statement;
   }
   return {
     operators,

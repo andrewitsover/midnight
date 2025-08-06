@@ -23,7 +23,7 @@ const queryMethods = [
   'remove'
 ];
 
-const getConditions = (column, query, params, adjuster) => {
+const getConditions = (column, query, params) => {
   const operatorHandler = {
     get: function(target, property) {
       target.push(property);
@@ -59,8 +59,7 @@ const getConditions = (column, query, params, adjuster) => {
   if (path) {
     params[placeholder] = path;
   }
-  const select = adjuster ? adjuster(column) : column;
-  const selector = path ? `json_extract(${select}, $${placeholder})` : select;
+  const selector = path ? `json_extract(${column}, $${placeholder})` : column;
   const conditions = [];
   const expression = columnTarget.name;
   if (method === 'not') {
@@ -182,13 +181,7 @@ const upsert = async (args) => {
     verify([target]);
     verify(Object.keys(set));
     const query = adjust(db, table, set);
-    const adjuster = (name) => adjustName({
-      db,
-      table,
-      column: name,
-      params
-    });
-    const setClause = createSetClause(db, table, query, params, adjuster);
+    const setClause = createSetClause(db, table, query, params);
     sql += ` on conflict(${target}) do update set ${setClause}`;
   }
   else {
@@ -275,10 +268,9 @@ const insertMany = async (args) => {
 
 const toWhere = (options) => {
   const {
-    query, 
-    params, 
-    type, 
-    adjuster 
+    query,
+    params,
+    type
   } = options;
   if (!query) {
     return '';
@@ -292,7 +284,6 @@ const toWhere = (options) => {
     if (param === undefined) {
       continue;
     }
-    const selector = adjuster ? adjuster(column) : column;
     if (column === 'and' || column === 'or') {
       if (!Array.isArray(param)) {
         throw Error(`The "${column}" property value must be an array of conditions`);
@@ -302,44 +293,40 @@ const toWhere = (options) => {
         const clauses = toWhere({
           query,
           params,
-          type: column,
-          adjuster
+          type: column
         });
         filters.push(clauses);
       }
       conditions.push(`(${filters.join(` ${column} `)})`);
     }
     else if (typeof param === 'function') {
-      const result = getConditions(column, param, params, adjuster);
+      const result = getConditions(column, param, params);
       conditions.push(...result);
     }
     else if (Array.isArray(param)) {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${selector} in (select json_each.value from json_each($${placeholder}))`);
+      conditions.push(`${column} in (select json_each.value from json_each($${placeholder}))`);
     }
     else if (param === null) {
-      conditions.push(`${selector} is null`);
+      conditions.push(`${column} is null`);
     }
     else {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${selector} = $${placeholder}`);
+      conditions.push(`${column} = $${placeholder}`);
     }
   }
   return conditions.join(` ${type || 'and'} `);
 }
 
-const createSetClause = (db, table, query, params, adjuster) => {
+const createSetClause = (db, table, query, params) => {
   const statements = [];
   const columnTypes = db.columns[table];
   for (const [column, param] of Object.entries(query)) {
     if (typeof param === 'function') {
       const { createClause } = expressionHandler(param);
-      const clause = createClause({
-        params,
-        adjuster
-      });
+      const clause = createClause(params);
       statements.push(`${column} = ${clause}`);
       continue;
     }
@@ -367,20 +354,13 @@ const update = async (args) => {
   verify(keys);
   const params = {};
   const query = adjust(db, table, set);
-  const adjuster = (name) => adjustName({
-    db,
-    table,
-    column: name,
-    params
-  });
-  const setString = createSetClause(db, table, query, params, adjuster);
+  const setString = createSetClause(db, table, query, params);
   let sql = `update ${table} set ${setString}`;
   if (where) {
     const clause = toWhere({
       table,
       query: where,
-      params,
-      adjuster
+      params
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -394,27 +374,20 @@ const update = async (args) => {
   return await db.run(runOptions);
 }
 
-const getOrderBy = (orderBy, params, adjuster) => {
+const getOrderBy = (orderBy, params) => {
   if (typeof orderBy === 'function') {
     const { createClause } = expressionHandler(orderBy);
-    return createClause({
-      params,
-      adjuster
-    });
+    return createClause(params);
   }
   const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
-  return columns
-    .map(column => {
-      return adjuster ? adjuster(column) : column;
-    })
-    .join(', ');
+  return columns.join(', ');
 }
 
-const toKeywords = (keywords, params, adjuster) => {
+const toKeywords = (keywords, params) => {
   let sql = '';
   if (keywords) {
     if (keywords.orderBy) {
-      const orderBy = getOrderBy(keywords.orderBy, params, adjuster);
+      const orderBy = getOrderBy(keywords.orderBy, params);
       sql += ` order by ${orderBy}`;
       if (keywords.desc) {
         sql += ' desc';
@@ -543,11 +516,12 @@ const exists = async (config) => {
     db,
     table,
     tx,
+    subquery,
     groupKeys,
     debugResult
   } = config;
   const query = config.query || {};
-  if (groupKeys.length > 0) {
+  if (groupKeys && groupKeys.length > 0) {
     const result = await aggregate({ db, table, query, tx, method: 'count', groupKeys });
     return result.map(r => {
       const adjusted = {
@@ -559,7 +533,8 @@ const exists = async (config) => {
     });
   }
   const params = {};
-  let sql = `select exists(select 1 from ${table}`;
+  const clause = subquery ? `(${subquery.sql})` : table;
+  let sql = `select exists(select 1 from ${clause}`;
   sql += addClauses(table, query, params);
   sql += ') as exists_result';
   const options = {
@@ -609,41 +584,6 @@ const makeJsonArray = (types, columns) => {
   return sql;
 }
 
-const adjustName = (options) => {
-  const {
-    column,
-    withAlias,
-    selectColumns,
-    params,
-    computed 
-  } = options;
-  if (!/^[_a-z][a-z0-9_]+$/i.test(column)) {
-    throw Error(`Invalid column name ${column}`);
-  }
-  if (!computed) {
-    return column;
-  }
-  const item = computed.get(column);
-  if (!item) {
-    return column;
-  }
-  if (withAlias) {
-    return item.createClause({
-      params,
-      alias: column
-    });
-  }
-  else {
-    if (selectColumns && selectColumns.includes(column)) {
-      return column;
-    }
-    return item.createClause({
-      params,
-      getPlaceholder
-    });
-  }
-}
-
 const group = async (config) => {
   const {
     db,
@@ -677,19 +617,12 @@ const group = async (config) => {
     }
   }
   const hasKeywords = Object.keys(keywords).length > 0;
-  const rawBy = Array.isArray(config.by) ? config.by : [config.by];
+  const by = Array.isArray(config.by) ? config.by : [config.by];
   const params = {};
   const computed = subquery ? null : db.computed[table][alias];
   if (computed) {
     throw Error(`The alias cannot have the same name as a computed field.`);
   }
-  const by = rawBy.map(column => adjustName({
-    table,
-    column,
-    withAlias: true,
-    params,
-    computed
-  }));
   let debugResult;
   if (debug) {
     debugResult = {
@@ -739,58 +672,27 @@ const group = async (config) => {
       body += '*';
     }
     else {
-      body += adjustName({
-        table,
-        column: field,
-        params,
-        computed
-      });
+      body += field;
     }
     const actualMethod = method === 'sum' ? 'total' : method;
     sql += `${actualMethod}(${body}) as ${method} from ${tableClause}`;
   }
   else {
-    let columns;
     const fields = select[alias];
     if (fields === true) {
-      columns = Object.keys(db.columns[table]);
-    }
-    else if (Array.isArray(fields)) {
-      columns = fields.map(column => adjustName({
-        table,
-        column,
-        params,
-        computed
-      }));
-    }
-    if (columns) {
+      const columns = Object.keys(db.columns[table]);
       sql += makeJsonArray(columnTypes, columns);
     }
     else {
-      const column = fields;
-      const name = adjustName({
-        table,
-        column,
-        params,
-        computed
-      });
-      sql += `json_group_array(${name})`;
+      sql += `json_group_array(${fields})`;
     }
     sql += ` as ${method} from ${tableClause}`;
   }
   if (adjustedWhere) {
-    const adjuster = (name) => adjustName({
-      table,
-      column: name,
-      selectColumns: rawBy,
-      params,
-      computed
-    });
     const clause = toWhere({
       table,
       query: adjustedWhere,
-      params,
-      adjuster
+      params
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -807,13 +709,7 @@ const group = async (config) => {
     }
   }
   if (hasKeywords && !partitionBy) {
-    const adjuster = (name) => adjustName({
-      column: name,
-      selectColumns: rawBy,
-      params,
-      computed
-    });
-    sql += toKeywords(keywords, params, adjuster);
+    sql += toKeywords(keywords, params);
   }
   else if (partitionBy) {
     const withTable = 'flyweight_wrapped';
@@ -821,14 +717,7 @@ const group = async (config) => {
     const selectColumns = [alias, ...by];
     let orderBy;
     if (keywords.orderBy) {
-      const adjuster = (name) => adjustName({
-        table: withTable,
-        column: name,
-        selectColumns: rawBy,
-        params,
-        computed
-      });
-      orderBy = getOrderBy(keywords.orderBy, params, adjuster);
+      orderBy = getOrderBy(keywords.orderBy, params);
     }
     else {
       orderBy = `${withTable}.${db.getPrimaryKey(table)}`;
@@ -936,18 +825,13 @@ const aggregate = async (config) => {
     table,
     tx,
     method,
+    subquery,
     groupKeys,
     debugResult
   } = config;
   const params = {};
   const query = config.query || {};
   const { where, column, distinct } = query;
-  const adjuster = (name) => adjustName({
-    db,
-    table,
-    column: name,
-    params
-  });
   const alias = `${method}_result`;
   const actualMethod = method === 'sum' ? 'total' : method;
   let expression;
@@ -959,28 +843,23 @@ const aggregate = async (config) => {
   }
   else {
     const field = column || distinct;
-    const selector = adjuster(field);
     const before = distinct === undefined ? '' : 'distinct ';
-    expression = `${actualMethod}(${before}${selector}) as ${alias}`;
+    expression = `${actualMethod}(${before}${field}) as ${alias}`;
   }
   let sql;
   let groupFields;
   if (groupKeys && groupKeys.length > 0) {
-    groupFields = groupKeys
-      .map(key => {
-        return adjuster ? adjuster(key) : key;
-      })
-      .join(', ');
+    groupFields = groupKeys.join(', ');
   }
-  const clause = toWhere({
+  const whereClause = toWhere({
     query: where,
-    params,
-    adjuster
+    params
   });
   const groupClause = groupFields ? `, ${groupFields}` : '';
-  sql = `select ${expression}${groupClause} from ${table}`;
-  if (clause) {
-    sql += ` where ${clause}`;
+  const tableClause = subquery ? `(${subquery.sql})` : table;
+  sql = `select ${expression}${groupClause} from ${tableClause}`;
+  if (whereClause) {
+    sql += ` where ${whereClause}`;
   }
   if (groupFields) {
     sql += ` group by ${groupFields}`;
@@ -1488,13 +1367,6 @@ const all = async (config) => {
     types,
     computed: db.computed[table] || {}
   });
-  const adjuster = (name) => adjustName({
-    db,
-    table,
-    column: name,
-    selectColumns: select.names,
-    params
-  });
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, false);
   }
@@ -1553,8 +1425,7 @@ const all = async (config) => {
     sql += `${select.clause} from ${table}`;
     const clause = toWhere({
       query,
-      params,
-      adjuster
+      params
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -1569,13 +1440,12 @@ const all = async (config) => {
     sql += `${select.clause} from ${tableClause}`;
     const clause = toWhere({
       query,
-      params,
-      adjuster
+      params
     });
     if (clause) {
       sql += ` where ${clause}`;
     }
-    sql += toKeywords(keywords, params, adjuster);
+    sql += toKeywords(keywords, params);
   }
   if (first) {
     sql += ' limit 1';
@@ -1727,17 +1597,10 @@ const remove = async (args) => {
   } = args;
   let sql = `delete from ${table}`;
   const params = {};
-  const adjuster = (name) => adjustName({
-    db,
-    table,
-    column: name,
-    params
-  });
   const clause = toWhere({
     table,
     query,
-    params,
-    adjuster
+    params
   });
   if (clause) {
     sql += ` where ${clause}`;

@@ -1,4 +1,5 @@
 # Midnight
+![Midnight](hero.jpg)
 The time after the 11th hour. Midnight is a NodeJS ORM for SQLite and Turso with full TypeScript support without needing to generate any code. Even complex SQL queries can be written inside of JavaScript.
 
 ```js
@@ -637,9 +638,7 @@ const animals = await db.query(c => {
 Subqueries can also be used instead of tables in the stanadard API with the ```use``` method.
 
 ```js
-const sightings = await db.use(sighted).many({ 
-  animalId: 1
-});
+const sightings = await db.use(sighted).exists({ animalId: 1 });
 ```
 
 The object returned from the ```query``` and ```subquery``` methods can include the following:
