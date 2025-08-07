@@ -176,7 +176,7 @@ const addAlias = (clause, alias) => {
 
 const jsonSelector = (type, sql) => {
   if (type === 'boolean') {
-    return `iif(${sql} = 1, json('true'), ${sql} = 0, json('false'))`;
+    return `(case when ${sql} = 1 then json('true') when ${sql} = 0 then json('false') end)`;
   }
   else if (type === 'json') {
     return `json(${sql})`;
