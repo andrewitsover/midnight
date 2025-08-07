@@ -389,7 +389,9 @@ const result = { ...forest, trees, sightings };
 The client returned from ```getClient``` has three methods that can be used to create a migration system. This includes:
 
 ```getSchema```: return the tables loaded into the ```getClient``` method in a format suitable for saving as JSON.
+
 ```diff```: takes a saved schema and diffs it with the currently loaded schema to create a migration.
+
 ```migrate```: takes a SQL string representing the migration. This method defers the foreign keys and wraps the SQL in a transaction.
 
 ## Creating tables
@@ -412,7 +414,9 @@ To specify the primary key, you use one of the modified types that has ```Primar
 Column types can be wrapped in many different methods:
 
 ```Null```: assert that the column can contain nulls.
+
 ```Index```: add an index to the column.
+
 ```Unique```: add a unique index to the column.
 
 ## Check constraints
@@ -511,7 +515,7 @@ class Animals extends Table {
 }
 ```
 
-The can also be defined inside the ```Attributes``` function if they span across multiple columns.
+Indexes can also be defined inside the ```Attributes``` function if they span across multiple columns.
 
 ```js
 class Trees extends Table {
@@ -548,7 +552,7 @@ class Trees extends Table {
 
 Midnight alllows you to create complex SQL queries without leaving JavaScript.
 
-The following queries uses a window function to rank trees by their height.
+The following query uses a window function to rank trees by their height.
 
 ```js
 const trees = await db.query(c => {

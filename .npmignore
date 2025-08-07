@@ -20,6 +20,3 @@ yarn-error.log*
 *.so
 *.zip
 *.tar.gz
-
-test/db.d.ts
-test/types.json
