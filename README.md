@@ -1,4 +1,17 @@
 # Midnight
+```
+                     .
+                    / V\
+                  / `  /
+                 <<   |
+                 /    |
+               /      |
+             /        |
+           /    \  \ /
+          (      ) | |
+  ________|   _/_  | |
+<__________\______)\__)
+```
 The time after the 11th hour. Midnight is a NodeJS ORM for SQLite and Turso with full TypeScript support without needing to generate any code. Even complex SQL queries can be written inside of JavaScript.
 
 ```js
@@ -190,6 +203,15 @@ You can use the ```query``` or ```first``` syntax for more complex queries. ```q
 ```select```: a string or array of strings representing the columns to select.
 
 ```omit```: a string or array of strings representing the columns to omit. All of the other columns will be selected.
+
+```js
+const users = await db.rangers.query({
+  omit: 'password',
+  where: {
+    id: [1, 2, 3]
+  }
+});
+```
 
 ```include```: include other tables in the result.
 
@@ -600,6 +622,25 @@ The ```c``` parameter of the query represents the context of the database, inclu
 
 The ```group``` function represents ```json_group_array``` or ```json_group_object``` depending on the number of parameters supplied to the function.
 
+```js
+const moons = await db.subquery(c => {
+  const { id, name, planetId } = c.moons;
+  return {
+    select: {
+      planetId,
+      moons: c.group({
+        id,
+        name
+      })
+    },
+    groupBy: planetId,
+    having: {
+      [c.count()]: c.gt(1)
+    }
+  }
+});
+```
+
 If you want to create a subquery for use in many different queries, you can use the ```subquery``` method.
 
 The query below creates a list of people that have sighted a particular ```animalId```.
@@ -650,6 +691,21 @@ The object returned from the ```query``` and ```subquery``` methods can include 
 
 ```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
 
+```js
+const planets = await db.query(c => {
+  const { planets: p, moons: m } = c;
+  return {
+    select: p,
+    optional: {
+      moon: m.name
+    }
+    join: [p.id, m.planetId, 'left']
+  }
+});
+```
+
+In the above example, ```moon``` will be of type ```string``` or ```null``` even though it is normally not null.
+
 ```distinct```: used instead of ```select``` when you want the results to be distinct.
 
-```join```: a tuple or array of tuples representing the keys to join on. For a left or right join, you can use:
+```join```: a tuple or array of tuples representing the keys to join on.
