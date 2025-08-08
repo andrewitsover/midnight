@@ -1,4 +1,4 @@
-![midnight](hero.png)
+# Midnight
 The time after the 11th hour. Midnight is a NodeJS ORM for SQLite and Turso with full TypeScript support without needing to generate any code. Even complex SQL queries can be written inside of JavaScript.
 
 ```js
