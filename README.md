@@ -430,7 +430,7 @@ Column types can be wrapped in many different methods:
 
 ## Check constraints
 
-Constraints can be represented as either an array of valid values, or a comparison function.
+Constraints can be represented as either an array of valid values, or one or more comparison functions.
 
 ```js
 class Trees extends Table {
@@ -453,8 +453,8 @@ class Rangers extends Table {
   Attributes = () => {
     this.Check({
       or: [
-        { [admin]: true },
-        { [staffLimit]: this.Gt(0) }
+        { [this.admin]: true },
+        { [this.staffLimit]: this.Gt(0) }
       ]
     });
   }
