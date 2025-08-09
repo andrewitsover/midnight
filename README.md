@@ -21,6 +21,8 @@
 ```
 The time after the 11th hour. Midnight is a NodeJS ORM for SQLite and Turso with full TypeScript support without needing to generate any code. Even complex SQL queries can be written inside of JavaScript.
 
+Tables are written in JavaScript like this:
+
 ```js
 class Forests extends Table {
   id = this.IntPrimary;
@@ -92,6 +94,8 @@ This syntax allows you to perform queries that usually aren't possible in ORMs.
 npm install @andrewitsover/midnight
 ```
 
+Assuming you had a database already setup with a ```clouds``` table:
+
 ```js
 import { SQLiteDatabase, Table } from '@andrewitsover/midnight';
 
@@ -109,13 +113,15 @@ const clouds = await db.clouds.many();
 console.log(clouds);
 ```
 
+You probably want to use the migration system to create and modify tables though. See the [sample project](https://github.com/andrewitsover/midnight-tutorial) to get an idea of how a basic project can be setup.
+
 ## The API
 
-Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get```, ```many```, ```first```, and ```query``` methods available to them.
+Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder.
 
 ### Insert
 
-```insert``` simply takes one argument - ```params```, with the keys and values corresponding to the column names and values you want to insert. It returns the primary key, or part of the primary key if the table has a composite primary key. For batch inserts you can use ```insertMany``` and it takes an array of ```params```. It doesn't return anything.
+```insert``` inserts a row into the database. For batch inserts you can use ```insertMany```, which takes an array of objects.
 
 ```js
 const id = await db.moons.insert({
@@ -170,7 +176,7 @@ const id = await db.forests.upsert({
 
 ### Get and Many
 
-```get``` and ```many``` take two optional arguments. The first is ```params``` - an object representing the where clause. For example:
+```get``` and ```many``` take two optional arguments. The first argument represents the where clause. For example:
 
 ```js
 const trees = await db.trees.many({ 
@@ -254,7 +260,7 @@ const trees = await db.trees.query({
 });
 ```
 
-You can also include additional relations:
+You can also include additional relations.
 
 ```js
 const animals = await db.animals.query({
@@ -268,7 +274,7 @@ const animals = await db.animals.query({
 });
 ```
 
-While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```match``` and ```glob```.
+While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```match``` or ```glob```.
 
 For example:
 
@@ -423,11 +429,13 @@ The client returned from ```getClient``` has three methods that can be used to c
 
 ```migrate```: takes a SQL string representing the migration. This method defers the foreign keys and wraps the SQL in a transaction.
 
+See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for an example of how to use these functions to create a migration system.
+
 ## Creating tables
 
 In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, ```Date``` is stored as an ISO8601 string, and ```Json``` is a JSONB blob.
 
-To create a table, you simply extend the ```Table``` class.
+To create a table, you simply extend the ```Table``` class. Columns start with a lowercase letter.
 
 ```js
 class Moons extends Table {
@@ -485,7 +493,7 @@ class Rangers extends Table {
 
 Foreign keys do not need to specify a column type, as the type will be determined by the table that is referenced.
 
-By default, an index is created for the foreign key, and the column is set to not null. Also, the related column in the references table is assumed to be the primary key of that table.
+By default, an index is created for the foreign key, and the column is set to not null. Also, the related column in the referenced table is assumed to be the primary key of that table.
 
 ```js
 class Sightings extends Table {
