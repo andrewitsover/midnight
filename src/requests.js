@@ -553,7 +553,10 @@ const toWhere = (options) => {
   } = options;
   const type = options.type || 'and';
   const statements = [];
-  if (Object.keys(where).length > 0) {
+  const invalidKeys = Object.keys(where)
+    .filter(k => !['and', 'or'].includes(k))
+    .length > 0;
+  if (invalidKeys) {
     throw Error('The "where" clause has a string as a key');
   }
   const whereKeys = Object.getOwnPropertySymbols(where);
