@@ -258,7 +258,14 @@ class SQLiteDatabase extends Database {
         query = cached;
       }
       else {
-        const statement = client.prepare(query);
+        let statement;
+        try {
+          statement = client.prepare(query);
+        }
+        catch (e) {
+          const message = `query: ${query} had the error: ${e}`;
+          throw Error(message);
+        }
         this.statements.set(key, statement);
         query = statement;
       }

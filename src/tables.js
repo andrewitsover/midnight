@@ -63,7 +63,7 @@ const toLiteral = (value) => {
   return value;
 }
 
-class Table {
+class BaseTable {
   static requests = new Map();
   Called = [];
 
@@ -127,6 +127,12 @@ class Table {
       notNull: true,
       default: 'now'
     });
+    return symbol;
+  }
+
+  Default(value) {
+    const { symbol, column } = toColumn(value);
+    Table.requests.set(symbol, column);
     return symbol;
   }
 
@@ -237,6 +243,14 @@ class Table {
   }
 }
 
+class Table extends BaseTable {
+  id = this.IntPrimary;
+}
+
+class VirtualTable extends BaseTable {
+  rowid = this.IntPrimary;
+}
+
 const getKeys = (instance) => {
   return Object
     .getOwnPropertyNames(instance)
@@ -297,8 +311,8 @@ const process = (Custom) => {
     }
     const primaryKey = mapped.find(m => m.column.primaryKey);
     table.columns.push({
-      name: 'rowId',
-      type: primaryKey.column.type,
+      name: 'rowid',
+      type: 'integer',
       original: {
         table: virtualTable,
         name: primaryKey.name
@@ -347,7 +361,7 @@ const process = (Custom) => {
     const category = request.category;
     if (category === 'Column') {
       const column = { ...request, name: key };
-      if (table.type === 'virtual') {
+      if (table.type === 'virtual' && key !== 'rowid') {
         const virtual = virtualColumns.get(key);
         column.original = {
           table: virtualTable,
@@ -509,7 +523,7 @@ const toVirtual = (table) => {
   let originalTable;
   const names = [];
   for (const column of columns) {
-    if (column.name === 'rowId') {
+    if (column.name === 'rowid') {
       rowId = column.original.name;
       originalTable = column.original.table;
     }
@@ -636,10 +650,12 @@ const toSql = (table) => {
 }
 
 export {
+  VirtualTable,
+  BaseTable,
   Table,
-  process,
   toSql,
   toHash,
+  process,
   indexToSql,
   columnToSql,
   removeCapital

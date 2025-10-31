@@ -26,7 +26,8 @@ const makeProxy = (options) => {
     const keys = Object.keys(db.columns[table]);
     const handler = {
       get: function(target, property) {
-        if (!db.tables[table] || !db.columns[table][property]) {
+        const isVirtualColumn = db.virtualSet.has(table) && property === `${table[0].toLowerCase()}${table.substring(1)}`;
+        if ((!db.tables[table] || !db.columns[table][property]) && !isVirtualColumn) {
           throw Error(`Table or column "${table}.${property}" does not exist`);
         }
         const symbol = Symbol();
@@ -190,6 +191,8 @@ const processQuery = (db, expression, firstResult) => {
     having,
     orderBy,
     desc,
+    bm25,
+    rank,
     offset,
     limit
   } = result;
@@ -331,6 +334,22 @@ const processQuery = (db, expression, firstResult) => {
     if (desc) {
       sql += ' desc';
     }
+  }
+  if (rank) {
+    sql += ' order by rank';
+  }
+  if (bm25) {
+    const mapped = Object
+      .getOwnPropertySymbols(bm25)
+      .map(s => {
+        return {
+          column: requests.get(s),
+          value: bm25[s]
+        }
+      });
+    const table = mapped.at(0).column.table;
+    const values = mapped.map(s => s.value).join(', ');
+    sql += ` order by bm25(${table}, ${values})`;
   }
   if (offset) {
     const result = processArg({

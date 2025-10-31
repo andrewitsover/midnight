@@ -561,7 +561,7 @@ interface VirtualQueries<T, W> {
   many<N>(params: W | null, column: (selector: TableObject<T>) => N): Promise<Array<N>>;
   query<K extends keyof T>(query: VirtualQueryObject<W, K, T>): Promise<Array<Pick<T, K>>>;
   query<K extends keyof T>(query: VirtualQueryValue<W, K, T>): Promise<Array<T[K]>>;
-  query(query: VirtualQuery<W, T>): Promise<Array<T>>; 
+  query(query: VirtualQuery<W, T>): Promise<Array<T>>;
   query(query: HighlightQuery<W, T>): Promise<Array<{ id: number, highlight: string }>>;
   query(query: SnippetQuery<W, T>): Promise<Array<{ id: number, snippet: string }>>;
 }
@@ -924,13 +924,14 @@ type ToVirtual<T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>>;
 type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }> = {
   [K in keyof T as K extends string
     ? `${Uncapitalize<K>}`
-    : never]: K extends string ? (InstanceType<T[K]> extends { Virtual: any } ? ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }> : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
+    : never]: K extends string ? (InstanceType<T[K]> extends VirtualTable ? ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }> : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
 };
 
-type MakeContext<T extends { [key: string]: abstract new (...args: any) => any }> = {
-  [K in keyof T as K extends string
-    ? `${Uncapitalize<K>}`
-    : never]: ExtractColumns<InstanceType<T[K]>>;
+type MakeContext<T extends Record<string, abstract new (...args: any) => any>> = {
+  [K in keyof T as Uncapitalize<K & string>]:
+    InstanceType<T[K]> extends VirtualTable
+      ? ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K & string>]: DbString }
+      : ExtractColumns<InstanceType<T[K]>>
 };
 
 type Unwrap<T extends any[]> = {
@@ -952,15 +953,39 @@ type MakeOptional<T> = {
     : T[K] | DbNull;
 };
 
+type SymbolWhere = {
+  [key: symbol]: any;
+  and?: [{
+    [key: symbol]: any;
+    and?: [{ 
+      [key: symbol]: any 
+    }];
+    or?: [{ 
+      [key: symbol]: any 
+    }];
+  }];
+  or?: [{
+    [key: symbol]: any;
+    and?: [{ 
+      [key: symbol]: any 
+    }];
+    or?: [{ 
+      [key: symbol]: any 
+    }];
+  }];
+}
+
 interface QueryReturn {
-  where?: any;
-  join?: any;
-  groupBy?: any;
-  having?: any;
-  orderBy?: any;
-  desc?: any;
-  offset?: any;
-  limit?: any;
+  where?: SymbolWhere;
+  join?: [symbol, symbol] | [symbol, symbol, 'left' | 'right' | 'union'] | ([symbol, symbol] | [symbol, symbol, 'left' | 'right' | 'union'])[];
+  groupBy?: symbol | symbol[];
+  having?: SymbolWhere;
+  orderBy?: symbol | symbol[];
+  desc?: boolean | DbBoolean | ComputedBoolean;
+  offset?: number | ComputedNumber | DbNumber | PkNumber;
+  limit?: number | ComputedNumber | DbNumber | PkNumber;
+  bm25?: { [key: symbol]: number | ComputedNumber | DbNumber | PkNumber };
+  rank?: boolean | DbBoolean | ComputedBoolean;
 }
 
 interface ObjectReturn<S> extends QueryReturn {
@@ -1025,7 +1050,7 @@ type ToComputed<T> =
 
 type ForeignActions = 'no action' | 'restrict' | 'set null' | 'set default' | 'cascade';
 
-export class Table {
+export class BaseTable {
   Int: DbNumber;
   IntPrimary: PkNumber;
   Real: DbNumber;
@@ -1082,16 +1107,17 @@ export class Table {
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
-  Index<T>(type: T): T;
-  Index<T>(type: T, expression: (column: T) => { [key: symbol]: any }): T;
+  Index<T>(type: T): ToDbType<T>;
+  Index<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
   Index(...args: [any, ...any[]]): void;
   Index(...args: [any, ...any[], { [key: symbol]: any }]): void;
-  Unique<T>(type: T): T;
-  Unique<T>(type: T, expression: (column: T) => { [key: symbol]: any }): T;
+  Unique<T>(type: T): ToDbType<T>;
+  Unique<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
   Unique(...args: [any, ...any[]]): void;
   Unique(...args: [any, ...any[], { [key: symbol]: any }]): void;
-  Check<T>(type: T, ...checks: any): T;
-  Null<T>(type: T): T | DbNull;
+  Check<T>(type: T, ...checks: any): ToDbType<T>;
+  Null<T>(type: T): ToDbType<T> | DbNull;
+  Default<T extends Primitive>(value: T): ToDbType<T>;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;
   Abs(n: NumberParam): ToComputed<NumberResult>;
@@ -1217,6 +1243,14 @@ export class Table {
 	Glob(column: symbol, pattern: QueryCompareTypes): ToComputed<DbBoolean>;
   Eq(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
 	Eq(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
+}
+
+export class Table extends BaseTable {
+  id: PkNumber;
+}
+
+export class VirtualTable extends BaseTable {
+  rowid: PkNumber;
 }
 
 export class Database {

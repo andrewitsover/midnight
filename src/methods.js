@@ -19,7 +19,7 @@ const mathOperators = new Map([
   ['multiply', '*']
 ]);
 
-const compareMethods = ['not', 'gt', 'lt', 'lte', 'like', 'natch', 'glob', 'eq'];
+const compareMethods = ['not', 'gt', 'lt', 'lte', 'like', 'match', 'glob', 'eq'];
 const computeMethods = ['abs', 'cast', 'coalesce', 'concat', 'concatWs', 'format', 'hex', 'if', 'instr', 'length', 'lower', 'ltrim', 'max', 'min', 'nullif', 'octetLength', 'replace', 'round', 'rtrim', 'sign', 'substring', 'trim', 'unhex', 'unicode', 'upper', 'date', 'time', 'dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff', 'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil', 'cos', 'cosh', 'degrees', 'exp', 'floor', 'ln', 'log', 'mod', 'pi', 'power', 'radians', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'trunc', 'json', 'extract', 'plus', 'minus', 'divide', 'multiply', 'object', 'arrayLength'];
 const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank', 'denseRank', 'percentRank', 'cumeDist', 'ntile', 'lag', 'lead', 'firstValue', 'lastValue', 'nthValue', 'group'];
 

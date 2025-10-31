@@ -452,17 +452,21 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, o
       else {
         const placeholder = getPlaceholder();
         params[placeholder] = param;
-        statements.push(`${column} match $${placeholder}`);
+        let operator = 'match';
+        if (column === 'rowid') {
+          operator = '=';
+        }
+        statements.push(`${column} ${operator} $${placeholder}`);
       }
     }
     if (statements.length > 0) {
       sql += ` where ${statements.join(' and ')}`;
     }
   }
-  if (keywords.rank) {
+  if (keywords && keywords.rank) {
     sql += ' order by rank';
   }
-  if (keywords.bm25) {
+  if (keywords && keywords.bm25) {
     sql += ` order by bm25(${table}, `;
     const values = [];
     for (const column of db.tables[table]) {

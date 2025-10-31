@@ -25,7 +25,6 @@ Tables are written in JavaScript like this:
 
 ```js
 class Forests extends Table {
-  id = this.IntPrimary;
   name = this.Text;
   address = this.Text;
 
@@ -33,7 +32,6 @@ class Forests extends Table {
 }
 
 class Trees extends Table {
-  id = this.IntPrimary;
   name = this.Text;
   planted = this.Index(this.Date);
   forestId = this.Cascade(Forests);
@@ -102,7 +100,6 @@ import { SQLiteDatabase, Table } from '@andrewitsover/midnight';
 const database = new SQLiteDatabase('forest.db');
 
 class Clouds extends Table {
-  id = this.IntPrimary;
   name = this.Text;
 };
 
@@ -435,10 +432,10 @@ See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for
 
 In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, ```Date``` is stored as an ISO8601 string, and ```Json``` is a JSONB blob.
 
-To create a table, you simply extend the ```Table``` class. Columns start with a lowercase letter.
+To create a table, you simply extend either ```Table```, ```VirtualTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ````VirtualTable``` is used for defining fts5 tables. Columns start with a lowercase letter.
 
 ```js
-class Moons extends Table {
+class Moons extends BaseTable {
   id = this.IntPrimary;
   name = this.Unique(this.Text);
   planetId = this.Cascade(Planets);
@@ -456,13 +453,14 @@ Column types can be wrapped in many different methods:
 
 ```Unique```: add a unique index to the column.
 
+```Default```: this is only needed for TypeScript, and is used to define a default value. JavaScript users do not need to use this.
+
 ## Check constraints
 
 Constraints can be represented as either an array of valid values, or one or more comparison functions.
 
 ```js
 class Trees extends Table {
-  id = this.IntPrimary;
   height = this.Int;
   leaves = this.Check(this.Int, this.Gte(0));
   alive = true;
@@ -473,7 +471,6 @@ Constraints can also be defined in the ```Attributes``` function and span across
 
 ```js
 class Rangers extends Table {
-  id = this.IntPrimary;
   admin = false;
   staffLimit = 3;
   createdAt = this.Now;
@@ -497,14 +494,12 @@ By default, an index is created for the foreign key, and the column is set to no
 
 ```js
 class Sightings extends Table {
-  id = this.IntPrimary;
   personId = this.Cascade(People);
   animalId = this.Cascade(Animals);
   date = this.Now;
 }
 
 class Animals extends Table {
-  id = this.IntPrimary;
   name = this.Text;
   ownerId = this.References(Sightings, {
     column: 'personId',
@@ -724,3 +719,69 @@ In the above example, ```moon``` will be of type ```string``` or ```null``` even
 ```distinct```: used instead of ```select``` when you want the results to be distinct.
 
 ```join```: a tuple or array of tuples representing the keys to join on.
+
+## Full-text search
+
+To define a fts5 table based on another table, you can do this:
+
+```js
+export class Forests extends Table {
+  name = this.Text;
+  otherName = this.Text;
+}
+
+const forest = new Forests();
+
+export class ForestSearches extends VirtualTable {
+  name = forest.name;
+  otherName = forest.otherName;
+  
+  Virtual = forest;
+}
+```
+
+You can now use it in the basic API like this:
+
+```js
+const results = await db.forestSearches.query({
+  where: { 
+    forestSearches: 'Mount'
+  },
+  highlight: {
+    column: 'name',
+    tags: ['<b>', '</b>']
+  },
+  bm25: {
+    name: 1,
+    otherName: 10
+  },
+  limit: 5
+});
+```
+
+or the SQL-like API like this:
+
+```js
+const results = await db.query(c => {
+  const { 
+    forests: f,
+    forestSearches: s
+  } = c;
+  return {
+    select: {
+      name: f.name
+    },
+    where: {
+      [s.forestSearches]: 'Mount'
+    },
+    bm25: {
+      [s.name]: 1,
+      [s.otherName]: 10
+    },
+    join: [f.id, s.rowid],
+    limit: 5
+  }
+});
+```
+
+You can also use the ```rank``` keyword.
