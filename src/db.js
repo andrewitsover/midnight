@@ -114,7 +114,7 @@ class Database {
 
   addTables() {
     for (const table of this.schema) {
-      if (table.type === 'virtual') {
+      if (table.type === 'fts5') {
         this.virtualSet.add(table.name);
       }
       this.tables[table.name] = table.columns;

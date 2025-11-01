@@ -924,12 +924,12 @@ type ToVirtual<T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>>;
 type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }> = {
   [K in keyof T as K extends string
     ? `${Uncapitalize<K>}`
-    : never]: K extends string ? (InstanceType<T[K]> extends VirtualTable ? ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }> : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
+    : never]: K extends string ? (InstanceType<T[K]> extends FTSTable ? ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }> : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
 };
 
 type MakeContext<T extends Record<string, abstract new (...args: any) => any>> = {
   [K in keyof T as Uncapitalize<K & string>]:
-    InstanceType<T[K]> extends VirtualTable
+    InstanceType<T[K]> extends FTSTable
       ? ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K & string>]: DbString }
       : ExtractColumns<InstanceType<T[K]>>
 };
@@ -1249,7 +1249,7 @@ export class Table extends BaseTable {
   id: PkNumber;
 }
 
-export class VirtualTable extends BaseTable {
+export class FTSTable extends BaseTable {
   rowid: PkNumber;
 }
 

@@ -65,9 +65,11 @@ const toLiteral = (value) => {
 
 class BaseTable {
   static requests = new Map();
+  static classes = new Map();
   Called = [];
 
   constructor() {
+    const cls = this.constructor;
     const methods = [...compareMethods, ...computeMethods];
     for (const method of methods) {
       let name = addCapital(method);
@@ -106,6 +108,7 @@ class BaseTable {
         Object.defineProperty(this, key, {
           get: function() {
             const symbol = Symbol();
+            Table.classes.set(symbol, cls);
             Table.requests.set(symbol, {
               category: 'Column',
               type: dbType,
@@ -247,7 +250,7 @@ class Table extends BaseTable {
   id = this.IntPrimary;
 }
 
-class VirtualTable extends BaseTable {
+class FTSTable extends BaseTable {
   rowid = this.IntPrimary;
 }
 
@@ -279,9 +282,10 @@ const getColumns = (constructor) => {
 const process = (Custom) => {
   const instance = new Custom();
   const name = removeCapital(Custom.name);
+  const type = Custom.prototype instanceof FTSTable ? 'fts5' : 'base';
   const table = {
     name,
-    type: instance.Virtual ? 'virtual' : 'real',
+    type,
     columns: [],
     computed: [],
     indexes: [],
@@ -292,11 +296,15 @@ const process = (Custom) => {
   const keys = getKeys(instance);
   const virtualColumns = new Map();
   let virtualTable;
-  if (table.type === 'virtual') {
-    const parent = instance.Virtual;
+  if (table.type === 'fts5') {
+    if (keys.length === 0) {
+      throw Error('FTS5 table needs at least one column');
+    }
+    const constructor = Table.classes.get(instance[keys.at(0)]);
+    const parent = new constructor();
     virtualTable = removeCapital(parent.constructor.name);
-    const keys = getKeys(parent);
-    const mapped = keys
+    const parentKeys = getKeys(parent);
+    const mapped = parentKeys
       .map(key => {
         const symbol = parent[key];
         const request = Table.requests.get(symbol);
@@ -361,7 +369,7 @@ const process = (Custom) => {
     const category = request.category;
     if (category === 'Column') {
       const column = { ...request, name: key };
-      if (table.type === 'virtual' && key !== 'rowid') {
+      if (table.type === 'fts5' && key !== 'rowid') {
         const virtual = virtualColumns.get(key);
         column.original = {
           table: virtualTable,
@@ -614,7 +622,7 @@ const toSql = (table) => {
     foreignKeys,
     checks
   } = table;
-  if (table.type === 'virtual') {
+  if (table.type === 'fts5') {
     return toVirtual(table);
   }
   let sql = `create table ${name} (\n`;
@@ -650,7 +658,7 @@ const toSql = (table) => {
 }
 
 export {
-  VirtualTable,
+  FTSTable,
   BaseTable,
   Table,
   toSql,
