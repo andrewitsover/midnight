@@ -19,6 +19,15 @@ const recreate = (table, current) => {
   return sql;
 }
 
+const toString = (column) => Object.values(column).join('');
+const attributesEqual = (c1, c2) => {
+  const clone1 = structuredClone(c1);
+  const clone2 = structuredClone(c2);
+  clone1.name = '';
+  clone2.name = '';
+  return toString(clone1) === toString(clone2);
+}
+
 const toMigration = (existing, updated) => {
   let migrations = '';
   const newTables = updated.filter(u => !existing.map(e => e.name).includes(u.name));
@@ -44,15 +53,15 @@ const toMigration = (existing, updated) => {
       .length > 0;
     const removeForeign = current
       .foreignKeys
-      .map(k => Object.values(k).join(''))
-      .filter(k => !table.foreignKeys.map(f => Object.values(f).join(''))
+      .map(k => toString(k))
+      .filter(k => !table.foreignKeys.map(f => toString(f))
       .includes(k))
       .length > 0;
     let alterColumns = false;
     for (const column of table.columns) {
       const existing = current.columns.find(c => c.name === column.name);
       if (existing) {
-        if (Object.values(existing).join('') !== Object.values(column).join('')) {
+        if (toString(existing) !== toString(column)) {
           alterColumns = true;
           break;
         }
@@ -65,7 +74,22 @@ const toMigration = (existing, updated) => {
     const addColumns = table
       .columns
       .filter(u => !current.columns.map(c => c.name).includes(u.name));
+    const removeColumns = current
+      .columns
+      .filter(c => !table.columns.map(c => c.name).includes(c.name));
+    const renameColumns = [];
+    for (const column of removeColumns) {
+      const same = addColumns.find(c => attributesEqual(column, c));
+      if (same) {
+        renameColumns.push(same.name, column.name);
+        const sql = `alter table ${table.name} rename column ${column.name} to ${same.name};\n`;
+        migrations += sql;
+      }
+    }
     for (const column of addColumns) {
+      if (renameColumns.includes(column.name)) {
+        continue;
+      }
       const clause = columnToSql(column);
       const sql = `alter table ${table.name} add column ${clause};\n`;
       migrations += sql;
@@ -83,10 +107,10 @@ const toMigration = (existing, updated) => {
         migrations += indexToSql(table.name, index);
       }
     }
-    const removeColumns = current
-      .columns
-      .filter(c => !table.columns.map(c => c.name).includes(c.name));
     for (const column of removeColumns) {
+      if (renameColumns.includes(column.name)) {
+        continue;
+      }
       migrations += `alter table ${table.name} drop column ${column.name};\n`;
     }
   }
