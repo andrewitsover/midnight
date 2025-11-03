@@ -63,6 +63,42 @@ const toLiteral = (value) => {
   return value;
 }
 
+class Unicode61 {
+  name = 'unicode61';
+  constructor(options) {
+    if (options) {
+      this.removeDiacritics = options.removeDiacritics;
+      this.categories = options.categories;
+      this.tokenChars = options.tokenChars;
+      this.separators = options.separators;
+      this.porter = options.porter;
+    }
+  }
+}
+
+class Ascii {
+  name = 'ascii';
+  constructor(options) {
+    if (options) {
+      this.categories = options.categories;
+      this.tokenChars = options.tokenChars;
+      this.separators = options.separators;
+      this.porter = options.porter;
+    }
+  }
+}
+
+class Trigram {
+  name = 'trigram';
+  constructor(options) {
+    if (options) {
+      this.caseSensitive = options.caseSensitive;
+      this.removeDiacritics = options.removeDiacritics;
+      this.porter = options.porter;
+    }
+  }
+}
+
 class BaseTable {
   static requests = new Map();
   static classes = new Map();
@@ -136,6 +172,12 @@ class BaseTable {
   Default(value) {
     const { symbol, column } = toColumn(value);
     Table.requests.set(symbol, column);
+    return symbol;
+  }
+
+  Unindex(symbol) {
+    const column = Table.requests.get(symbol);
+    column.unindex = true;
     return symbol;
   }
 
@@ -251,7 +293,7 @@ class Table extends BaseTable {
 }
 
 class FTSTable extends BaseTable {
-  rowid = this.IntPrimary;
+  Tokenizer = new Unicode61({ removeDiacritics: true });
 }
 
 const getKeys = (instance) => {
@@ -293,6 +335,12 @@ const process = (Custom) => {
     foreignKeys: [],
     checks: []
   };
+  if (type === 'fts5') {
+    table.tokenizer = toString(instance.Tokenizer);
+    if (instance.Prefix !== undefined) {
+      table.prefix = instance.Prefix;
+    }
+  }
   const keys = getKeys(instance);
   const virtualColumns = new Map();
   let virtualTable;
@@ -318,14 +366,19 @@ const process = (Custom) => {
       virtualColumns.set(item.key, item.column);
     }
     const primaryKey = mapped.find(m => m.column.primaryKey);
-    table.columns.push({
+    const rowId = {
       name: 'rowid',
       type: 'integer',
-      original: {
+      notNull: true,
+      primaryKey: true
+    };
+    if (primaryKey) {
+      rowId.original = {
         table: virtualTable,
-        name: primaryKey.name
+        name: primaryKey.column.name
       }
-    });
+    }
+    table.columns.push(rowId);
   }
   const addCheck = (column, checks) => {
     const sql = column.sql || column.name;
@@ -521,41 +574,97 @@ const typeMap = {
   json: 'blob'
 };
 
+const toString = (tokenizer) => {
+  const { 
+    removeDiacritics,
+    categories,
+    tokenChars,
+    separators,
+    caseSensitive,
+    porter
+  } = tokenizer;
+  let sql = `${porter ? 'porter ' : ''}${tokenizer.name}`;
+  if (removeDiacritics !== undefined) {
+    let value = 0;
+    if (removeDiacritics) {
+      value = tokenizer.name === 'unicode61' ? 2 : 1;
+    }
+    sql += ` remove_diacritics ${value}`;
+  }
+  if (categories) {
+    sql += ` categories '${categories.join(' ')}'`;
+  }
+  if (tokenChars) {
+    sql += ` tokenchars '${tokenChars}'`;
+  }
+  if (separators) {
+    sql += ` separators '${separators}'`;
+  }
+  if (caseSensitive !== undefined) {
+    sql += ` casesensitive ${caseSensitive ? 1 : 0}`;
+  }
+  return sql;
+}
+
 const toVirtual = (table) => {
   const { 
     name,
-    columns
+    columns,
+    tokenizer,
+    prefix
   } = table;
   let sql = `create virtual table ${name} using fts5 (\n`;
   let rowId;
   let originalTable;
+  let contentless = false;
   const names = [];
   for (const column of columns) {
+    if (!column.original) {
+      contentless = true;
+    }
     if (column.name === 'rowid') {
-      rowId = column.original.name;
-      originalTable = column.original.table;
+      if (column.original) {
+        rowId = column.original.name;
+        originalTable = column.original.table;
+      }
     }
     else {
       names.push(column.name);
-      sql += `  ${column.name},\n`;
+      sql += `  ${column.name}${column.unindex ? ' unindexable' : ''},\n`;
     }
   }
-  sql += `  content=${originalTable},\n`;
-  sql += `  content_rowid=${rowId}\n`;
+  if (!contentless) {
+    sql += `  content=${originalTable},\n`;
+    sql += `  content_rowid=${rowId},\n`;
+  }
+  if (prefix !== undefined) {
+    sql += '  ';
+    if (Array.isArray(prefix)) {
+      const prefixes = prefix.map(size => `prefix=${size}`).join(', ');
+      sql += prefixes;
+    }
+    else {
+      sql += `prefix=${prefix}`;
+    }
+    sql += ',\n';
+  }
+  sql += `  tokenize="${tokenizer}"\n`;
   sql += `);\n`;
-  sql += `
-    create trigger ${name}_ai after insert on ${originalTable} begin
-      insert into ${name}(rowid, ${names.join(',')}) values (new.rowid, ${names.map(n => `new.${n}`).join(', ')});
-    end;
-
-    create trigger ${name}_ad after delete on ${originalTable} begin
-        insert into ${name}(${name}, rowid, ${names.join(', ')}) values ('delete', old.rowid, ${names.map(n => `old.${n}`).join(', ')});
-    end;
-
-    create trigger ${name}_au after update on ${originalTable} begin
-        insert into ${name}(${name}, rowid, ${names.join(', ')}) values ('delete', old.rowid, ${names.map(n => `old.${n}`).join(', ')});
+  if (!contentless) {
+    sql += `
+      create trigger ${name}_ai after insert on ${originalTable} begin
         insert into ${name}(rowid, ${names.join(', ')}) values (new.rowid, ${names.map(n => `new.${n}`).join(', ')});
-    end;`;
+      end;
+
+      create trigger ${name}_ad after delete on ${originalTable} begin
+          insert into ${name}(${name}, rowid, ${names.join(', ')}) values ('delete', old.rowid, ${names.map(n => `old.${n}`).join(', ')});
+      end;
+
+      create trigger ${name}_au after update on ${originalTable} begin
+          insert into ${name}(${name}, rowid, ${names.join(', ')}) values ('delete', old.rowid, ${names.map(n => `old.${n}`).join(', ')});
+          insert into ${name}(rowid, ${names.join(', ')}) values (new.rowid, ${names.map(n => `new.${n}`).join(', ')});
+      end;`;
+  }
   return sql;
 }
 

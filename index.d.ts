@@ -549,16 +549,8 @@ interface Compute<T> {
 }
 
 interface VirtualQueries<T, W> {
-  get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof T>(params: W | null, columns: Array<keyof T>): Promise<Pick<T, K> | undefined>;
-  get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
-  get<N>(params: W | null, column: (selector: T) => N): Promise<N | undefined>;
   get(query: HighlightQuery<W, T>): Promise<{ id: number, highlight: string } | undefined>;
   get(query: SnippetQuery<W, T>): Promise<{ id: number, snippet: string } | undefined>;
-  many(params?: W | null): Promise<Array<T>>;
-  many<K extends keyof T>(params: W | null, columns: Array<keyof T>): Promise<Array<Pick<T, K>>>;
-  many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
-  many<N>(params: W | null, column: (selector: TableObject<T>) => N): Promise<Array<N>>;
   query<K extends keyof T>(query: VirtualQueryObject<W, K, T>): Promise<Array<Pick<T, K>>>;
   query<K extends keyof T>(query: VirtualQueryValue<W, K, T>): Promise<Array<T[K]>>;
   query(query: VirtualQuery<W, T>): Promise<Array<T>>;
@@ -566,11 +558,15 @@ interface VirtualQueries<T, W> {
   query(query: SnippetQuery<W, T>): Promise<Array<{ id: number, snippet: string }>>;
 }
 
-interface Queries<T, I, W, R, Y> {
+interface WriteQueries<T, I, W, R> {
   insert(params: I): Promise<R>;
   insertMany(params: Array<I>): Promise<void>;
   update(options: UpdateQuery<W, I>): Promise<number>;
   upsert<K extends keyof T>(options: UpsertQuery<I, K>): Promise<R>;
+  remove(params?: W): Promise<number>;
+}
+
+interface Queries<T, W, Y> {
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
   get<K extends keyof T>(params: W | null, columns: (keyof T)[] | K[]): Promise<Pick<T, K> | undefined>;
@@ -603,7 +599,6 @@ interface Queries<T, I, W, R, Y> {
   sum<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
   exists(params: W | null): Promise<boolean>;
   groupBy<K extends keyof T>(columns: K | Array<K>): AggregateMethods<T, W, K, Y>;
-  remove(params?: W): Promise<number>;
 }
 
 type CompareMethods<T> = {
@@ -917,7 +912,7 @@ type ExcludeComputed<T> = {
   [K in keyof T as T[K] extends AnyResult | PkType ? K : never]: T[K]
 };
 
-type ToQuery<R, T> = Queries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>, R>;
+type ToQuery<R, T> = Queries<ToJsType<T>, ToWhere<ToJsType<T>>, R> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>>;
 
 type ToVirtual<T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>>;
 
@@ -1249,8 +1244,48 @@ export class Table extends BaseTable {
   id: PkNumber;
 }
 
+interface Unicode61Config {
+  removeDiacritics?: boolean;
+  categories?: string[];
+  tokenChars?: string;
+  separators?: string;
+  porter?: boolean;
+}
+
+export class Unicode61 {
+  constructor(options: Unicode61Config);
+}
+
+interface AsciiConfig {
+  categories?: string[];
+  tokenChars?: string;
+  separators?: string;
+  porter?: boolean;
+}
+
+export class Ascii {
+  constructor(options: AsciiConfig);
+}
+
+interface TrigramConfig {
+  caseSensitive?: boolean;
+  removeDiacritics?: boolean;
+  porter?: boolean;
+}
+
+export class Trigram {
+  constructor(options: TrigramConfig);
+}
+
 export class FTSTable extends BaseTable {
   rowid: PkNumber;
+  Prefix?: number | number[];
+  Tokenizer?: Unicode61 | Ascii | Trigram;
+  Unindex<T>(type: DbString): DbString;
+}
+
+export class ExternalFTSTable extends FTSTable {
+  ExternalRowId?: PkNumber | DbNumber;
 }
 
 export class Database {
