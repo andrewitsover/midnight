@@ -1,6 +1,6 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
-import { addAlias } from './utils.js';
+import { addAlias, nameToSql } from './utils.js';
 
 const makeProxy = (options) => {
   const {
@@ -33,7 +33,7 @@ const makeProxy = (options) => {
         const symbol = Symbol();
         const type = db.columns[table][property];
         const computed = db.computed[table][property];
-        let selector = `${tableAlias}.${property}`;
+        let selector = nameToSql(property, tableAlias);
         if (computed !== undefined) {
           selector = addAlias(computed, tableAlias);
         }
@@ -244,7 +244,7 @@ const processQuery = (db, expression, firstResult) => {
       request.alias = key;
       request.type = valueArg.type;
       columnTypes[key] = valueArg.type;
-      statements.push(`${valueArg.sql} as ${key}`);
+      statements.push(`${valueArg.sql} as ${nameToSql(key)}`);
       parser = db.getDbToJsConverter(valueArg.type);
     }
     else {
@@ -254,7 +254,7 @@ const processQuery = (db, expression, firstResult) => {
       else {
         let sql = request.selector;
         if (request.name !== key) {
-          sql += ` as ${key}`;
+          sql += ` as ${nameToSql(key)}`;
         }
         statements.push(sql);
       }

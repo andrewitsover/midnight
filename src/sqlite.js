@@ -1,6 +1,7 @@
 import Database from './db.js';
 import sqlite3 from 'better-sqlite3';
 import { makeClient } from './proxy.js';
+import { existsSync } from 'fs';
 
 const isEmpty = (params) => {
   if (params === undefined) {
@@ -17,6 +18,7 @@ class SQLiteDatabase extends Database {
     this.extensions = options.extensions;
     this.read = null;
     this.writer = null;
+    this.created = false;
   }
 
   async getWriter() {
@@ -40,8 +42,13 @@ class SQLiteDatabase extends Database {
     if (this.initialized) {
       return;
     }
+    const exists = existsSync(this.dbPath);
     this.read = await this.createDatabase();
     this.write = await this.createDatabase();
+    if (!exists) {
+      this.created = true;
+      await this.pragma(null, 'journal_mode=WAL');
+    }
     this.initialized = true;
   }
 

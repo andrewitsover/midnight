@@ -722,6 +722,16 @@ In the above example, ```moon``` will be of type ```string``` or ```null``` even
 
 ## Full-text search
 
+```js
+class Emails extends FTSTable {
+  uuid = this.Unindex(this.Text);
+  to = this.Text;
+  body = this.Text;
+}
+```
+
+Specific tokenizers such as ```Unicode61```, ```Ascii```, and ```Trigram``` can be imported and passed into the ```Tokenizer``` field of the table class.
+
 To define a fts5 table based on another table, you can do this:
 
 ```js
@@ -732,7 +742,7 @@ export class Forests extends Table {
 
 const forest = new Forests();
 
-export class ForestSearches extends FTSTable {
+export class ForestSearches extends ExternalFTSTable {
   name = forest.name;
   otherName = forest.otherName;
 }

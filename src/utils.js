@@ -1,3 +1,5 @@
+import reserved from './reserved.js';
+
 let paramCount = 1;
 
 const getPlaceholder = () => {
@@ -184,9 +186,21 @@ const jsonSelector = (type, sql) => {
   return sql;
 }
 
+const nameToSql = (column, alias) => {
+  let name = column;
+  if (reserved.has(column)) {
+    name = `[${name}]`;
+  }
+  if (alias) {
+    return `${alias}.${name}`;
+  }
+  return name;
+}
+
 export {
   addAlias,
   toValues,
+  nameToSql,
   jsonSelector,
   getPlaceholder,
   expressionHandler

@@ -912,14 +912,21 @@ type ExcludeComputed<T> = {
   [K in keyof T as T[K] extends AnyResult | PkType ? K : never]: T[K]
 };
 
-type ToQuery<R, T> = Queries<ToJsType<T>, ToWhere<ToJsType<T>>, R> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>>;
+type ToQuery<Y, T> = Queries<ToJsType<T>, ToWhere<ToJsType<T>>, Y> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>>;
 
-type ToVirtual<T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>>;
+type ToFTS<Y, T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>> & ToQuery<Y, T>;
+
+type ToExternalFTS<Y, T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>> & Queries<ToJsType<T>, ToWhere<ToJsType<T>>, Y>;
 
 type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }> = {
   [K in keyof T as K extends string
     ? `${Uncapitalize<K>}`
-    : never]: K extends string ? (InstanceType<T[K]> extends FTSTable ? ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }> : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
+    : never]: K extends string ? (
+      InstanceType<T[K]> extends FTSTable 
+        ? ToFTS<MakeClient<T>, ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }>
+        : InstanceType<T[K]> extends ExternalFTSTable 
+          ? ToExternalFTS<MakeClient<T>, ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }>
+      : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
 };
 
 type MakeContext<T extends Record<string, abstract new (...args: any) => any>> = {
@@ -1303,6 +1310,7 @@ export class SQLiteDatabase extends Database {
   constructor(path?: string | URL, options?: SQLiteConfig);
   initialize(): Promise<void>;
   close(): Promise<void>;
+  created: boolean;
 }
 
 export class TursoDatabase extends Database {

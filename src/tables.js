@@ -296,6 +296,10 @@ class FTSTable extends BaseTable {
   Tokenizer = new Unicode61({ removeDiacritics: true });
 }
 
+class ExternalFTSTable extends FTSTable {
+  ExternalRowId = null;
+}
+
 const getKeys = (instance) => {
   return Object
     .getOwnPropertyNames(instance)
@@ -769,6 +773,10 @@ const toSql = (table) => {
 export {
   FTSTable,
   BaseTable,
+  ExternalFTSTable,
+  Unicode61,
+  Trigram,
+  Ascii,
   Table,
   toSql,
   toHash,

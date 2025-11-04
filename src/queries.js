@@ -1,4 +1,9 @@
-import { getPlaceholder, expressionHandler, jsonSelector } from './utils.js';
+import { 
+  getPlaceholder, 
+  expressionHandler, 
+  jsonSelector,
+  nameToSql
+} from './utils.js';
 import { compareOperators } from './methods.js';
 
 const aggregateMethods = [
@@ -125,7 +130,7 @@ const makeInsertSql = (db, table, query, params) => {
   const columns = Object.keys(query);
   const columnTypes = db.columns[table];
   const placeholders = getPlaceholders(query, params, columnTypes);
-  return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
+  return `insert into ${table}(${columns.map(c => nameToSql(c)).join(', ')}) values(${placeholders.join(', ')})`;
 }
 
 const processBatch = async (db, options, post) => {
@@ -284,6 +289,7 @@ const toWhere = (options) => {
     if (param === undefined) {
       continue;
     }
+    const adjusted = ['and', 'or'].includes(column) ? column : nameToSql(column);
     if (column === 'and' || column === 'or') {
       if (!Array.isArray(param)) {
         throw Error(`The "${column}" property value must be an array of conditions`);
@@ -300,21 +306,21 @@ const toWhere = (options) => {
       conditions.push(`(${filters.join(` ${column} `)})`);
     }
     else if (typeof param === 'function') {
-      const result = getConditions(column, param, params);
+      const result = getConditions(adjusted, param, params);
       conditions.push(...result);
     }
     else if (Array.isArray(param)) {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${column} in (select json_each.value from json_each($${placeholder}))`);
+      conditions.push(`${adjusted} in (select json_each.value from json_each($${placeholder}))`);
     }
     else if (param === null) {
-      conditions.push(`${column} is null`);
+      conditions.push(`${adjusted} is null`);
     }
     else {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${column} = $${placeholder}`);
+      conditions.push(`${adjusted} = $${placeholder}`);
     }
   }
   return conditions.join(` ${type || 'and'} `);
@@ -380,7 +386,7 @@ const getOrderBy = (orderBy, params) => {
     return createClause(params);
   }
   const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
-  return columns.join(', ');
+  return columns.map(c => nameToSql(c)).join(', ');
 }
 
 const toKeywords = (keywords, params) => {
@@ -662,12 +668,12 @@ const group = async (config) => {
     }
   }
   const columnTypes = db.columns[table];
-  const byClause = by.join(', ');
+  const byClause = by.map(c => nameToSql(c)).join(', ');
   const tableClause = subquery ? `(${subquery.sql})` : table;
   let sql = `select ${byClause}, `;
   if (method !== 'array') {
     const options = column || distinct;
-    const field = options[alias];
+    const field = nameToSql(options[alias]);
     let body = '';
     if (distinct) {
       body += 'distinct ';
@@ -688,7 +694,7 @@ const group = async (config) => {
       sql += makeJsonArray(columnTypes, columns);
     }
     else {
-      sql += `json_group_array(${fields})`;
+      sql += `json_group_array(${nameToSql(fields)})`;
     }
     sql += ` as ${method} from ${tableClause}`;
   }
@@ -724,7 +730,7 @@ const group = async (config) => {
       orderBy = getOrderBy(keywords.orderBy, params);
     }
     else {
-      orderBy = `${withTable}.${db.getPrimaryKey(table)}`;
+      orderBy = `${withTable}.${nameToSql(db.getPrimaryKey(table))}`;
     }
     let desc = '';
     if (keywords.desc) {
@@ -736,9 +742,9 @@ const group = async (config) => {
       i++;
       rankAlias = `rn${i}`;
     }
-    sql += ` select ${selectColumns.join(', ')}, row_number() over (partition by ${withTable}.${partitionBy} order by ${orderBy}${desc}) as ${rankAlias} from ${withTable}`;
+    sql += ` select ${selectColumns.map(c => nameToSql(c)).join(', ')}, row_number() over (partition by ${withTable}.${nameToSql(partitionBy)} order by ${orderBy}${desc}) as ${rankAlias} from ${withTable}`;
     const rankedTable = `flyweight_ranked`;
-    sql = `with ${rankedTable} as (${sql}) select ${selectColumns.join(', ')} from ${rankedTable} where ${rankAlias}`;
+    sql = `with ${rankedTable} as (${sql}) select ${selectColumns.map(c => nameToSql(c)).join(', ')} from ${rankedTable} where ${rankAlias}`;
     const hasOffset = keywords.offset !== undefined && Number.isInteger(keywords.offset);
     const hasLimit = keywords.limit !== undefined && Number.isInteger(keywords.limit);
     if (hasOffset && hasLimit) {
@@ -762,7 +768,7 @@ const group = async (config) => {
     }
   }
   const withTable = 'flyweight_alias';
-  sql = `with ${withTable} as (${sql}) select ${by.join(', ')}, ${method} as ${alias} from ${withTable}`;
+  sql = `with ${withTable} as (${sql}) select ${by.map(c => nameToSql(c)).join(', ')}, ${method} as ${alias} from ${withTable}`;
   const options = {
     query: sql,
     params,
@@ -846,14 +852,14 @@ const aggregate = async (config) => {
     expression = `count(*) as ${alias}`;
   }
   else {
-    const field = column || distinct;
+    const field = nameToSql(column || distinct);
     const before = distinct === undefined ? '' : 'distinct ';
     expression = `${actualMethod}(${before}${field}) as ${alias}`;
   }
   let sql;
   let groupFields;
   if (groupKeys && groupKeys.length > 0) {
-    groupFields = groupKeys.join(', ');
+    groupFields = groupKeys.map(c => nameToSql(c)).join(', ');
   }
   const whereClause = toWhere({
     query: where,
@@ -1244,15 +1250,17 @@ const expandStar = (types, computed) => {
   const names = Object.keys(types);
   const statements = [];
   for (const [column, type] of Object.entries(types)) {
+    const adjusted = nameToSql(column);
     const sql = computed[column];
     if (sql) {
       statements.push(`${sql} as ${column}`);
+      continue;
     }
     else if (type === 'json') {
-      statements.push(`json(${column}) as ${column}`);
+      statements.push(`json(${adjusted}) as ${adjusted}`);
     }
     else {
-      statements.push(column);
+      statements.push(adjusted);
     }
   }
   return {
@@ -1269,16 +1277,15 @@ const toSelect = (args) => {
   } = args;
   const toSql = (column) => {
     verify(column);
+    const adjusted = nameToSql(column);
     const sql = computed[column];
     if (sql) {
       return `${sql} as ${column}`;
     }
     else if (types[column] === 'json') {
-      return `json(${column}) as ${column}`;
+      return `json(${adjusted}) as ${adjusted}`;
     }
-    else {
-      return column;
-    }
+    return adjusted;
   }
   if (columns) {
     if (typeof columns === 'string') {
@@ -1381,7 +1388,7 @@ const all = async (config) => {
       orderBy = getOrderBy(keywords.orderBy, params);
     }
     else {
-      orderBy = db.getPrimaryKey(table);
+      orderBy = nameToSql(db.getPrimaryKey(table));
     }
     let desc = '';
     if (keywords.desc) {
@@ -1393,7 +1400,7 @@ const all = async (config) => {
       i++;
       alias = `rn${i}`;
     }
-    select.clause += `, row_number() over (partition by ${partitionBy} order by ${orderBy}${desc}) as ${alias}`;
+    select.clause += `, row_number() over (partition by ${nameToSql(partitionBy)} order by ${orderBy}${desc}) as ${alias}`;
     const wrapQuery = (sql) => {
       let statement = `with rankedQuery as (${sql}) select ${select.names.join(', ')} from rankedQuery where ${alias}`;
       if (singleRow) {
