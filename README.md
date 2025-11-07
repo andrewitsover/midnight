@@ -722,13 +722,17 @@ In the above example, ```moon``` will be of type ```string``` or ```null``` even
 
 ## Full-text search
 
+The below example creates a fts5 table with three columns, one of which is only used for referencing other tables and so is removed from indexing.
+
 ```js
 class Emails extends FTSTable {
-  uuid = this.Unindex(this.Text);
-  to = this.Text;
-  body = this.Text;
+  uuid = this.Unindex();
+  to;
+  body;
 }
 ```
+
+As all columns in a fts5 table are text, there is no need to specify the column type.
 
 Specific tokenizers such as ```Unicode61```, ```Ascii```, and ```Trigram``` can be imported and passed into the ```Tokenizer``` field of the table class.
 

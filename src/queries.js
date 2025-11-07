@@ -389,136 +389,51 @@ const getOrderBy = (orderBy, params) => {
   return columns.map(c => nameToSql(c)).join(', ');
 }
 
-const toKeywords = (keywords, params) => {
+const toKeywords = (keywords, params, table, columns) => {
   let sql = '';
   if (keywords) {
-    if (keywords.orderBy) {
-      const orderBy = getOrderBy(keywords.orderBy, params);
-      sql += ` order by ${orderBy}`;
-      if (keywords.desc) {
+    const { rank, bm25, orderBy, desc, limit, offset } = keywords;
+    if (rank) {
+      sql += ' order by rank';
+    }
+    if (bm25) {
+      sql += ` order by bm25(${table}, `;
+      const values = [];
+      for (const column of columns) {
+        if (column.name === 'rowid') {
+          continue;
+        }
+        const value = bm25[column.name];
+        if (typeof value === 'number') {
+          values.push(value);
+        }
+      }
+      sql += values.join(', ');
+      sql += ')';
+    }
+    if (orderBy) {
+      const clause = getOrderBy(orderBy, params);
+      sql += ` order by ${clause}`;
+      if (desc) {
         sql += ' desc';
       }
     }
-    if (keywords.limit !== undefined) {
-      if (Number.isInteger(keywords.limit)) {
+    if (limit !== undefined) {
+      if (Number.isInteger(limit)) {
         const placeholder = getPlaceholder();
-        params[placeholder] = keywords.limit;
+        params[placeholder] = limit;
         sql += ` limit $${placeholder}`;
       }
     }
-    if (keywords.offset !== undefined) {
-      if (Number.isInteger(keywords.offset)) {
+    if (offset !== undefined) {
+      if (Number.isInteger(offset)) {
         const placeholder = getPlaceholder();
-        params[placeholder] = keywords.offset;
+        params[placeholder] = offset;
         sql += ` offset $${placeholder}`;
       }
     }
   }
   return sql;
-}
-
-const getVirtual = async (db, table, query, tx, keywords, select, returnValue, once) => {
-  let params = {};
-  const keys = Object.keys(db.columns[table]).filter(k => k !== 'rowid');
-  if (keywords && keywords.highlight) {
-    const highlight = keywords.highlight;
-    verify(highlight.column);
-    const i = getPlaceholder();
-    const s = getPlaceholder();
-    const e = getPlaceholder();
-    params[i] = keys.findIndex(name => name === highlight.column) - 1;
-    params[s] = highlight.tags[0];
-    params[e] = highlight.tags[1];
-    select = `rowid as id, highlight(${table}, $${i}, $${s}, $${e}) as highlight`;
-  }
-  if (keywords && keywords.snippet) {
-    const snippet = keywords.snippet;
-    verify(snippet.column);
-    const i = getPlaceholder();
-    const s = getPlaceholder();
-    const e = getPlaceholder();
-    const tr = getPlaceholder();
-    const to = getPlaceholder();
-    params[i] = keys.findIndex(name => name === snippet.column) - 1;
-    params[s] = snippet.tags[0];
-    params[e] = snippet.tags[1];
-    params[tr] = snippet.trailing;
-    params[to] = snippet.tokens;
-    select = `rowid as id, snippet(${table}, $${i}, $${s}, $${e}, $${tr}, $${to}) as snippet`;
-  }
-  let sql = `select ${select} from ${table}`;
-  if (query) {
-    const statements = [];
-    for (const [column, param] of Object.entries(query)) {
-      verify(column);
-      if (typeof param === 'function') {
-        const result = getConditions(column, param, params);
-        statements.push(...result);
-      }
-      else {
-        const placeholder = getPlaceholder();
-        params[placeholder] = param;
-        let operator = 'match';
-        if (column === 'rowid') {
-          operator = '=';
-        }
-        statements.push(`${column} ${operator} $${placeholder}`);
-      }
-    }
-    if (statements.length > 0) {
-      sql += ` where ${statements.join(' and ')}`;
-    }
-  }
-  if (keywords && keywords.rank) {
-    sql += ' order by rank';
-  }
-  if (keywords && keywords.bm25) {
-    sql += ` order by bm25(${table}, `;
-    const values = [];
-    for (const column of db.tables[table]) {
-      if (column.name === 'rowid') {
-        continue;
-      }
-      const value = keywords.bm25[column.name];
-      if (typeof value === 'number') {
-        values.push(value);
-      }
-    }
-    sql += values.join(', ');
-    sql += ')';
-  }
-  sql += toKeywords(keywords, params);
-  const options = {
-    query: sql,
-    params,
-    tx
-  };
-  const post = (results) => {
-    if (once) {
-      if (results.length === 0) {
-        return undefined;
-      }
-      if (returnValue) {
-        const result = results[0];
-        const key = Object.keys(result)[0];
-        return result[key];
-      }
-      return results[0];
-    }
-    if (results.length === 0) {
-      return results;
-    }
-    if (returnValue) {
-      const key = Object.keys(results[0])[0];
-      return results.map(r => r[key]);
-    }
-    return results;
-  }
-  if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
-  }
-  const results = await db.all(options);
-  return post(results);
 }
 
 const exists = async (config) => {
@@ -1315,6 +1230,144 @@ const toSelect = (args) => {
   return expandStar(types, computed);
 }
 
+const getVirtualSelect = (keywords, table, columns, params) => {
+  const { highlight, snippet } = keywords;
+  const keys = Object.keys(columns).filter(k => k !== 'rowid');
+  if (highlight) {
+    verify(highlight.column);
+    const i = getPlaceholder();
+    const s = getPlaceholder();
+    const e = getPlaceholder();
+    params[i] = keys.findIndex(name => name === highlight.column) - 1;
+    params[s] = highlight.tags[0];
+    params[e] = highlight.tags[1];
+    return {
+      clause: `rowid as id, highlight(${table}, $${i}, $${s}, $${e}) as highlight`,
+      names: ['highlight']
+    }
+  }
+  if (snippet) {
+    verify(snippet.column);
+    const i = getPlaceholder();
+    const s = getPlaceholder();
+    const e = getPlaceholder();
+    const tr = getPlaceholder();
+    const to = getPlaceholder();
+    params[i] = keys.findIndex(name => name === snippet.column) - 1;
+    params[s] = snippet.tags[0];
+    params[e] = snippet.tags[1];
+    params[tr] = snippet.trailing;
+    params[to] = snippet.tokens;
+    return {
+      clause: `rowid as id, snippet(${table}, $${i}, $${s}, $${e}, $${tr}, $${to}) as snippet`,
+      names: ['snippet']
+    }
+  }
+}
+
+const escape = (phrase) => {
+  return `"${phrase.replaceAll(/"/g, '""')}"`;
+}
+
+const toSql = (phrases, type) => {
+  if (typeof phrases === 'string') {
+    const phrase = escape(phrases);
+    const logic = type ? 'NOT ' : '';
+    return `${logic}${phrase}`;
+  }
+  else if (Array.isArray(phrases)) {
+    if (type === 'NOT') {
+      const joined = phrases
+        .map(p => escape(phrase))
+        .join(' OR ');
+      return `NOT (${joined})`;
+    }
+    else {
+      let sql = '(';
+      for (const phrase of phrases) {
+        if (typeof phrase === 'string') {
+          sql += escape(phrase);
+        }
+        else {
+          const subType = Object.keys(phrase).at(0).toUpperCase();
+          const phrases = Object.values(phrase).at(0);
+          if (subType === 'NOT') {
+            if (sql.endsWith(` ${type} `)) {
+              sql = sql.slice(0, -(type.length + 1));
+            }
+          }
+          sql += toSql(phrases, subType);
+        }
+        sql += ` ${type} `;
+      }
+      sql = sql.slice(0, -(type.length + 2));
+      sql += ')';
+      return sql;
+    }
+  }
+  else {
+    const key = Object.keys(phrases).at(0);
+    const value = Object.values(phrases).at(0);
+    if (key === 'startsWith') {
+      return `^ ${toSql(value)}`;
+    }
+    return `${toSql(value)} *`;
+  }
+}
+
+const parse = (query) => {
+  const { 
+    phrase,
+    near,
+    startsWith,
+    prefix,
+  } = query;
+  if (phrase) {
+    return toSql(phrase);
+  }
+  const key = Object
+    .keys(query)
+    .filter(k => ['and', 'or', 'not'].includes(k))
+    .at(0);
+  if (key) {
+    const type = key.toUpperCase();
+    const phrases = query[key];
+    return toSql(phrases, type);
+  }
+  if (near) {
+    const distance = near.pop();
+    return `NEAR(${near.map(p => toSql(p)).join(' ')}, ${distance})`;
+  }
+  if (startsWith !== undefined) {
+    return toSql({ startsWith });
+  }
+  if (prefix !== undefined) {
+    return toSql({ prefix });
+  }
+}
+
+const match = async (config) => {
+  const {
+    db,
+    table,
+    query,
+    tx
+  } = config;
+  const placeholder = getPlaceholder();
+  let sql = `select * from ${table} where ${table} match $${placeholder}`;
+  const params = {
+    [placeholder]: parse(query)
+  };
+  sql += toKeywords(query, params);
+  const options = {
+    query: sql,
+    params,
+    tx
+  };
+  console.log(options);
+  return await db.all(options);
+}
+
 const all = async (config) => {
   const {
     db,
@@ -1373,13 +1426,16 @@ const all = async (config) => {
     }
   }
   const types = subquery ? subquery.columns : db.columns[table];
-  const select = toSelect({ 
-    columns,
-    types,
-    computed: db.computed[table] || {}
-  });
-  if (db.virtualSet.has(table)) {
-    return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, false);
+  let select;
+  if (keywords && (keywords.highlight || keywords.snippet)) {
+    select = getVirtualSelect(keywords, table, types, params);
+  }
+  else {
+    select = toSelect({ 
+      columns,
+      types,
+      computed: db.computed[table] || {}
+    });
   }
   let sql = 'select ';
   if (partitionBy) {
@@ -1456,7 +1512,7 @@ const all = async (config) => {
     if (clause) {
       sql += ` where ${clause}`;
     }
-    sql += toKeywords(keywords, params);
+    sql += toKeywords(keywords, params, table, db.tables[table]);
   }
   if (first) {
     sql += ' limit 1';
@@ -1632,6 +1688,7 @@ export {
   exists,
   group,
   aggregate,
+  match,
   all,
   remove
 }

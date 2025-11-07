@@ -35,11 +35,9 @@ type IncludeWhere<U extends ObjectFunction> = {
     ? R extends string | number | Date | boolean ? R | Array<R> | WhereFunction<R> | null : never : never;
 }
 
-interface VirtualKeywords<T> {
+interface VirtualKeywords<T> extends Keywords<T, (keyof T)[] | keyof T> {
   rank?: true;
   bm25?: Partial<Record<keyof Omit<T, "rowid">, number>>;
-  limit?: number;
-  offset?: number;
 }
 
 interface Highlighter<T> extends VirtualKeywords<T> {
@@ -548,7 +546,26 @@ interface Compute<T> {
   [key: string]: (column: T, method: ComputeMethods) => void;
 }
 
+type MatchString = string | { startsWith: string } | { prefix: string };
+
+interface MatchKeywords {
+  phrase?: string;
+  startsWith?: string;
+  prefix?: string;
+  and?: (MatchString | { or: string[] } | { not: string | string[] })[];
+  or?: (MatchString | { and: string[] } | { not: string | string[] })[];
+  not?: MatchString | string[];
+  near?: [...MatchString[], number];
+}
+
+interface MatchQuery<T> extends MatchKeywords, VirtualKeywords<T> {
+  column?: {
+    [K in keyof T]?: MatchKeywords;
+  }
+}
+
 interface VirtualQueries<T, W> {
+  match(query: MatchQuery<T>): Promise<T[]>;
   get(query: HighlightQuery<W, T>): Promise<{ id: number, highlight: string } | undefined>;
   get(query: SnippetQuery<W, T>): Promise<{ id: number, snippet: string } | undefined>;
   query<K extends keyof T>(query: VirtualQueryObject<W, K, T>): Promise<Array<Pick<T, K>>>;
@@ -889,7 +906,9 @@ type ExtractColumns<T> = {
         ? K
         : never
       : never
-    : never]: ToDbType<T[K]>;
+    : never]: ToDbType<T[K]> extends any 
+      ? DbString 
+      : ToDbType<T[K]>;
 };
 
 type PkType = PkNumber | PkString | PkDate | PkBuffer;
@@ -1288,7 +1307,7 @@ export class FTSTable extends BaseTable {
   rowid: PkNumber;
   Prefix?: number | number[];
   Tokenizer?: Unicode61 | Ascii | Trigram;
-  Unindex<T>(type: DbString): DbString;
+  Unindex(): DbString;
 }
 
 export class ExternalFTSTable extends FTSTable {

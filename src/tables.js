@@ -175,7 +175,8 @@ class BaseTable {
     return symbol;
   }
 
-  Unindex(symbol) {
+  Unindex() {
+    const symbol = this.Text;
     const column = Table.requests.get(symbol);
     column.unindex = true;
     return symbol;
@@ -329,6 +330,7 @@ const process = (Custom) => {
   const instance = new Custom();
   const name = removeCapital(Custom.name);
   const type = Custom.prototype instanceof FTSTable ? 'fts5' : 'base';
+  const external = Custom.prototype instanceof ExternalFTSTable;
   const table = {
     name,
     type,
@@ -352,37 +354,37 @@ const process = (Custom) => {
     if (keys.length === 0) {
       throw Error('FTS5 table needs at least one column');
     }
-    const constructor = Table.classes.get(instance[keys.at(0)]);
-    const parent = new constructor();
-    virtualTable = removeCapital(parent.constructor.name);
-    const parentKeys = getKeys(parent);
-    const mapped = parentKeys
-      .map(key => {
-        const symbol = parent[key];
-        const request = Table.requests.get(symbol);
-        const column = { name: key, ...request };
-        return {
-          key,
-          column
-        }
-      });
-    for (const item of mapped) {
-      virtualColumns.set(item.key, item.column);
-    }
-    const primaryKey = mapped.find(m => m.column.primaryKey);
     const rowId = {
       name: 'rowid',
       type: 'integer',
       notNull: true,
       primaryKey: true
     };
-    if (primaryKey) {
+    table.columns.push(rowId);
+    if (external) {
+      const constructor = Table.classes.get(instance[keys.at(0)]);
+      const parent = new constructor();
+      virtualTable = removeCapital(parent.constructor.name);
+      const parentKeys = getKeys(parent);
+      const mapped = parentKeys
+        .map(key => {
+          const symbol = parent[key];
+          const request = Table.requests.get(symbol);
+          const column = { name: key, ...request };
+          return {
+            key,
+            column
+          }
+        });
+      for (const item of mapped) {
+        virtualColumns.set(item.key, item.column);
+      }
+      const primaryKey = mapped.find(m => m.column.primaryKey);
       rowId.original = {
         table: virtualTable,
         name: primaryKey.column.name
       }
     }
-    table.columns.push(rowId);
   }
   const addCheck = (column, checks) => {
     const sql = column.sql || column.name;
@@ -412,6 +414,9 @@ const process = (Custom) => {
     table.checks.push(statements.join(' and '));
   }
   const getColumn = (key, value) => {
+    if (value === undefined) {
+      value = instance.Text;
+    }
     const type = typeof value;
     if (type !== 'symbol') {
       const result = toColumn(value);
@@ -426,7 +431,7 @@ const process = (Custom) => {
     const category = request.category;
     if (category === 'Column') {
       const column = { ...request, name: key };
-      if (table.type === 'fts5' && key !== 'rowid') {
+      if (external && key !== 'rowid') {
         const virtual = virtualColumns.get(key);
         column.original = {
           table: virtualTable,

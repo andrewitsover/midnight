@@ -6,6 +6,7 @@ import {
   exists,
   group,
   aggregate,
+  match,
   all,
   remove
 } from './queries.js';
@@ -36,6 +37,7 @@ const basic = {
   sum: (args) => async (query, config) => await aggregate({ query, method: 'sum', ...config, ...args }),
   get: (args) => async (query, columns, config) => await all({ query, columns, first: true, ...config, ...args }),
   many: (args) => async (query, columns, config) => await all({ query, columns, ...config, ...args }),
+  match: (args) => async (query, config) => await match({ query, ...config, ...args }),
   query: (args) => async (query, config) => await all({ query, type: 'complex', ...config, ...args }),
   first: (args) => async (query, config) => await all({ query, first: true, type: 'complex', ...config, ...args }),
   remove: (args) => async (query) => await remove({ query, ...args })
