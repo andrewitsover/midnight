@@ -781,6 +781,7 @@ The ```match``` API allows you to search an fts5 table in a number of different 
 ```startsWith```: the specified column or any of the columns starts with a particular string.
 ```prefix```: any token starts with a particular string.
 ```near```: takes an array of two or more strings with the last value being a number that specifies the maximum number of tokens allowed between the matching strings.
+```and```, ```or```, and ```not```: takes an array of strings.
 
 You can also query fts5 tables with the basic API like this:
 
