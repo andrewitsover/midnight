@@ -1383,7 +1383,6 @@ const match = async (config) => {
     params,
     tx
   };
-  console.log(options);
   return await db.all(options);
 }
 

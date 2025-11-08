@@ -899,6 +899,8 @@ type RemoveUpperCase<T> = {
     : never]: T[K];
 };
 
+type IsAny<T> = 0 extends (1 & T) ? true : false;
+
 type ExtractColumns<T> = {
   [K in keyof T as K extends string
     ? K extends `${infer First}${string}`
@@ -906,8 +908,8 @@ type ExtractColumns<T> = {
         ? K
         : never
       : never
-    : never]: ToDbType<T[K]> extends any 
-      ? DbString 
+    : never]: IsAny<ToDbType<T[K]>> extends true
+      ? DbString
       : ToDbType<T[K]>;
 };
 
