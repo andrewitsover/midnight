@@ -1289,14 +1289,18 @@ const toSql = (phrases, type) => {
           sql += escape(phrase);
         }
         else {
-          const subType = Object.keys(phrase).at(0).toUpperCase();
-          const phrases = Object.values(phrase).at(0);
+          const key = Object.keys(phrase).at(0);
+          let subType;
+          if (['and', 'or', 'not'].includes(key)) {
+            subType = key.toUpperCase();
+          }
           if (subType === 'NOT') {
             if (sql.endsWith(` ${type} `)) {
               sql = sql.slice(0, -(type.length + 1));
             }
           }
-          sql += toSql(phrases, subType);
+          const value = subType ? Object.values(phrase).at(0) : phrase;
+          sql += toSql(value, subType);
         }
         sql += ` ${type} `;
       }
@@ -1316,6 +1320,9 @@ const toSql = (phrases, type) => {
 }
 
 const parse = (query) => {
+  if (typeof query === 'string') {
+    return toSql(query);
+  }
   const { 
     phrase,
     near,
@@ -1353,11 +1360,23 @@ const match = async (config) => {
     query,
     tx
   } = config;
-  const placeholder = getPlaceholder();
-  let sql = `select * from ${table} where ${table} match $${placeholder}`;
-  const params = {
-    [placeholder]: parse(query)
-  };
+  let sql;
+  const params = {};
+  if (query.column) {
+    const statements = [];
+    for (const [key, value] of Object.entries(query.column)) {
+      verify(key);
+      const placeholder = getPlaceholder();
+      params[placeholder] = parse(value);
+      statements.push(`${nameToSql(key)} match $${placeholder}`);
+    }
+    sql = `select * from ${table} where ${statements.join(' and ')}`;
+  }
+  else {
+    const placeholder = getPlaceholder();
+    sql = `select * from ${table} where ${table} match $${placeholder}`;
+    params[placeholder] = parse(query);
+  }
   sql += toKeywords(query, params);
   const options = {
     query: sql,

@@ -752,7 +752,37 @@ export class ForestSearches extends ExternalFTSTable {
 }
 ```
 
-You can now use it in the basic API like this:
+You can now query the table like this:
+
+```js
+const matches = await db.forestSearches.match({
+  startsWith: 'Mount'
+});
+```
+
+If you want to search a specific column, you can do:
+
+```js
+const matches = await db.forstSearches.match({
+  column: {
+    otherName: {
+      near: ['Mount', 'Park', 2]
+    }
+  },
+  limit: 3
+});
+```
+
+The above query finds any forest with an ```otherName``` that contains the word "Mount" followed by a maximum of 2 tokens, and then the word "Park". As in, "Mount" is near "Park".
+
+The ```match``` API allows you to search an fts5 table in a number of different ways.
+
+```phrase```: match an exact phrase
+```startsWith```: the specified column or any of the columns starts with a particular string.
+```prefix```: any token starts with a particular string.
+```near```: takes an array of two or more strings with the last value being a number that specifies the maximum number of tokens allowed between the matching strings.
+
+You can also query fts5 tables with the basic API like this:
 
 ```js
 const results = await db.forestSearches.query({

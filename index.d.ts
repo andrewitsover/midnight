@@ -555,12 +555,12 @@ interface MatchKeywords {
   and?: (MatchString | { or: string[] } | { not: string | string[] })[];
   or?: (MatchString | { and: string[] } | { not: string | string[] })[];
   not?: MatchString | string[];
-  near?: [...MatchString[], number];
+  near?: [...string[], number];
 }
 
 interface MatchQuery<T> extends MatchKeywords, VirtualKeywords<T> {
   column?: {
-    [K in keyof T]?: MatchKeywords;
+    [K in keyof T]?: MatchKeywords | string;
   }
 }
 
