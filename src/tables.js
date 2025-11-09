@@ -294,10 +294,12 @@ class Table extends BaseTable {
 }
 
 class FTSTable extends BaseTable {
+  rowid = this.IntPrimary;
   Tokenizer = new Unicode61({ removeDiacritics: true });
 }
 
 class ExternalFTSTable extends FTSTable {
+  rowid = this.IntPrimary;
   ExternalRowId = null;
 }
 
@@ -315,6 +317,10 @@ const getColumns = (constructor) => {
     let request;
     if (typeof value === 'symbol') {
       request = Table.requests.get(value);
+    }
+    else if (value === undefined) {
+      const symbol = instance.Text;
+      request = Table.requests.get(symbol);
     }
     else {
       const result = toColumn(value);

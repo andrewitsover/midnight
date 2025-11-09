@@ -210,7 +210,9 @@ const tree = await db.trees.get({ id: 3 }, ['id', 'born']);
 
 You can use the ```query``` or ```first``` syntax for more complex queries. ```query``` returns an array in the same way as ```many```, and ```first``` returns an object or ```undefined``` if nothing is found. The additional keywords are:
 
-```select```: a string or array of strings representing the columns to select.
+```select```: an array of strings representing the columns to select.
+
+```return```: a string representing the column to select.
 
 ```omit```: a string or array of strings representing the columns to omit. All of the other columns will be selected.
 

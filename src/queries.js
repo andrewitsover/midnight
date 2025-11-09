@@ -442,8 +442,7 @@ const exists = async (config) => {
     table,
     tx,
     subquery,
-    groupKeys,
-    debugResult
+    groupKeys
   } = config;
   const query = config.query || {};
   if (groupKeys && groupKeys.length > 0) {
@@ -467,12 +466,6 @@ const exists = async (config) => {
     params,
     tx
   };
-  if (debugResult) {
-    debugResult.queries.push({
-      sql,
-      params
-    });
-  }
   const post = (results) => {
     if (results.length > 0) {
       return Boolean(results[0].exists_result);
@@ -520,7 +513,7 @@ const group = async (config) => {
     subquery,
     partitionBy
   } = config;
-  const { select, column, distinct, where, include, debug, ...keywords } = query;
+  const { select, column, distinct, where, include, ...keywords } = query;
   const alias = Object.keys(select || column || distinct).at(0);
   verify(alias);
   let having;
@@ -548,37 +541,13 @@ const group = async (config) => {
   if (computed) {
     throw Error(`The alias cannot have the same name as a computed field.`);
   }
-  let debugResult;
-  if (debug) {
-    debugResult = {
-      result: undefined,
-      queries: []
-    };
-  }
-  const debugReturn = (result) => {
-    if (config.debugResult) {
-      config.debugResult.queries.push({
-        sql,
-        params
-      });
-    }
-    if (debugResult) {
-      debugResult.queries.push({
-        sql,
-        params
-      });
-      debugResult.result = result;
-      return debugResult;
-    }
-    return result;
-  }
   const includeResults = [];
   if (include) {
     for (const [column, handler] of Object.entries(include)) {
       if (computed && computed.has(column)) {
         throw Error(`Includes cannot have the same name as computed fields.`);
       }
-      const result = processInclude(column, handler, null, null, debugResult);
+      const result = processInclude(column, handler, null, null);
       includeResults.push({ column, result });
     }
   }
@@ -689,12 +658,6 @@ const group = async (config) => {
     params,
     tx
   };
-  if (debugResult) {
-    debugResult.queries.push({
-      sql,
-      params
-    });
-  }
   const post = (rows) => {
     if (rows.length === 0) {
       return rows;
@@ -727,7 +690,7 @@ const group = async (config) => {
   const results = await db.all(options);
   const adjusted = post(results);
   if (!include || !adjusted) {
-    return debugReturn(adjusted);
+    return adjusted;
   }
   for (const include of includeResults) {
     if (include.postProcess) {
@@ -741,7 +704,7 @@ const group = async (config) => {
       }
     }
   }
-  return debugReturn(adjusted);
+  return adjusted;
 }
 
 const aggregate = async (config) => {
@@ -751,8 +714,7 @@ const aggregate = async (config) => {
     tx,
     method,
     subquery,
-    groupKeys,
-    debugResult
+    groupKeys
   } = config;
   const params = {};
   const query = config.query || {};
@@ -794,12 +756,6 @@ const aggregate = async (config) => {
     params,
     tx
   };
-  if (debugResult) {
-    debugResult.queries.push({
-      sql,
-      params
-    });
-  }
   const post = (results) => {
     if (groupFields) {
       if (method == 'min' || method === 'max') {
@@ -829,7 +785,7 @@ const aggregate = async (config) => {
   return post(results);
 }
 
-const processInclude = (key, handler, debugResult) => {
+const processInclude = (key, handler) => {
   const tableTarget = {};
   const tableHandler = {
     get: function(target, property) {
@@ -922,7 +878,7 @@ const processInclude = (key, handler, debugResult) => {
     const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
     let group = false;
     const values = new Map();
-    const config = { debugResult };
+    const config = {};
     for (const keys of whereKeys) {
       const { includeKey, parentKey, traversals } = keys;
       let parentValues = values.get(parentKey);
@@ -1362,6 +1318,18 @@ const match = async (config) => {
   } = config;
   let sql;
   const params = {};
+  let select = '*';
+  if (query.select) {
+    select = query
+      .select
+      .forEach(c => verify(c))
+      .map(c => nameToSql(c))
+      .join(', ');
+  }
+  else if (query.return) {
+    verify(query.return);
+    select = nameToSql(query.return);
+  }
   if (query.column) {
     const statements = [];
     for (const [key, value] of Object.entries(query.column)) {
@@ -1370,11 +1338,11 @@ const match = async (config) => {
       params[placeholder] = parse(value);
       statements.push(`${nameToSql(key)} match $${placeholder}`);
     }
-    sql = `select * from ${table} where ${statements.join(' and ')}`;
+    sql = `select ${select} from ${table} where ${statements.join(' and ')}`;
   }
   else {
     const placeholder = getPlaceholder();
-    sql = `select * from ${table} where ${table} match $${placeholder}`;
+    sql = `select ${select} from ${table} where ${table} match $${placeholder}`;
     params[placeholder] = parse(query);
   }
   sql += toKeywords(query, params);
@@ -1383,7 +1351,11 @@ const match = async (config) => {
     params,
     tx
   };
-  return await db.all(options);
+  const result = await db.all(options);
+  if (query.return) {
+    return result.map(r => r[query.return]);
+  }
+  return result;
 }
 
 const all = async (config) => {
@@ -1403,34 +1375,27 @@ const all = async (config) => {
   let columns = config.columns;
   let included;
   let keywords;
-  let debugResult;
   if (type === 'complex') {
-    const { where, select, omit, include, debug, ...rest } = query;
+    const { where, select, return: returning, omit, include, ...rest } = query;
     query = where || {};
     if (omit) {
       const all = Object.keys(db.columns[table]);
       columns = invertOmit(all, omit);
     }
     else {
-      columns = select;
+      columns = select || returning;
     }
     included = include;
     keywords = rest;
-    if (debug) {
-      debugResult = {
-        result: undefined,
-        queries: []
-      };
-    }
   }
-  const returnValue = ['string', 'function'].includes(typeof columns);
+  const returnValue = typeof columns === 'string';
   const includeResults = [];
   const columnsToRemove = [];
   if (included) {
     const extraColumns = new Set();
     const includeNames = [];
     for (const [column, handler] of Object.entries(included)) {
-      const result = processInclude(column, handler, debugResult);
+      const result = processInclude(column, handler);
       for (const keys of result.whereKeys) {
         extraColumns.add(keys.parentKey);
       }
@@ -1540,23 +1505,6 @@ const all = async (config) => {
     params,
     tx
   };
-  const debugReturn = (result) => {
-    if (config.debugResult) {
-      config.debugResult.queries.push({
-        sql,
-        params
-      });
-    }
-    if (debugResult) {
-      debugResult.queries.push({
-        sql,
-        params
-      });
-      debugResult.result = result;
-      return debugResult;
-    }
-    return result;
-  }
   const post = (rows) => {
     if (rows.length === 0) {
       if (first) {
@@ -1614,7 +1562,7 @@ const all = async (config) => {
   const rows = await db.all(options);
   const adjusted = post(rows);
   if (!included || !adjusted || returnValue) {
-    return debugReturn(adjusted);
+    return adjusted;
   }
   if (first) {
     for (const include of includeResults) {
@@ -1638,7 +1586,7 @@ const all = async (config) => {
         adjusted[key] = value;
       }
     }
-    return debugReturn(adjusted);
+    return adjusted;
   }
   else {
     let result = adjusted;
@@ -1669,7 +1617,7 @@ const all = async (config) => {
       }
       result = mapped;
     }
-    return debugReturn(result);
+    return result;
   }
 }
 
