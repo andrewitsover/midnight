@@ -48,21 +48,6 @@ const tree = await db.trees.get({
 });
 ```
 
-Includes are specified at the time of the query, rather than in the schema.
-
-```js
-const forests = await db.forests.query({
-  include: {
-    trees: (t, c) => t.trees.many({ 
-      forestId: c.id
-    })
-  },
-  where: {
-    name: n => n.like('National%')
-  }
-});
-```
-
 The second type of syntax is much like SQL and builds on many of the new features that JavaScript has added to its language in recent times.
 
 ```js
@@ -225,8 +210,6 @@ const rangers = await db.rangers.query({
 });
 ```
 
-```include```: include other tables in the result.
-
 ```orderBy```: a string or an array representing the column or columns to order the result by. This can also be a function that utilises the built-in SQLite functions.
 
 ```js
@@ -244,8 +227,6 @@ const trees = await db.trees.query({
 
 ```distinct```: adds the ```distinct``` keywords to the start of the select clause.
 
-```debug```: when set to true, the result will include debug information such as the raw SQL used in the query.
-
 For example:
 
 ```js
@@ -256,20 +237,6 @@ const trees = await db.trees.query({
   select: ['name', 'category'],
   orderBy: 'id',
   limit: 10
-});
-```
-
-You can also include additional relations.
-
-```js
-const animals = await db.animals.query({
-  include: {
-    sightings: (t, c) => t.sightings.query({ 
-      where: {
-        animalId: c.id
-      }
-    })
-  }
 });
 ```
 

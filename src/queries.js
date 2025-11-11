@@ -509,11 +509,9 @@ const group = async (config) => {
     method,
     query,
     tx,
-    dbClient,
-    subquery,
-    partitionBy
+    subquery
   } = config;
-  const { select, column, distinct, where, include, ...keywords } = query;
+  const { select, column, distinct, where, ...keywords } = query;
   const alias = Object.keys(select || column || distinct).at(0);
   verify(alias);
   let having;
@@ -540,16 +538,6 @@ const group = async (config) => {
   const computed = subquery ? null : db.computed[table][alias];
   if (computed) {
     throw Error(`The alias cannot have the same name as a computed field.`);
-  }
-  const includeResults = [];
-  if (include) {
-    for (const [column, handler] of Object.entries(include)) {
-      if (computed && computed.has(column)) {
-        throw Error(`Includes cannot have the same name as computed fields.`);
-      }
-      const result = processInclude(column, handler, null, null);
-      includeResults.push({ column, result });
-    }
   }
   const columnTypes = db.columns[table];
   const byClause = by.map(c => nameToSql(c)).join(', ');
@@ -602,54 +590,8 @@ const group = async (config) => {
       sql += ` having ${clauses}`;
     }
   }
-  if (hasKeywords && !partitionBy) {
+  if (hasKeywords) {
     sql += toKeywords(keywords, params);
-  }
-  else if (partitionBy) {
-    const withTable = 'flyweight_wrapped';
-    sql = `with ${withTable} as (${sql})`;
-    const selectColumns = [alias, ...by];
-    let orderBy;
-    if (keywords.orderBy) {
-      orderBy = getOrderBy(keywords.orderBy, params);
-    }
-    else {
-      orderBy = `${withTable}.${nameToSql(db.getPrimaryKey(table))}`;
-    }
-    let desc = '';
-    if (keywords.desc) {
-      desc = ' desc';
-    }
-    let i = 1;
-    let rankAlias = 'rn';
-    while (selectColumns.includes(rankAlias)) {
-      i++;
-      rankAlias = `rn${i}`;
-    }
-    sql += ` select ${selectColumns.map(c => nameToSql(c)).join(', ')}, row_number() over (partition by ${withTable}.${nameToSql(partitionBy)} order by ${orderBy}${desc}) as ${rankAlias} from ${withTable}`;
-    const rankedTable = `flyweight_ranked`;
-    sql = `with ${rankedTable} as (${sql}) select ${selectColumns.map(c => nameToSql(c)).join(', ')} from ${rankedTable} where ${rankAlias}`;
-    const hasOffset = keywords.offset !== undefined && Number.isInteger(keywords.offset);
-    const hasLimit = keywords.limit !== undefined && Number.isInteger(keywords.limit);
-    if (hasOffset && hasLimit) {
-      const start = keywords.offset;
-      const end = keywords.offset + keywords.limit;
-      const startPlaceholder = getPlaceholder();
-      const endPlaceholder = getPlaceholder();
-      params[startPlaceholder] = start;
-      params[endPlaceholder] = end;
-      sql += ` > $${startPlaceholder} and ${alias} <= $${endPlaceholder}`;
-    }
-    else if (hasLimit && !hasOffset) {
-      const placeholder = getPlaceholder();
-      params[placeholder] = keywords.limit;
-      sql += ` <= $${placeholder}`;
-    }
-    else if (hasOffset && !hasLimit) {
-      const placeholder = getPlaceholder();
-      params[placeholder] = keywords.limit;
-      sql += ` > $${placeholder}`;
-    }
   }
   const withTable = 'flyweight_alias';
   sql = `with ${withTable} as (${sql}) select ${by.map(c => nameToSql(c)).join(', ')}, ${method} as ${alias} from ${withTable}`;
@@ -688,23 +630,7 @@ const group = async (config) => {
     return await processBatch(db, options, post);
   }
   const results = await db.all(options);
-  const adjusted = post(results);
-  if (!include || !adjusted) {
-    return adjusted;
-  }
-  for (const include of includeResults) {
-    if (include.postProcess) {
-      include.postProcess(adjusted);
-    }
-    else {
-      const runQuery = include.result.runQuery;
-      if (runQuery) {
-        const result = await runQuery(dbClient, adjusted);
-        result.postProcess(adjusted);
-      }
-    }
-  }
-  return adjusted;
+  return post(results);
 }
 
 const aggregate = async (config) => {
@@ -783,291 +709,6 @@ const aggregate = async (config) => {
   }
   const results = await db.all(options);
   return post(results);
-}
-
-const processInclude = (key, handler) => {
-  const tableTarget = {};
-  const tableHandler = {
-    get: function(target, property) {
-      if (property === 'use') {
-        return (query) => {
-          target.query = query;
-          return tableProxy;
-        }
-      }
-      if (!target.table && !target.query) {
-        target.table = property;
-        return tableProxy;
-      }
-      if (!target.method) {
-        target.method = property;
-        return (...args) => {
-          target.args = args;
-          return tableProxy;
-        }
-      }
-      if (target.method && target.method === 'groupBy' && !target.aggregate) {
-        target.aggregate = property;
-        return (...args) => {
-          target.aggregateArgs = args;
-          return tableProxy;
-        }
-      }
-    }
-  };
-  const tableProxy = new Proxy(tableTarget, tableHandler);
-  const columnHandler = {
-    get: function(target, property) {
-      target.name = property;
-      const request = {
-        name: property
-      };
-      columnRequests.push(request);
-      return request;
-    }
-  }
-  const columnTarget = {};
-  const columnProxy = new Proxy(columnTarget, columnHandler);
-  const columnRequests = [];
-  handler(tableProxy, columnProxy);
-  const method = tableTarget.method;
-  let where;
-  const whereFirst = ['get', 'many', 'exists'].includes(method);
-  if (whereFirst) {
-    where = tableTarget.args[0] || {};
-  }
-  else {
-    if (tableTarget.method === 'groupBy') {
-      where = tableTarget.aggregateArgs[0].where || {};
-    }
-    else {
-      where = tableTarget.args[0].where || {};
-    }
-  }
-  const whereKeys = [];
-  let whereOperator = 'and';
-  const getWhereKeys = (conditions, traversals) => {
-    for (const [key, value] of Object.entries(conditions)) {
-      if (key === 'and' || key === 'or') {
-        traversals.push(key);
-        let i = 0;
-        for (const conditions of value) {
-          getWhereKeys(conditions, [...traversals, i]);
-          i++;
-        }
-      }
-      else {
-        const request = columnRequests.find(r => r === value);
-        if (request) {
-          if (traversals.length > 0) {
-            whereOperator = traversals.at(0);
-          }
-          whereKeys.push({
-            includeKey: key,
-            parentKey: request.name,
-            traversals
-          });
-        }
-      }
-    }
-  }
-  getWhereKeys(where, []);
-  const includeKeys = whereKeys.map(k => k.includeKey);
-  const runQuery = async (db, result) => {
-    const singleResult = !Array.isArray(result);
-    const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
-    let group = false;
-    const values = new Map();
-    const config = {};
-    for (const keys of whereKeys) {
-      const { includeKey, parentKey, traversals } = keys;
-      let parentValues = values.get(parentKey);
-      if (!parentValues) {
-        parentValues = singleResult ? result[parentKey] : result.map(item => item[parentKey]);
-        values.set(includeKey, parentValues);
-      }
-      let current = where;
-      if (traversals.length > 0) {
-        for (const key of traversals) {
-          current = current[key];
-        }
-      }
-      current[includeKey] = parentValues;
-    }
-    let returnToValues = null;
-    if (['get', 'many', 'exists', ...aggregateMethods].includes(method) && includeKeys.length > 0) {
-      if (tableTarget.args.length > 1) {
-        const select = tableTarget.args[1];
-        if (!Array.isArray(select)) {
-          if (includeKeys.length > 1 || includeKeys.at(0) !== select) {
-            returnToValues = select;
-            const set = new Set([select, ...includeKeys]);
-            tableTarget.args[1] = [...set];
-          }
-        }
-        else {
-          const add = includeKeys.filter(k => !select.includes(k));
-          select.push(...add);
-        }
-      }
-      if (method === 'exists' || aggregateMethods.includes(method)) {
-        group = true;
-        config.groupKeys = includeKeys;
-        returnToValues = `${method}_result`;
-      }
-    }
-    else if (includeKeys.length > 0 && method !== 'groupBy') {
-      const options = tableTarget.args[0];
-      const select = options.select;
-      if (select) {
-        if (!Array.isArray(select)) {
-          const add = includeKeys.filter(k => k !== select);
-          if (add.length > 0) {
-            options.select = [select, ...add];
-            returnToValues = select;
-          }
-        }
-        else {
-          const add = includeKeys.filter(k => !select.includes(k));
-          select.push(...add);
-        }
-      }
-    }
-    let queryMethod = method;
-    if (!singleResult && method === 'get') {
-      queryMethod = 'many';
-    }
-    if (!singleResult && method === 'first') {
-      queryMethod = 'query';
-    }
-    const args = method === 'groupBy' ? tableTarget.aggregateArgs : tableTarget.args;
-    if (['first', 'query', 'groupBy'].includes(method) || !queryMethods.includes(method)) {
-      if (args[0].limit !== undefined) {
-        config.partitionBy = includeKeys;
-      }
-      else if (args[0].orderBy !== undefined && method === 'first' && queryMethod === 'query') {
-        config.partitionBy = includeKeys;
-        config.singleRow = true;
-      }
-    }
-    if (args.length === 0) {
-      args.push(undefined);
-    }
-    if (['get', 'many'].includes(method) && args.length === 1) {
-      args.push(undefined);
-    }
-    if (method === 'groupBy') {
-      tableTarget.args.push(config);
-    }
-    else {
-      args.push(config);
-    }
-    let included;
-    let run = db[tableTarget.table][queryMethod];
-    if (tableTarget.query) {
-      run = db.use(tableTarget.query)[queryMethod];
-    }
-    if (method === 'groupBy') {
-      const { aggregate, aggregateArgs } = tableTarget;
-      included = await run(...tableTarget.args)[aggregate](...aggregateArgs);
-    }
-    else {
-      included = await run(...args);
-    }
-    const postProcess = (result) => {
-      if (singleResult) {
-        let adjusted = false;
-        if (singleInclude) {
-          const mapped = group ? included.at(0) : included;
-          if (mapped === undefined) {
-            adjusted = true;
-            if (method === 'exists') {
-              result[key] = false;
-            }
-            else if (method === 'count') {
-              result[key] = 0;
-            }
-            else {
-              result[key] = mapped;
-            }
-          }
-          else {
-            result[key] = mapped;
-          }
-        }
-        else {
-          result[key] = included;
-        }
-        if (returnToValues !== null && !adjusted) {
-          const value = result[key];
-          if (singleInclude) {
-            result[key] = value[returnToValues];
-          }
-          else {
-            result[key] = value.map(item => item[returnToValues]);
-          }
-        }
-      }
-      else {
-        for (const item of result) {
-          if (whereKeys.length > 0) {
-            if (whereKeys.length === 1) {
-              const { includeKey, parentKey } = whereKeys.at(0);
-              item[key] = included.filter(value => value[includeKey] === item[parentKey]);
-            }
-            else {
-              if (whereOperator === 'and') {
-                item[key] = included.filter(value => {
-                  for (const keys of whereKeys) {
-                    const { includeKey, parentKey } = keys;
-                    if (value[includeKey] !== item[parentKey]) {
-                      return false;
-                    }
-                  }
-                  return true;
-                });
-              }
-              else {
-                item[key] = included.filter(value => {
-                  for (const keys of whereKeys) {
-                    const { includeKey, parentKey } = keys;
-                    if (value[includeKey] === item[parentKey]) {
-                      return true;
-                    }
-                  }
-                  return false;
-                });
-              }
-            }
-          }
-          else {
-            item[key] = included;
-          }
-          if (returnToValues !== null) {
-            item[key] = item[key].map(v => v[returnToValues]);
-          }
-          if (singleInclude) {
-            const value = item[key].at(0);
-            if (value === undefined) {
-              item[key] = null;
-            }
-            else {
-              item[key] = value;
-            }
-          }
-        }
-      }
-    }
-    return {
-      raw: included,
-      whereKeys: includeKeys,
-      postProcess
-    }
-  }
-  return {
-    whereKeys: whereKeys,
-    runQuery
-  }
 }
 
 const getConverters = (key, value, db, converters, keys = [], optional = []) => {
@@ -1234,7 +875,7 @@ const toSql = (phrases, type) => {
   else if (Array.isArray(phrases)) {
     if (type === 'NOT') {
       const joined = phrases
-        .map(p => escape(phrase))
+        .map(p => escape(p))
         .join(' OR ');
       return `NOT (${joined})`;
     }
@@ -1330,9 +971,9 @@ const match = async (config) => {
     verify(query.return);
     select = nameToSql(query.return);
   }
-  if (query.column) {
+  if (query.where) {
     const statements = [];
-    for (const [key, value] of Object.entries(query.column)) {
+    for (const [key, value] of Object.entries(query.where)) {
       verify(key);
       const placeholder = getPlaceholder();
       params[placeholder] = parse(value);
@@ -1364,19 +1005,15 @@ const all = async (config) => {
     table,
     first,
     tx,
-    dbClient,
     subquery,
-    partitionBy,
-    singleRow,
     type
   } = config;
   const params = {};
   let query = config.query || {};
   let columns = config.columns;
-  let included;
   let keywords;
   if (type === 'complex') {
-    const { where, select, return: returning, omit, include, ...rest } = query;
+    const { where, select, return: returning, omit, ...rest } = query;
     query = where || {};
     if (omit) {
       const all = Object.keys(db.columns[table]);
@@ -1385,29 +1022,9 @@ const all = async (config) => {
     else {
       columns = select || returning;
     }
-    included = include;
     keywords = rest;
   }
   const returnValue = typeof columns === 'string';
-  const includeResults = [];
-  const columnsToRemove = [];
-  if (included) {
-    const extraColumns = new Set();
-    const includeNames = [];
-    for (const [column, handler] of Object.entries(included)) {
-      const result = processInclude(column, handler);
-      for (const keys of result.whereKeys) {
-        extraColumns.add(keys.parentKey);
-      }
-      includeResults.push({ column, result });
-      includeNames.push(column);
-    }
-    if (columns) {
-      const remove = Array.from(extraColumns.values()).filter(c => !columns.includes(c));
-      columnsToRemove.push(...remove);
-      columns.push(...remove);
-    }
-  }
   const types = subquery ? subquery.columns : db.columns[table];
   let select;
   if (keywords && (keywords.highlight || keywords.snippet)) {
@@ -1421,82 +1038,19 @@ const all = async (config) => {
     });
   }
   let sql = 'select ';
-  if (partitionBy) {
-    let orderBy;
-    if (keywords.orderBy) {
-      orderBy = getOrderBy(keywords.orderBy, params);
-    }
-    else {
-      orderBy = nameToSql(db.getPrimaryKey(table));
-    }
-    let desc = '';
-    if (keywords.desc) {
-      desc = ' desc';
-    }
-    let i = 1;
-    let alias = 'rn';
-    while (select.names.includes(alias)) {
-      i++;
-      alias = `rn${i}`;
-    }
-    select.clause += `, row_number() over (partition by ${nameToSql(partitionBy)} order by ${orderBy}${desc}) as ${alias}`;
-    const wrapQuery = (sql) => {
-      let statement = `with rankedQuery as (${sql}) select ${select.names.join(', ')} from rankedQuery where ${alias}`;
-      if (singleRow) {
-        statement += ' = 1';
-        return statement;
-      }
-      const hasOffset = keywords.offset !== undefined && Number.isInteger(keywords.offset);
-      const hasLimit = keywords.limit !== undefined && Number.isInteger(keywords.limit);
-      if (hasOffset && hasLimit) {
-        const start = keywords.offset;
-        const end = keywords.offset + keywords.limit;
-        const startPlaceholder = getPlaceholder();
-        const endPlaceholder = getPlaceholder();
-        params[startPlaceholder] = start;
-        params[endPlaceholder] = end;
-        statement += ` > $${startPlaceholder} and ${alias} <= $${endPlaceholder}`;
-      }
-      else if (hasLimit && !hasOffset) {
-        const placeholder = getPlaceholder();
-        params[placeholder] = keywords.limit;
-        statement += ` <= $${placeholder}`;
-      }
-      else if (hasOffset && !hasLimit) {
-        const placeholder = getPlaceholder();
-        params[placeholder] = keywords.limit;
-        statement += ` > $${placeholder}`;
-      }
-      return statement;
-    }
-    if (keywords.distinct) {
-      sql += 'distinct ';
-    }
-    sql += `${select.clause} from ${table}`;
-    const clause = toWhere({
-      query,
-      params
-    });
-    if (clause) {
-      sql += ` where ${clause}`;
-    }
-    sql = wrapQuery(sql);
+  if (keywords && keywords.distinct) {
+    sql += 'distinct ';
   }
-  else {
-    if (keywords && keywords.distinct) {
-      sql += 'distinct ';
-    }
-    const tableClause = subquery ? `(${subquery.sql})` : table;
-    sql += `${select.clause} from ${tableClause}`;
-    const clause = toWhere({
-      query,
-      params
-    });
-    if (clause) {
-      sql += ` where ${clause}`;
-    }
-    sql += toKeywords(keywords, params, table, db.tables[table]);
+  const tableClause = subquery ? `(${subquery.sql})` : table;
+  sql += `${select.clause} from ${tableClause}`;
+  const clause = toWhere({
+    query,
+    params
+  });
+  if (clause) {
+    sql += ` where ${clause}`;
   }
+  sql += toKeywords(keywords, params, table, db.tables[table]);
   if (first) {
     sql += ' limit 1';
   }
@@ -1560,65 +1114,7 @@ const all = async (config) => {
     return await processBatch(db, options, post);
   }
   const rows = await db.all(options);
-  const adjusted = post(rows);
-  if (!included || !adjusted || returnValue) {
-    return adjusted;
-  }
-  if (first) {
-    for (const include of includeResults) {
-      if (include.postProcess) {
-        include.postProcess(adjusted);
-      }
-      else {
-        const runQuery = include.result.runQuery;
-        if (runQuery) {
-          const result = await runQuery(dbClient, adjusted);
-          result.postProcess(adjusted);
-        }
-      }
-      if (columnsToRemove.length === 0) {
-        continue;
-      }
-      for (const [key, value] of Object.entries(adjusted)) {
-        if (columnsToRemove.includes(key)) {
-          continue;
-        }
-        adjusted[key] = value;
-      }
-    }
-    return adjusted;
-  }
-  else {
-    let result = adjusted;
-    for (const include of includeResults) {
-      if (include.postProcess) {
-        include.postProcess(adjusted);
-      }
-      else {
-        const runQuery = include.result.runQuery;
-        if (runQuery) {
-          const result = await runQuery(dbClient, adjusted);
-          result.postProcess(adjusted);
-        }
-      }
-      if (columnsToRemove.length === 0) {
-        continue;
-      }
-      const mapped = [];
-      for (const item of result) {
-        const removed = {};
-        for (const [key, value] of Object.entries(item)) {
-          if (columnsToRemove.includes(key)) {
-            continue;
-          }
-          removed[key] = value;
-        }
-        mapped.push(removed);
-      }
-      result = mapped;
-    }
-    return result;
-  }
+  return post(rows);
 }
 
 const remove = async (args) => {
