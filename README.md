@@ -733,7 +733,7 @@ If you want to search a specific column, you can do:
 
 ```js
 const matches = await db.forstSearches.match({
-  column: {
+  where: {
     otherName: {
       near: ['Mount', 'Park', 2]
     }
