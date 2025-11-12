@@ -348,12 +348,11 @@ const changes = await db.moons.remove({ id: 100 });
 
 ## Transactions
 
-Transactions involve locking writes to the database with ```getTransaction```. If multiple transactions try to run at the same time, they will wait until the current transaction is complete.
+Transactions lock all writes to the database until they are complete.
 
 ```js
-const tx = await db.getTransaction();
+const tx = await db.begin();
 try {
-  await tx.begin();
   const animalId = await tx.animals.insert({
     name: 'Gray Wolf',
     speed: 73

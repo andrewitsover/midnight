@@ -115,8 +115,18 @@ class SQLiteDatabase extends Database {
     return client.pragma(sql);
   }
 
-  async begin(tx) {
-    await this.basicRun('begin', tx);
+  async begin(type) {
+    if (type && !['deferred', 'immediate'].includes(type)) {
+      throw Error(`Invalid transaction type: ${type}`);
+    }
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    const writer = await this.getWriter();
+    const tx = { db: this.write, writer };
+    const sql = type ? `begin ${type}` : 'begin';
+    await this.basicRun(sql, tx);
+    return makeClient(this, tx);
   }
 
   async commit(tx) {

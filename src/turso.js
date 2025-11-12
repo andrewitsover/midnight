@@ -19,13 +19,13 @@ class TursoDatabase extends Database {
     }
   }
 
-  async getTransaction(type) {
+  async begin(type) {
+    if (!type || !['read', 'write'].includes(type)) {
+      throw Error(`Invalid transaction type: ${type}`);
+    }
     const db = await this.raw.transaction(type);
-    return makeClient(this, { db });
-  }
-
-  async begin(tx) {
     await tx.db.begin();
+    return makeClient(this, { db });
   }
 
   async commit(tx) {

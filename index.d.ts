@@ -922,9 +922,9 @@ type GetDefined<T> =
       : ToJsType<V> | null
     : never);
 
-interface TypedDb<P, C> {
+interface TypedDb<P, C, N> {
   exec(sql: string): Promise<void>;
-  begin(): Promise<void>;
+  begin(type?: N): Promise<TypedDb<P, C, N> & P>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
   pragma(sql: string): Promise<any[]>;
@@ -932,9 +932,8 @@ interface TypedDb<P, C> {
   migrate(sql: string): Promise<void>;
   getSchema(): any[];
   diff(schema?: any[]): string;
-  getTransaction(type?: 'read' | 'write' | 'deferred'): Promise<TypedDb<P, C> & P>;
-  batch<T extends any[]>(batcher: (bx: TypedDb<P, C> & P) => T): Promise<Unwrap<T>>;
-  batch<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C> & P) => T): Promise<Unwrap<T>>;
+  batch<T extends any[]>(batcher: (bx: TypedDb<P, C, N> & P) => T): Promise<Unwrap<T>>;
+  batch<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C, N> & P) => T): Promise<Unwrap<T>>;
   sync(): Promise<void>;
   first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>> | undefined>;
   firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>> | undefined>;
@@ -1206,7 +1205,6 @@ export class ExternalFTSTable extends FTSTable {
 
 export class Database {
   constructor();
-  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C>;
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
@@ -1217,6 +1215,7 @@ export class Database {
 
 export class SQLiteDatabase extends Database {
   constructor(path?: string | URL, options?: SQLiteConfig);
+  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
   initialize(): Promise<void>;
   close(): Promise<void>;
   created: boolean;
@@ -1224,5 +1223,6 @@ export class SQLiteDatabase extends Database {
 
 export class TursoDatabase extends Database {
   constructor(options: TursoConfig);
+  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'read' | 'write'> & MakeClient<C>;
   batch(handler: (batcher: any) => any[], type: 'read' | 'write'): Promise<any[]>;
 }
