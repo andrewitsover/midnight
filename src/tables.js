@@ -169,6 +169,28 @@ class BaseTable {
     return symbol;
   }
 
+  get True() {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Column',
+      type: 'boolean',
+      notNull: true,
+      default: true
+    });
+    return symbol;
+  }
+
+  get False() {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Column',
+      type: 'boolean',
+      notNull: true,
+      default: false
+    });
+    return symbol;
+  }
+
   Default(value) {
     const { symbol, column } = toColumn(value);
     Table.requests.set(symbol, column);

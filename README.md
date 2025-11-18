@@ -32,10 +32,10 @@ class Forests extends Table {
 }
 
 class Trees extends Table {
-  name = this.Text;
+  name;
   planted = this.Index(this.Date);
   forestId = this.Cascade(Forests);
-  alive = true;
+  alive = this.True;
 }
 ```
 
@@ -85,7 +85,7 @@ import { SQLiteDatabase, Table } from '@andrewitsover/midnight';
 const database = new SQLiteDatabase('forest.db');
 
 class Clouds extends Table {
-  name = this.Text;
+  name;
 };
 
 const db = database.getClient({ Clouds });
@@ -338,12 +338,12 @@ const trees = await db.trees
   });
 ```
 
-### Remove
+### Delete
 
-```remove``` takes one argument representing the where clause and returns the number of rows affected by the query.
+```delete``` takes one argument representing the where clause and returns the number of rows affected by the query.
 
 ```js
-const changes = await db.moons.remove({ id: 100 });
+const changes = await db.moons.delete({ id: 100 });
 ```
 
 ## Transactions
@@ -439,8 +439,8 @@ Constraints can also be defined in the ```Attributes``` function and span across
 
 ```js
 class Rangers extends Table {
-  admin = false;
-  staffLimit = 3;
+  admin = this.False;
+  staffLimit = this.Default(3);
   createdAt = this.Now;
 
   Attributes = () => {
@@ -488,8 +488,8 @@ For indexes that span multiple columns or are based on expressions, you can defi
 ```js
 class Trees extends Table {
   id = this.IntPrimary;
-  name = this.Text;
-  category = this.Text;
+  name;
+  category;
   planted = this.Now;
 
   Attributes = () => {
@@ -520,9 +520,9 @@ Indexes can also be defined inside the ```Attributes``` function if they span ac
 ```js
 class Trees extends Table {
   id = this.IntPrimary;
-  name = this.Text;
+  name;
   forestId = this.References(Forests);
-  alive = true;
+  alive = this.True;
 
   Attributes = () => {
     this.Index(this.name, {
@@ -708,8 +708,8 @@ To define a fts5 table based on another table, you can do this:
 
 ```js
 export class Forests extends Table {
-  name = this.Text;
-  otherName = this.Text;
+  name;
+  otherName;
 }
 
 const forest = new Forests();

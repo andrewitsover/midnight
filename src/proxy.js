@@ -40,7 +40,7 @@ const basic = {
   match: (args) => async (query, config) => await match({ query, ...config, ...args }),
   query: (args) => async (query, config) => await all({ query, type: 'complex', ...config, ...args }),
   first: (args) => async (query, config) => await all({ query, first: true, type: 'complex', ...config, ...args }),
-  remove: (args) => async (query) => await remove({ query, ...args })
+  delete: (args) => async (query) => await remove({ query, ...args })
 }
 
 const getConverters = (key, value, db, converters, keys = [], optional = []) => {

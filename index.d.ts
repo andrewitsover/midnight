@@ -476,7 +476,7 @@ interface WriteQueries<T, I, W, R> {
   insertMany(params: Array<I>): Promise<void>;
   update(options: UpdateQuery<W, I>): Promise<number>;
   upsert<K extends keyof T>(options: UpsertQuery<I, K>): Promise<R>;
-  remove(params?: W): Promise<number>;
+  delete(params?: W): Promise<number>;
 }
 
 interface Queries<T, E, W, Y> {
@@ -974,7 +974,9 @@ export class BaseTable {
   DatePrimary: PkDate;
   Bool: DbBoolean;
 
-  Now: Date;
+  Now: DbDate;
+  True: DbBoolean;
+  False: DbBoolean;
 
   References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     onDelete?: ForeignActions,

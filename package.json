@@ -1,6 +1,6 @@
 {
   "name": "@andrewitsover/midnight",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
