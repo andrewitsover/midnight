@@ -185,7 +185,7 @@ interface AggregateMethods<T, W, K extends keyof T, Y> {
   sum<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
   sum<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
   array<A extends string, S extends keyof T>(params: GroupArrayValue<A, W, K, S>): Promise<Array<Pick<T, K> & { [key in A]: Array<DateToString<T[S]>> }>>;
-  array<A extends string>(params: GroupArray<A, W, K, U>): Promise<Array<Pick<T, K> & { [key in A]: Array<DateToString<T>> }>>;
+  array<A extends string>(params: GroupArray<A, W, K>): Promise<Array<Pick<T, K> & { [key in A]: Array<DateToString<T>> }>>;
   array<A extends string, S extends keyof T>(params: GroupArraySelect<A, W, K, S>): Promise<Array<Pick<T, K> & { [key in A]: Array<DateToString<Pick<T, S>>> }>>;
 }
 
