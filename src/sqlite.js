@@ -14,9 +14,10 @@ class SQLiteDatabase extends Database {
   constructor(path, options = {}) {
     super();
     this.dbPath = path;
+    this.isFile = path && path !== ':memory:' ? true : false;
     this.sqlite3 = sqlite3;
     this.extensions = options.extensions;
-    this.read = null;
+    this.db = null;
     this.writer = null;
     this.created = false;
   }
@@ -34,20 +35,17 @@ class SQLiteDatabase extends Database {
     return lock;
   }
 
-  getConnection(tx, write) {
-    return tx || write ? this.write : this.read;
-  }
-
   async initialize() {
     if (this.initialized) {
       return;
     }
-    const exists = existsSync(this.dbPath);
-    this.read = await this.createDatabase();
-    this.write = await this.createDatabase();
+    const exists = this.isFile && existsSync(this.dbPath);
+    this.db = await this.createDatabase();
     if (!exists) {
       this.created = true;
-      await this.pragma(null, 'journal_mode=WAL');
+      if (this.isFile) {
+        await this.pragma(null, 'journal_mode=WAL');
+      }
     }
     this.initialized = true;
   }
@@ -56,9 +54,8 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const tx = await this.getTransaction();
+    const tx = await this.begin();
     try {
-      await tx.begin();
       await tx.deferForeignKeys();
       await tx.exec(sql);
       await tx.commit();
@@ -99,7 +96,7 @@ class SQLiteDatabase extends Database {
       await this.initialize();
     }
     const writer = await this.getWriter();
-    const tx = { db: this.write, writer };
+    const tx = { db: this.db, writer };
     return makeClient(this, tx);
   }
 
@@ -111,8 +108,7 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const client = this.getConnection(tx);
-    return client.pragma(sql);
+    return this.db.pragma(sql);
   }
 
   async begin(type) {
@@ -123,7 +119,7 @@ class SQLiteDatabase extends Database {
       await this.initialize();
     }
     const writer = await this.getWriter();
-    const tx = { db: this.write, writer };
+    const tx = { db: this.db, writer };
     const sql = type ? `begin ${type}` : 'begin';
     await this.basicRun(sql, tx);
     return makeClient(this, tx);
@@ -142,14 +138,14 @@ class SQLiteDatabase extends Database {
   }
 
   async getError(sql) {
-    return this.read.prepare(sql);
+    return this.db.prepare(sql);
   }
 
   async basicRun(sql, tx) {
     if (!this.initialized) {
       await this.initialize();
     }
-    const statement = this.write.prepare(sql);
+    const statement = this.db.prepare(sql);
     let lock;
     if (!tx) {
       lock = await this.getWriter();
@@ -165,8 +161,7 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const client = this.getConnection(tx);
-    const statement = client.prepare(sql);
+    const statement = this.db.prepare(sql);
     return statement.all();
   }
 
@@ -175,10 +170,10 @@ class SQLiteDatabase extends Database {
       await this.initialize();
     }
     const lock = await this.getWriter();
-    const inserted = this.write.transaction(() => {
+    const inserted = this.db.transaction(() => {
       for (const insert of inserts) {
         const { query, params } = insert;
-        const statement = this.write.prepare(query);
+        const statement = this.db.prepare(query);
         statement.run(params);
       }
     });
@@ -197,7 +192,7 @@ class SQLiteDatabase extends Database {
     const client = makeClient(this, { isBatch: true });
     const promises = handler(client).flat();
     const handlers = await Promise.all(promises);
-    const result = this.write.transaction(() => {
+    const result = this.db.transaction(() => {
       const responses = [];
       const flat = handlers.flat();
       for (const handler of flat) {
@@ -232,7 +227,7 @@ class SQLiteDatabase extends Database {
         query = cached;
       }
       else {
-        const statement = this.write.prepare(query);
+        const statement = this.db.prepare(query);
         this.statements.set(key, statement);
         query = statement;
       }
@@ -266,7 +261,6 @@ class SQLiteDatabase extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const client = this.getConnection(tx, write);
     if (typeof query === 'string') {
       const name = tx || write ? 'write' : 'read';
       const key = query + name;
@@ -277,7 +271,7 @@ class SQLiteDatabase extends Database {
       else {
         let statement;
         try {
-          statement = client.prepare(query);
+          statement = this.db.prepare(query);
         }
         catch (e) {
           const message = `query: ${query} had the error: ${e}`;
@@ -315,7 +309,7 @@ class SQLiteDatabase extends Database {
     if (!tx) {
       lock = await this.getWriter();
     }
-    this.write.exec(sql);
+    this.db.exec(sql);
     if (lock) {
       this.writer = null;
       lock.resolve();
@@ -326,8 +320,7 @@ class SQLiteDatabase extends Database {
     if (this.closed || !this.initialized) {
       return;
     }
-    this.read.close();
-    this.write.close();
+    this.db.close();
     this.closed = true;
   }
 }
