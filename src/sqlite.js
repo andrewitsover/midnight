@@ -201,6 +201,26 @@ class SQLiteDatabase extends Database {
     return result();
   }
 
+  cache(query) {
+    if (typeof query !== 'string') {
+      return query;
+    }
+    const cached = this.statements.get(query);
+    if (cached) {
+      return cached;
+    }
+    let statement;
+    try {
+      statement = this.db.prepare(query);
+    }
+    catch (e) {
+      const message = `query: ${query} had the error: ${e}`;
+      throw Error(message);
+    }
+    this.statements.set(query, statement);
+    return statement;
+  }
+
   async run(props) {
     if (!this.initialized) {
       await this.initialize();
@@ -212,21 +232,10 @@ class SQLiteDatabase extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    if (typeof query === 'string') {
-      const key = query + 'write';
-      const cached = this.statements.get(key);
-      if (cached) {
-        query = cached;
-      }
-      else {
-        const statement = this.db.prepare(query);
-        this.statements.set(key, statement);
-        query = statement;
-      }
-    }
+    const statement = this.cache(query);
     if (tx && tx.isBatch) {
       return {
-        statement: query,
+        statement,
         params
       };
     }
@@ -234,7 +243,7 @@ class SQLiteDatabase extends Database {
     if (!tx) {
       lock = await this.getWriteLock();
     }
-    const result = isEmpty(params) ? query.run() : query.run(params);
+    const result = isEmpty(params) ? statement.run() : statement.run(params);
     if (lock) {
       lock.release();
     }
@@ -252,28 +261,11 @@ class SQLiteDatabase extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    if (typeof query === 'string') {
-      const cached = this.statements.get(query);
-      if (cached) {
-        query = cached;
-      }
-      else {
-        let statement;
-        try {
-          statement = this.db.prepare(query);
-        }
-        catch (e) {
-          const message = `query: ${query} had the error: ${e}`;
-          throw Error(message);
-        }
-        this.statements.set(query, statement);
-        query = statement;
-      }
-    }
+    const statement = this.cache(query);
     const process = this.process;
     if (tx && tx.isBatch) {
       return {
-        statement: query,
+        statement,
         params,
         post: (rows) => this.process(rows, options)
       };
@@ -282,7 +274,7 @@ class SQLiteDatabase extends Database {
     if (!tx && write) {
       lock = await this.getWriteLock();
     }
-    const rows = isEmpty(params) ? query.all() : query.all(params);
+    const rows = isEmpty(params) ? statement.all() : statement.all(params);
     if (lock) {
       lock.release();
     }
