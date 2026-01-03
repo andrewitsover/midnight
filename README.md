@@ -77,7 +77,7 @@ This syntax allows you to perform queries that usually aren't possible in ORMs.
 npm install @andrewitsover/midnight
 ```
 
-Assuming you had a database already setup with a ```clouds``` table:
+This example will create a ```clouds``` table in a database named ```forest.db``` and then insert and read some rows.
 
 ```js
 import { SQLiteDatabase, Table } from '@andrewitsover/midnight';
@@ -89,13 +89,15 @@ class Clouds extends Table {
 };
 
 const db = database.getClient({ Clouds });
+const sql = db.diff();
+await db.migrate(sql);
 
 await db.clouds.insert({ name: 'Nimbus' });
 const clouds = await db.clouds.many();
 console.log(clouds);
 ```
 
-You probably want to use the migration system to create and modify tables though. See the [sample project](https://github.com/andrewitsover/midnight-tutorial) to get an idea of how a basic project can be setup.
+See the [sample project](https://github.com/andrewitsover/midnight-tutorial) to get an idea of how a basic project can be setup.
 
 ## The API
 
