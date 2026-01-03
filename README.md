@@ -99,7 +99,7 @@ You probably want to use the migration system to create and modify tables though
 
 ## The API
 
-Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder.
+Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```delete``` methods available to it.
 
 ### Insert
 
