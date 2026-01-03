@@ -77,6 +77,8 @@ This syntax allows you to perform queries that usually aren't possible in ORMs.
 npm install @andrewitsover/midnight
 ```
 
+**Note:** This library uses ES modules. Make sure your `package.json` includes `"type": "module"`, or use the `.mjs` file extension for your files.
+
 This example will create a ```clouds``` table in a database named ```forest.db``` and then insert and read some rows.
 
 ```js
