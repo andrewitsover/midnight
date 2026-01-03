@@ -13,38 +13,43 @@ const isEmpty = (params) => {
 class SQLiteDatabase extends Database {
   constructor(path, options = {}) {
     super();
-    this.dbPath = path;
-    this.isFile = path && path !== ':memory:' ? true : false;
+    this.path = path;
+    this.permanent = path && !path.includes(':memory:') ? true : false;
     this.sqlite3 = sqlite3;
     this.extensions = options.extensions;
     this.db = null;
-    this.writer = null;
+    this.lock = null;
     this.created = false;
   }
 
-  async getWriter() {
-    let lock;
+  async getWriteLock() {
+    let next;
     while (true) {
-      if (!this.writer) {
-        lock = Promise.withResolvers();
-        this.writer = lock.promise;
+      if (!this.lock) {
+        next = Promise.withResolvers();
+        this.lock = next.promise;
         break;
       }
-      await this.writer;
+      await this.lock;
     }
-    return lock;
+    return {
+      release: () => {
+        this.lock = null;
+        next.resolve();
+      }
+    }
   }
 
   async initialize() {
     if (this.initialized) {
       return;
     }
-    const exists = this.isFile && existsSync(this.dbPath);
+    const exists = this.permanent && existsSync(this.path);
     this.db = await this.createDatabase();
     if (!exists) {
       this.created = true;
-      if (this.isFile) {
-        await this.pragma(null, 'journal_mode=WAL');
+      if (this.permanent) {
+        await this.pragma('journal_mode=WAL');
       }
     }
     this.initialized = true;
@@ -67,7 +72,7 @@ class SQLiteDatabase extends Database {
   }
 
   async createDatabase() {
-    const db = new this.sqlite3(this.dbPath);
+    const db = new this.sqlite3(this.path);
     await this.enableForeignKeys(db);
     const extensions = this.extensions;
     if (extensions) {
@@ -87,24 +92,15 @@ class SQLiteDatabase extends Database {
     db.pragma('foreign_keys = on');
   }
 
-  async deferForeignKeys(tx) {
-    await this.pragma(tx, 'defer_foreign_keys = true');
+  async deferForeignKeys() {
+    await this.pragma('defer_foreign_keys = true');
   }
-
-  async getTransaction() {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-    const writer = await this.getWriter();
-    const tx = { db: this.db, writer };
-    return makeClient(this, tx);
-  }
-
+  
   async loadExtension(path, db) {
     db.loadExtension(path);
   }
 
-  async pragma(tx, sql) {
+  async pragma(sql) {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -118,8 +114,8 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const writer = await this.getWriter();
-    const tx = { db: this.db, writer };
+    const lock = await this.getWriteLock();
+    const tx = { lock };
     const sql = type ? `begin ${type}` : 'begin';
     await this.basicRun(sql, tx);
     return makeClient(this, tx);
@@ -127,14 +123,12 @@ class SQLiteDatabase extends Database {
 
   async commit(tx) {
     await this.basicRun('commit', tx);
-    this.writer = null;
-    tx.writer.resolve();
+    tx.lock.release();
   }
 
   async rollback(tx) {
     await this.basicRun('rollback', tx);
-    this.writer = null;
-    tx.writer.resolve();
+    tx.lock.release();
   }
 
   async getError(sql) {
@@ -148,16 +142,15 @@ class SQLiteDatabase extends Database {
     const statement = this.db.prepare(sql);
     let lock;
     if (!tx) {
-      lock = await this.getWriter();
+      lock = await this.getWriteLock();
     }
     statement.run();
     if (lock) {
-      this.writer = null;
-      lock.resolve();
+      lock.release();
     }
   }
 
-  async basicAll(sql, tx) {
+  async basicAll(sql) {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -169,7 +162,7 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const lock = await this.getWriter();
+    const lock = await this.getWriteLock();
     const inserted = this.db.transaction(() => {
       for (const insert of inserts) {
         const { query, params } = insert;
@@ -178,8 +171,7 @@ class SQLiteDatabase extends Database {
       }
     });
     inserted();
-    this.writer = null;
-    lock.resolve();
+    lock.release();
   }
 
   async batch(type, handler) {
@@ -240,12 +232,11 @@ class SQLiteDatabase extends Database {
     }
     let lock;
     if (!tx) {
-      lock = await this.getWriter();
+      lock = await this.getWriteLock();
     }
     const result = isEmpty(params) ? query.run() : query.run(params);
     if (lock) {
-      this.writer = null;
-      lock.resolve();
+      lock.release();
     }
     return result.changes;
   }
@@ -262,9 +253,7 @@ class SQLiteDatabase extends Database {
       params = this.adjust(params);
     }
     if (typeof query === 'string') {
-      const name = tx || write ? 'write' : 'read';
-      const key = query + name;
-      const cached = this.statements.get(key);
+      const cached = this.statements.get(query);
       if (cached) {
         query = cached;
       }
@@ -277,7 +266,7 @@ class SQLiteDatabase extends Database {
           const message = `query: ${query} had the error: ${e}`;
           throw Error(message);
         }
-        this.statements.set(key, statement);
+        this.statements.set(query, statement);
         query = statement;
       }
     }
@@ -291,12 +280,11 @@ class SQLiteDatabase extends Database {
     }
     let lock;
     if (!tx && write) {
-      lock = await this.getWriter();
+      lock = await this.getWriteLock();
     }
     const rows = isEmpty(params) ? query.all() : query.all(params);
     if (lock) {
-      this.writer = null;
-      lock.resolve();
+      lock.release();
     }
     return process(rows, options);
   }
@@ -307,12 +295,11 @@ class SQLiteDatabase extends Database {
     }
     let lock;
     if (!tx) {
-      lock = await this.getWriter();
+      lock = await this.getWriteLock();
     }
     this.db.exec(sql);
     if (lock) {
-      this.writer = null;
-      lock.resolve();
+      lock.release();
     }
   }
 
