@@ -4,7 +4,7 @@ import { makeClient } from './proxy.js';
 class TursoDatabase extends Database {
   constructor(props) {
     super({ ...props, name: 'turso' });
-    this.raw = props.db;
+    this.db = props.db;
   }
 
   async runMigration(sql) {
@@ -12,7 +12,7 @@ class TursoDatabase extends Database {
     const split = sql.split(';').filter(s => s.length > 2);
     const statements = [defer, ...split].map(sql => ({ sql, args: [] }));
     try {
-      await this.raw.batch(statements, 'write');
+      await this.db.batch(statements, 'write');
     }
     catch (e) {
       throw e;
@@ -23,7 +23,7 @@ class TursoDatabase extends Database {
     if (!type || !['read', 'write'].includes(type)) {
       throw Error(`Invalid transaction type: ${type}`);
     }
-    const db = await this.raw.transaction(type);
+    const db = await this.db.transaction(type);
     await tx.db.begin();
     return makeClient(this, { db });
   }
@@ -37,20 +37,15 @@ class TursoDatabase extends Database {
   }
 
   async sync() {
-    await this.raw.sync();
+    await this.db.sync();
   }
 
   async getError(sql) {
-    return this.raw.execute(sql);
+    return this.db.execute(sql);
   }
 
   async basicRun(sql) {
-    return await this.raw.execute(sql);
-  }
-
-  async basicAll(sql) {
-    const meta = await this.raw.execute(sql);
-    return meta.rows;
+    return await this.db.execute(sql);
   }
 
   async insertBatch(inserts) {
@@ -60,7 +55,7 @@ class TursoDatabase extends Database {
         args: insert.params
       }
     });
-    await this.raw.batch(mapped, 'write');
+    await this.db.batch(mapped, 'write');
   }
 
   async batch(type, handler) {
@@ -72,7 +67,7 @@ class TursoDatabase extends Database {
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
     const flat = results.flat();
-    const responses = await this.raw.batch(flat.map(r => r.statement), type);
+    const responses = await this.db.batch(flat.map(r => r.statement), type);
     return responses.map((response, i) => {
       const handler = results[i];
       if (handler.post) {
@@ -86,7 +81,7 @@ class TursoDatabase extends Database {
     let { query, params, adjusted, tx } = props;
     const isBatch = tx && tx.isBatch;
     if (props.statement && !isBatch) {
-      return await this.raw.execute(statement);
+      return await this.db.execute(statement);
     }
     if (params === null) {
       params = undefined;
@@ -101,14 +96,14 @@ class TursoDatabase extends Database {
     if (isBatch) {
       return statement;
     }
-    await this.raw.execute(statement);
+    await this.db.execute(statement);
   }
 
   async all(props) {
     let { query, params, options, adjusted, tx } = props;
     const isBatch = tx && tx.isBatch;
     if (props.statement && !isBatch) {
-      const meta = await this.raw.execute(statement);
+      const meta = await this.db.execute(statement);
       return this.process(meta.rows, options);
     }
     if (params === null) {
@@ -127,12 +122,12 @@ class TursoDatabase extends Database {
         post: (meta) => this.process(meta.rows, options)
       }
     }
-    const meta = await this.raw.execute(statement);
+    const meta = await this.db.execute(statement);
     return this.process(meta.rows, options);
   }
 
   async exec(sql) {
-    await this.raw.execute(sql);
+    await this.db.execute(sql);
   }
 }
 

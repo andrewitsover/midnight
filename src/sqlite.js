@@ -22,7 +22,7 @@ class SQLiteDatabase extends Database {
     this.created = false;
   }
 
-  async getWriteLock() {
+  async getLock() {
     let next;
     while (true) {
       if (!this.lock) {
@@ -114,7 +114,7 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const lock = await this.getWriteLock();
+    const lock = await this.getLock();
     const tx = { lock };
     const sql = type ? `begin ${type}` : 'begin';
     await this.basicRun(sql, tx);
@@ -142,7 +142,7 @@ class SQLiteDatabase extends Database {
     const statement = this.db.prepare(sql);
     let lock;
     if (!tx) {
-      lock = await this.getWriteLock();
+      lock = await this.getLock();
     }
     statement.run();
     if (lock) {
@@ -150,19 +150,11 @@ class SQLiteDatabase extends Database {
     }
   }
 
-  async basicAll(sql) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-    const statement = this.db.prepare(sql);
-    return statement.all();
-  }
-
   async insertBatch(inserts) {
     if (!this.initialized) {
       await this.initialize();
     }
-    const lock = await this.getWriteLock();
+    const lock = await this.getLock();
     const inserted = this.db.transaction(() => {
       for (const insert of inserts) {
         const { query, params } = insert;
@@ -184,6 +176,7 @@ class SQLiteDatabase extends Database {
     const client = makeClient(this, { isBatch: true });
     const promises = handler(client).flat();
     const handlers = await Promise.all(promises);
+    const lock = await this.getLock();
     const result = this.db.transaction(() => {
       const responses = [];
       const flat = handlers.flat();
@@ -198,6 +191,7 @@ class SQLiteDatabase extends Database {
       }
       return responses;
     });
+    lock.release();
     return result();
   }
 
@@ -241,7 +235,7 @@ class SQLiteDatabase extends Database {
     }
     let lock;
     if (!tx) {
-      lock = await this.getWriteLock();
+      lock = await this.getLock();
     }
     const result = isEmpty(params) ? statement.run() : statement.run(params);
     if (lock) {
@@ -271,8 +265,8 @@ class SQLiteDatabase extends Database {
       };
     }
     let lock;
-    if (!tx && write) {
-      lock = await this.getWriteLock();
+    if (!tx) {
+      lock = await this.getLock();
     }
     const rows = isEmpty(params) ? statement.all() : statement.all(params);
     if (lock) {
@@ -287,7 +281,7 @@ class SQLiteDatabase extends Database {
     }
     let lock;
     if (!tx) {
-      lock = await this.getWriteLock();
+      lock = await this.getLock();
     }
     this.db.exec(sql);
     if (lock) {

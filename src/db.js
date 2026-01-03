@@ -270,10 +270,6 @@ class Database {
     return;
   }
 
-  async basicAll() {
-    return;
-  }
-
   async prepare() {
     return;
   }
