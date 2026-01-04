@@ -1220,7 +1220,6 @@ export class SQLiteDatabase extends Database {
   getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
   initialize(): Promise<void>;
   close(): Promise<void>;
-  created: boolean;
 }
 
 export class TursoDatabase extends Database {

@@ -124,6 +124,8 @@ To run it, you can use ```node main.js``` from the project root directory.
 
 See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for a more complete setup.
 
+It is a good idea to set any SQLite database that you have created to ```pragma journal_mode=WAL```. You can do this yourself after the database has been created. See [here](https://sqlite.org/wal.html) for more details.
+
 ## The API
 
 Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```delete``` methods available to it.
