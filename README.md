@@ -73,6 +73,12 @@ This syntax allows you to perform queries that usually aren't possible in ORMs.
 
 ## Getting started
 
+### Prerequists
+
+Make sure you have installed [Node.js](https://nodejs.org/en) version 22.13.1 or higher.
+
+### Creating a project
+
 Create a directory for your project and initialise it with npm:
 
 ```
@@ -83,7 +89,16 @@ npm install @andrewitsover/midnight
 touch main.js
 ```
 
-Go into the ```package.json``` that was created and change the ```type``` value from ```commonjs``` to ```module```. Also rename the ```index.js``` to ```main.js``` and paste the code below into that file.
+In the package.json, change the following lines:
+
+```json
+{
+  "main": "main.js",
+  "type": "module"
+}
+```
+
+Paste the code below into the ```main.js``` file.
 
 This example will create a ```clouds``` table in a database named ```forest.db``` and then insert and read some rows.
 
@@ -105,9 +120,9 @@ const clouds = await db.clouds.many();
 console.log(clouds);
 ```
 
-To run it, you can use ```node main.js``` or add this command to the ```scripts``` section of the ```package.json```.
+To run it, you can use ```node main.js``` from the project root directory.
 
-See the [sample project](https://github.com/andrewitsover/midnight-tutorial) to get an idea of how a basic project can be setup.
+See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for a more complete setup.
 
 ## The API
 
