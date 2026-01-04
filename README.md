@@ -73,9 +73,16 @@ This syntax allows you to perform queries that usually aren't possible in ORMs.
 
 ## Getting started
 
+Create a directory for your project and initialise it with npm:
+
 ```
+mkdir forests
+cd forests
+npm init -y
 npm install @andrewitsover/midnight
 ```
+
+Go into the ```package.json``` that was created and add a ```"type": "module"``` property to the configuration options.
 
 This example will create a ```clouds``` table in a database named ```forest.db``` and then insert and read some rows.
 
