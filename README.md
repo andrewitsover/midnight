@@ -80,9 +80,10 @@ mkdir forests
 cd forests
 npm init -y
 npm install @andrewitsover/midnight
+touch main.js
 ```
 
-Go into the ```package.json``` that was created and add a ```"type": "module"``` property to the configuration options.
+Go into the ```package.json``` that was created and change the ```type``` value from ```commonjs``` to ```module```. Also rename the ```index.js``` to ```main.js``` and paste the code below into that file.
 
 This example will create a ```clouds``` table in a database named ```forest.db``` and then insert and read some rows.
 
@@ -103,6 +104,8 @@ await db.clouds.insert({ name: 'Nimbus' });
 const clouds = await db.clouds.many();
 console.log(clouds);
 ```
+
+To run it, you can use ```node main.js``` or add this command to the ```scripts``` section of the ```package.json```.
 
 See the [sample project](https://github.com/andrewitsover/midnight-tutorial) to get an idea of how a basic project can be setup.
 
