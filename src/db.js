@@ -87,7 +87,7 @@ class Database {
   }
 
   async query(expression, tx, first) {
-    const { sql, params, post } = processQuery(this, expression, first);
+    const { sql, params, log, post } = processQuery(this, expression, first);
     const options = {
       query: sql,
       params,
@@ -104,7 +104,25 @@ class Database {
         }
       }
     }
-    const rows = await this.all(options);
+    let rows;
+    if (log) {
+      const start = Date.now();
+      rows = await this.all(options);
+      const data = {
+        sql,
+        params,
+        durationMs: Date.now() - start
+      };
+      if (typeof log === 'boolean') {
+        console.log(data);
+      }
+      else {
+        log(data);
+      }
+    }
+    else {
+      rows = await this.all(options);
+    }
     return post(rows);
   }
 

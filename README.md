@@ -723,7 +723,7 @@ The below example creates a fts5 table with three columns, one of which is only 
 
 ```js
 class Emails extends FTSTable {
-  uuid = this.Unindex();
+  uuid = this.Unindexed;
   to;
   body;
 }

@@ -60,6 +60,7 @@ interface AggregateQuery<W, K> {
   where?: W;
   column?: K;
   distinct?: K;
+  log?: boolean | ((info: LogInfo) => void | Promise<void>);
 }
 
 interface ComplexQuery<W, T> extends Keywords<T, Array<keyof T> | keyof T> {
@@ -1207,7 +1208,7 @@ export class FTSTable extends BaseTable {
   rowid: PkNumber;
   Prefix?: number | number[];
   Tokenizer?: Unicode61 | Ascii | Trigram;
-  Unindex(): DbString;
+  Unindexed: DbString;
 }
 
 export class ExternalFTSTable extends FTSTable {

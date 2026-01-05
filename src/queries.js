@@ -489,7 +489,7 @@ const group = async (config) => {
     tx,
     subquery
   } = config;
-  const { select, column, distinct, where, ...keywords } = query;
+  const { select, column, distinct, where, log, ...keywords } = query;
   const alias = Object.keys(select || column || distinct).at(0);
   verify(alias);
   let having;
@@ -607,8 +607,8 @@ const group = async (config) => {
   if (tx && tx.isBatch) {
     return await processBatch(db, options, post);
   }
-  const results = await db.all(options);
-  return post(results);
+  const rows = await withLog(db, options, log);
+  return post(rows);
 }
 
 const aggregate = async (config) => {
@@ -622,7 +622,7 @@ const aggregate = async (config) => {
   } = config;
   const params = {};
   const query = config.query || {};
-  const { where, column, distinct } = query;
+  const { where, column, distinct, log } = query;
   const alias = `${method}_result`;
   const actualMethod = method === 'sum' ? 'total' : method;
   let expression;
@@ -685,8 +685,8 @@ const aggregate = async (config) => {
   if (tx && tx.isBatch) {
     return await processBatch(db, options, post);
   }
-  const results = await db.all(options);
-  return post(results);
+  const rows = await withLog(db, options, log);
+  return post(rows);
 }
 
 const getConverters = (key, value, db, converters, keys = [], optional = []) => {
@@ -928,6 +928,29 @@ const parse = (query) => {
   }
 }
 
+const withLog = async (db, options, log) => {
+  let rows;
+  if (log) {
+    const start = Date.now();
+    rows = await db.all(options);
+    const data = {
+      sql: options.query,
+      params: options.params,
+      durationMs: Date.now() - start
+    };
+    if (typeof log === 'boolean') {
+      console.log(data);
+    }
+    else {
+      log(data);
+    }
+  }
+  else {
+    rows = await db.all(options);
+  }
+  return rows;
+}
+
 const match = async (config) => {
   const {
     db,
@@ -970,11 +993,11 @@ const match = async (config) => {
     params,
     tx
   };
-  const result = await db.all(options);
+  const rows = await withLog(db, options, query.log);
   if (query.return) {
-    return result.map(r => r[query.return]);
+    return rows.map(r => r[query.return]);
   }
-  return result;
+  return rows;
 }
 
 const all = async (config) => {
@@ -1092,25 +1115,7 @@ const all = async (config) => {
   if (tx && tx.isBatch) {
     return await processBatch(db, options, post);
   }
-  let rows;
-  if (log) {
-    const start = Date.now();
-    rows = await db.all(options);
-    const data = {
-      sql: options.query,
-      params: options.params,
-      durationMs: Date.now() - start
-    };
-    if (typeof log === 'boolean') {
-      console.log(data);
-    }
-    else {
-      log(data);
-    }
-  }
-  else {
-    rows = await db.all(options);
-  }
+  const rows = await withLog(db, options, log);
   return post(rows);
 }
 

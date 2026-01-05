@@ -197,10 +197,10 @@ class BaseTable {
     return symbol;
   }
 
-  Unindex() {
+  get Unindexed() {
     const symbol = this.Text;
     const column = Table.requests.get(symbol);
-    column.unindex = true;
+    column.unindexed = true;
     return symbol;
   }
 
@@ -667,7 +667,7 @@ const toVirtual = (table) => {
     }
     else {
       names.push(column.name);
-      sql += `  ${column.name}${column.unindex ? ' unindexable' : ''},\n`;
+      sql += `  ${column.name}${column.unindexed ? ' unindexable' : ''},\n`;
     }
   }
   if (!contentless) {

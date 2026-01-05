@@ -391,6 +391,7 @@ const processQuery = (db, expression, firstResult) => {
   return {
     ...adjusted,
     columns: columnTypes,
+    log: result.log,
     post
   }
 }
