@@ -123,20 +123,19 @@ const processBatch = async (db, options, post) => {
   }
 }
 
-const processInsert = async (db, sql, params, primaryKey, tx) => {
+const processInsert = async (db, sql, params, primaryKey, tx, log) => {
   const options = {
     query: sql,
     params,
     tx,
-    write: true,
     adjusted: true
   };
   const post = (result) => result[0][primaryKey];
   if (tx && tx.isBatch) {
     return await processBatch(db, options, post);
   }
-  const result = await db.all(options);
-  return post(result);
+  const rows = await withLog(db, options, log);
+  return post(rows);
 }
 
 const verify = (columns) => {
@@ -155,7 +154,7 @@ const upsert = async (args) => {
     options,
     tx
   } = args;
-  const { values, target, set } = options;
+  const { values, target, set, log } = options;
   const params = {};
   const query = adjust(db, table, values);
   let sql = makeInsertSql(db, table, query, params);
@@ -172,7 +171,7 @@ const upsert = async (args) => {
   }
   const primaryKey = db.getPrimaryKey(table);
   sql += ` returning ${primaryKey}`;
-  return await processInsert(db, sql, params, primaryKey, tx);
+  return await processInsert(db, sql, params, primaryKey, tx, log);
 }
 
 const insert = async (args) => {
@@ -333,7 +332,7 @@ const update = async (args) => {
     options,
     tx
   } = args;
-  const { where, set } = options;
+  const { where, set, log } = options;
   const keys = Object.keys(set);
   verify(keys);
   const params = {};
@@ -355,7 +354,7 @@ const update = async (args) => {
     params,
     tx
   };
-  return await db.run(runOptions);
+  return await withLog(db, runOptions, log, 'run');
 }
 
 const getOrderBy = (orderBy, params) => {
@@ -928,11 +927,11 @@ const parse = (query) => {
   }
 }
 
-const withLog = async (db, options, log) => {
+const withLog = async (db, options, log, type = 'all') => {
   let rows;
   if (log) {
     const start = Date.now();
-    rows = await db.all(options);
+    rows = await db[type](options);
     const data = {
       sql: options.query,
       params: options.params,
@@ -946,7 +945,7 @@ const withLog = async (db, options, log) => {
     }
   }
   else {
-    rows = await db.all(options);
+    rows = await db[type](options);
   }
   return rows;
 }

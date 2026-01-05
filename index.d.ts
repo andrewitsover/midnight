@@ -93,12 +93,14 @@ type AddComputed<T> = {
 interface UpdateQuery<W, T> {
   where?: W | null;
   set: Partial<AddComputed<MakeOptionalNullable<T>>>;
+  log?: boolean | ((info: LogInfo) => void | Promise<void>);
 }
 
 interface UpsertQuery<T, K> {
   values: T;
   target?: K;
   set?: Partial<MakeOptionalNullable<T>>;
+  log?: boolean | ((info: LogInfo) => void | Promise<void>);
 }
 
 interface GroupQueryKeywords<W, K> {

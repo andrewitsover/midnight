@@ -265,7 +265,7 @@ class SQLiteDatabase extends Database {
     return process(rows, options);
   }
 
-  async exec(tx, sql) {
+  async exec(sql, tx) {
     if (!this.initialized) {
       await this.initialize();
     }

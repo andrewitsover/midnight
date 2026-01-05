@@ -11,6 +11,26 @@ import {
   remove
 } from './queries.js';
 
+const methodNames = new Set([
+  'exec',
+  'begin',
+  'commit',
+  'rollback',
+  'pragma',
+  'deferForeignKeys',
+  'migrate',
+  'getSchema',
+  'diff',
+  'batch',
+  'sync',
+  'first',
+  'firstValue',
+  'query',
+  'queryValues',
+  'subquery',
+  'use'
+]);
+
 const groupMethods = (args) => {
   const makeMethod = (method) => {
     return async (query) => await group({ query, method, ...args });
@@ -170,9 +190,17 @@ const makeClient = (db, tx) => {
       if (table === 'subquery') {
         return (expression) => db.subquery(expression);
       }
-      if (db[table] && ['exec', 'begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
+      if (db[table] && ['begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
         db[table] = db[table].bind(db);
-        return (sql) => db[table](tx, sql);
+        return () => db[table](tx);
+      }
+      if (db[table] && table === 'pragma') {
+        db[table] = db[table].bind(db);
+        return (sql) => db[table](sql);
+      }
+      if (db[table] && table === 'exec') {
+        db[table] = db[table].bind(db);
+        return (sql) => db[table](sql, tx);
       }
       if (db[table] && ['getTransaction', 'batch', 'sync', 'diff', 'getSchema', 'migrate'].includes(table)) {
         db[table] = db[table].bind(db);
@@ -190,6 +218,12 @@ const makeClient = (db, tx) => {
         }
       }
       if (!target[table]) {
+        if (!db.tables[table] && !methodNames.has(table)) {
+          if (table === 'then') {
+            return undefined;
+          }
+          throw Error(`No such table "${table}"`);
+        }
         target[table] = new Proxy({}, makeQueryHandler({ 
           table,
           db,

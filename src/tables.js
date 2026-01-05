@@ -551,8 +551,10 @@ const process = (Custom) => {
       Table.requests.set(result.symbol, result.column);
     }
     else {
-      table.columns.push(result);
-      Table.requests.set(value, result);
+      if (result.name !== 'rowid') {
+        table.columns.push(result);
+        Table.requests.set(value, result);
+      }
     }
   }
   if (instance.Attributes) {
