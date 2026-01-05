@@ -686,7 +686,7 @@ const animals = await db.query(c => {
 });
 ```
 
-Subqueries can also be used instead of tables in the stanadard API with the ```use``` method.
+Subqueries can also be used instead of tables in the standard API with the ```use``` method.
 
 ```js
 const sightings = await db.use(sighted).exists({ animalId: 1 });
@@ -705,7 +705,7 @@ const planets = await db.query(c => {
     select: p,
     optional: {
       moon: m.name
-    }
+    },
     join: [p.id, m.planetId, 'left']
   }
 });
@@ -775,9 +775,13 @@ The above query finds any forest with an ```otherName``` that contains the word 
 The ```match``` API allows you to search an fts5 table in a number of different ways.
 
 ```phrase```: match an exact phrase
+
 ```startsWith```: the specified column or any of the columns starts with a particular string.
+
 ```prefix```: any token starts with a particular string.
+
 ```near```: takes an array of two or more strings with the last value being a number that specifies the maximum number of tokens allowed between the matching strings.
+
 ```and```, ```or```, and ```not```: takes an array of strings.
 
 You can also query fts5 tables with the basic API like this:

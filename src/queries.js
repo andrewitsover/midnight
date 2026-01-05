@@ -6,28 +6,6 @@ import {
 } from './utils.js';
 import { compareOperators } from './methods.js';
 
-const aggregateMethods = [
-  'count',
-  'avg',
-  'min',
-  'max',
-  'sum',
-  'total'
-];
-
-const queryMethods = [
-  ...aggregateMethods,
-  'first',
-  'query',
-  'get',
-  'many',
-  'group',
-  'insert',
-  'update',
-  'upsert',
-  'remove'
-];
-
 const getConditions = (column, query, params) => {
   const operatorHandler = {
     get: function(target, property) {
@@ -1012,6 +990,7 @@ const all = async (config) => {
   let query = config.query || {};
   let columns = config.columns;
   let keywords;
+  const log = query.log;
   if (type === 'complex') {
     const { where, select, return: returning, omit, ...rest } = query;
     query = where || {};
@@ -1113,7 +1092,25 @@ const all = async (config) => {
   if (tx && tx.isBatch) {
     return await processBatch(db, options, post);
   }
-  const rows = await db.all(options);
+  let rows;
+  if (log) {
+    const start = Date.now();
+    rows = await db.all(options);
+    const data = {
+      sql: options.query,
+      params: options.params,
+      durationMs: Date.now() - start
+    };
+    if (typeof log === 'boolean') {
+      console.log(data);
+    }
+    else {
+      log(data);
+    }
+  }
+  else {
+    rows = await db.all(options);
+  }
   return post(rows);
 }
 
@@ -1126,6 +1123,17 @@ const remove = async (args) => {
   } = args;
   let sql = `delete from ${table}`;
   const params = {};
+  if (query) {
+    if (typeof query !== 'object') {
+      throw Error(`Invalid argument to delete: ${query}`);
+    }
+    else {
+      const key = Object.keys(query).at(0);
+      if (!key || !Object.keys(db.columns[table]).includes(key)) {
+        throw Error(`Table ${table} has no column ${key}`);
+      }
+    }
+  }
   const clause = toWhere({
     table,
     query,

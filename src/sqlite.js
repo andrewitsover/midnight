@@ -238,7 +238,7 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    let { query, params, options, tx, write, adjusted } = props;
+    let { query, params, options, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
     }

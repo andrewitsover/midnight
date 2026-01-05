@@ -6,6 +6,7 @@ interface Keywords<T, K> {
   limit?: number;
   offset?: number;
   distinct?: boolean;
+  log?: boolean | ((info: LogInfo) => void | Promise<void>);
 }
 
 type ReadQueries<P, T> = Pick<ToQuery<P, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists' | 'groupBy'>;
@@ -105,6 +106,7 @@ interface GroupQueryKeywords<W, K> {
   desc?: boolean;
   limit?: number;
   offset?: number;
+  log?: boolean | ((info: LogInfo) => void | Promise<void>);
 }
 
 interface GroupQueryCountStarColumn<A extends string, T, W, K> extends GroupQueryKeywords<W, K> {
@@ -886,6 +888,12 @@ type SymbolWhere = {
   }];
 }
 
+interface LogInfo {
+  sql: string;
+  params: any;
+  durationMs: number;
+}
+
 interface QueryReturn {
   where?: SymbolWhere;
   join?: [symbol, symbol] | [symbol, symbol, 'left' | 'right' | 'union'] | ([symbol, symbol] | [symbol, symbol, 'left' | 'right' | 'union'])[];
@@ -897,6 +905,7 @@ interface QueryReturn {
   limit?: number | ComputedNumber | DbNumber | PkNumber;
   bm25?: { [key: symbol]: number | ComputedNumber | DbNumber | PkNumber };
   rank?: boolean | DbBoolean | ComputedBoolean;
+  log?: boolean | ((info: LogInfo) => void | Promise<void>);
 }
 
 interface ObjectReturn<S> extends QueryReturn {
