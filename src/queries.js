@@ -833,7 +833,7 @@ const getVirtualSelect = (keywords, table, columns, params) => {
     const e = getPlaceholder();
     const tr = getPlaceholder();
     const to = getPlaceholder();
-    params[i] = keys.findIndex(name => name === snippet.column) - 1;
+    params[i] = keys.findIndex(name => name === snippet.column);
     params[s] = snippet.tags[0];
     params[e] = snippet.tags[1];
     params[tr] = snippet.trailing;
