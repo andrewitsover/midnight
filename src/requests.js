@@ -188,7 +188,7 @@ const processWindow = (options) => {
             clause += `${preceding} preceding and `;
           }
           else {
-            throw Error('Invalid "preceding" argument');
+            throw Error('invalid argument for: preceding');
           }
         }
       }
@@ -200,7 +200,7 @@ const processWindow = (options) => {
           clause += `${following} following and `;
         }
         else {
-          throw Error('Invalid "following" argument');
+          throw Error('invalid argument for: following');
         }
       }
     }
@@ -275,7 +275,7 @@ const processMethod = (options) => {
     });
     const type = method.args.at(1);
     if (!['real', 'integer'].includes(type)) {
-      throw Error(`Invalid cast type ${type}`);
+      throw Error(`invalid cast type: ${type}`);
     }
     const sql = `cast(${result.sql} as ${type})`;
     return {
@@ -397,7 +397,7 @@ const processMethod = (options) => {
     if (name === 'ntile') {
       const { groups } = arg;
       if (!Number.isInteger(groups)) {
-        throw Error('Invalid "groups" argument');
+        throw Error('invalid argument: groups');
       }
       sql = `ntil(${groups})`;
     }
@@ -557,7 +557,7 @@ const toWhere = (options) => {
     .filter(k => !['and', 'or'].includes(k))
     .length > 0;
   if (invalidKeys) {
-    throw Error('The "where" clause has a string as a key');
+    throw Error('the where clause has a string as a key');
   }
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
@@ -647,7 +647,7 @@ const toWhere = (options) => {
     const value = where[type];
     if (value) {
       if (!Array.isArray(value)) {
-        throw Error(`Invalid arguments to "${type}" in the where clause`);
+        throw Error(`invalid arguments to ${type} in the where clause`);
       }
       const statement = value
         .map(where => toWhere({ 

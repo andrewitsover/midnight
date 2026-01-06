@@ -154,6 +154,9 @@ const makeQueryHandler = (options) => {
       }
       if (!target[method]) {
         const makeQuery = basic[method];
+        if (!makeQuery) {
+          throw Error(`there is no method named: ${method}`);
+        }
         const run = makeQuery({ 
           db,
           table,

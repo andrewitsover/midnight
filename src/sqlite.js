@@ -99,7 +99,7 @@ class SQLiteDatabase extends Database {
 
   async begin(type) {
     if (type && !['deferred', 'immediate'].includes(type)) {
-      throw Error(`Invalid transaction type: ${type}`);
+      throw Error(`invalid transaction type: ${type}`);
     }
     if (!this.initialized) {
       await this.initialize();

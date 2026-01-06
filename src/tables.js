@@ -39,7 +39,7 @@ const toColumn = (literal) => {
     symbol = instance.Date;
   }
   else {
-    throw Error(`Invalid default value ${literal}`);
+    throw Error(`invalid default value: ${literal}`);
   }
   const column = Table.requests.get(symbol);
   column.default = literal;
@@ -293,7 +293,7 @@ class BaseTable {
     const columns = getColumns(instance)
       .filter(c => column ? c.name === column : c.primaryKey);
     if (columns.length !== 1) {
-      throw Error('The foreign key options are not valid');
+      throw Error('the foreign key options are not valid');
     }
     const target = columns.at(0);
     target.primaryKey = false;
@@ -497,7 +497,7 @@ const process = (Custom) => {
     else if (['Index', 'Unique'].includes(category)) {
       const type = category === 'Unique' ? 'unique' : undefined;
       if (request.columns.length > 1) {
-        throw Error('Multi-column indexes can only be defined in the "Attributes" function');
+        throw Error('multi-column indexes can only be defined in the Attributes function');
       }
       const arg = request.columns.at(0);
       const result = getColumn(key, arg);

@@ -21,7 +21,7 @@ class TursoDatabase extends Database {
 
   async begin(type) {
     if (!type || !['read', 'write'].includes(type)) {
-      throw Error(`Invalid transaction type: ${type}`);
+      throw Error(`invalid transaction type: ${type}`);
     }
     const db = await this.db.transaction(type);
     await tx.db.begin();

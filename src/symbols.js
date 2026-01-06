@@ -19,7 +19,7 @@ const makeProxy = (options) => {
         return alias;
       }
     }
-    throw Error('Failed to create a unique table alias');
+    throw Error('failed to create a unique table alias');
   }
   const makeTableHandler = (table) => {
     const tableAlias = makeAlias(table);
@@ -28,7 +28,7 @@ const makeProxy = (options) => {
       get: function(target, property) {
         const isVirtualColumn = db.virtualSet.has(table) && property === `${table[0].toLowerCase()}${table.substring(1)}`;
         if ((!db.tables[table] || !db.columns[table][property]) && !isVirtualColumn) {
-          throw Error(`Table or column "${table}.${property}" does not exist`);
+          throw Error(`table or column does not exist: ${table}.${property}`);
         }
         const symbol = Symbol();
         const type = db.columns[table][property];

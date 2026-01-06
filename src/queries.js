@@ -35,7 +35,7 @@ const getConditions = (column, query, params) => {
   const value = chain.pop();
   const method = chain.pop();
   if (!compareOperators.has(method)) {
-    throw Error(`Invalid operator: ${method}`);
+    throw Error(`invalid operator: ${method}`);
   }
   const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
   const placeholder = getPlaceholder();
@@ -142,7 +142,7 @@ const verify = (columns) => {
   const names = Array.isArray(columns) ? columns : [columns];
   for (const name of names) {
     if (!/^[_a-z][a-z0-9_]+$/i.test(name)) {
-      throw Error(`Invalid column name ${name}`);
+      throw Error(`invalid column name: ${name}`);
     }
   }
 }
@@ -269,7 +269,7 @@ const toWhere = (options) => {
     const adjusted = ['and', 'or'].includes(column) ? column : nameToSql(column);
     if (column === 'and' || column === 'or') {
       if (!Array.isArray(param)) {
-        throw Error(`The "${column}" property value must be an array of conditions`);
+        throw Error(`the "${column}" property value must be an array of conditions`);
       }
       const filters = [];
       for (const query of param) {
@@ -515,7 +515,7 @@ const group = async (config) => {
   const params = {};
   const computed = subquery ? null : db.computed[table][alias];
   if (computed) {
-    throw Error(`The alias cannot have the same name as a computed field.`);
+    throw Error(`the alias cannot have the same name as a computed field.`);
   }
   const columnTypes = db.columns[table];
   const byClause = by.map(c => nameToSql(c)).join(', ');
@@ -629,7 +629,7 @@ const aggregate = async (config) => {
   let expression;
   if (!column && !distinct) {
     if (method !== 'count') {
-      throw Error('Aggregate needs to specify a column');
+      throw Error('aggregate needs to specify a column');
     }
     expression = `count(*) as ${alias}`;
   }
@@ -803,7 +803,7 @@ const toSelect = (args) => {
       }
     }
     else if (Array.isArray(columns) && columns.length === 0) {
-      throw Error('The select argument cannot be an empty array');
+      throw Error('the select argument cannot be an empty array');
     }
     return expandStar(types, computed);
   }
@@ -1023,7 +1023,7 @@ const all = async (config) => {
   if (type === 'complex') {
     const { where, select, return: returning, omit, ...rest } = query;
     if (select && !Array.isArray(select)) {
-      throw Error('The select argument should be an array');
+      throw Error('the select argument should be an array');
     }
     query = where || {};
     if (omit) {
@@ -1140,12 +1140,12 @@ const remove = async (args) => {
   const params = {};
   if (query) {
     if (typeof query !== 'object') {
-      throw Error(`Invalid argument to delete: ${query}`);
+      throw Error(`invalid argument to delete: ${query}`);
     }
     else {
       const key = Object.keys(query).at(0);
       if (!key || !Object.keys(db.columns[table]).includes(key)) {
-        throw Error(`Table ${table} has no column ${key}`);
+        throw Error(`table ${table} has no column: ${key}`);
       }
     }
   }
