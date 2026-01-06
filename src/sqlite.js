@@ -198,12 +198,10 @@ class SQLiteDatabase extends Database {
         }
         return responses;
       });
-      lock.release();
       return result();
     }
-    catch (e) {
+    finally {
       lock.release();
-      throw e;
     }
   }
 
@@ -251,16 +249,12 @@ class SQLiteDatabase extends Database {
     }
     try {
       const result = isEmpty(params) ? statement.run() : statement.run(params);
-      if (lock) {
-        lock.release();
-      }
       return result.changes;
     }
-    catch (e) {
+    finally {
       if (lock) {
         lock.release();
       }
-      throw e;
     }
   }
 
@@ -290,16 +284,12 @@ class SQLiteDatabase extends Database {
     }
     try {
       const rows = isEmpty(params) ? statement.all() : statement.all(params);
-      if (lock) {
-        lock.release();
-      }
       return process(rows, options);
     }
-    catch (e) {
+    finally {
       if (lock) {
         lock.release();
       }
-      throw e;
     }
   }
 
