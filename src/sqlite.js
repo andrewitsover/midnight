@@ -13,7 +13,6 @@ class SQLiteDatabase extends Database {
   constructor(path, options = {}) {
     super();
     this.path = path;
-    this.sqlite3 = sqlite3;
     this.extensions = options.extensions;
     this.db = this.createDatabase();
     this.lock = null;
@@ -51,7 +50,7 @@ class SQLiteDatabase extends Database {
   }
 
   createDatabase() {
-    const db = new this.sqlite3(this.path);
+    const db = new sqlite3(this.path);
     db.pragma('foreign_keys = on');
     const extensions = this.extensions;
     if (extensions) {
