@@ -592,16 +592,16 @@ interface QueryOptions {
   parse: boolean;
 }
 
-interface DatabaseConfig {
-  debug?: boolean;
-}
-
-interface SQLiteConfig extends DatabaseConfig {
-  driver: any;
+interface SQLiteConfig {
   extensions?: string | URL | Array<string | URL>;
+  readonly?: boolean;
+  fileMustExist?: boolean;
+  timeout?: number;
+  verbose?: (sql: string) => void;
+  nativeBinding?: string;
 }
 
-interface TursoConfig extends DatabaseConfig {
+interface TursoConfig {
   db: any;
 }
 

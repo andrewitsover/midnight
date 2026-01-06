@@ -12,9 +12,7 @@ const isEmpty = (params) => {
 class SQLiteDatabase extends Database {
   constructor(path, options = {}) {
     super();
-    this.path = path;
-    this.extensions = options.extensions;
-    this.db = this.createDatabase();
+    this.db = this.createDatabase(path, options);
     this.lock = null;
   }
 
@@ -49,10 +47,10 @@ class SQLiteDatabase extends Database {
     }
   }
 
-  createDatabase() {
-    const db = new sqlite3(this.path);
+  createDatabase(path, options) {
+    const { extensions, ...rest } = options;
+    const db = new sqlite3(path, rest);
     db.pragma('foreign_keys = on');
-    const extensions = this.extensions;
     if (extensions) {
       if (typeof extensions === 'string') {
         db.loadExtension(extensions);
