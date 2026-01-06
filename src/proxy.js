@@ -222,7 +222,7 @@ const makeClient = (db, tx) => {
           if (table === 'then') {
             return undefined;
           }
-          throw Error(`No such table "${table}"`);
+          throw Error(`no such table: ${table}`);
         }
         target[table] = new Proxy({}, makeQueryHandler({ 
           table,

@@ -351,8 +351,9 @@ const update = async (args) => {
   }
   const runOptions = {
     query: sql,
-    params,
-    tx
+    params: db.adjust(params),
+    tx,
+    adjusted: true
   };
   return await withLog(db, runOptions, log, 'run');
 }
@@ -574,8 +575,9 @@ const group = async (config) => {
   sql = `with ${withTable} as (${sql}) select ${by.map(c => nameToSql(c)).join(', ')}, ${method} as ${alias} from ${withTable}`;
   const options = {
     query: sql,
-    params,
-    tx
+    params: db.adjust(params),
+    tx,
+    adjusted: true
   };
   const post = (rows) => {
     if (rows.length === 0) {
@@ -656,8 +658,9 @@ const aggregate = async (config) => {
   }
   const options = {
     query: sql,
-    params,
-    tx
+    params: db.adjust(params),
+    tx,
+    adjusted: true
   };
   const post = (results) => {
     if (groupFields) {
@@ -799,6 +802,9 @@ const toSelect = (args) => {
         clause: statements.join(', ')
       }
     }
+    else if (Array.isArray(columns) && columns.length === 0) {
+      throw Error('The select argument cannot be an empty array');
+    }
     return expandStar(types, computed);
   }
   return expandStar(types, computed);
@@ -812,7 +818,7 @@ const getVirtualSelect = (keywords, table, columns, params) => {
     const i = getPlaceholder();
     const s = getPlaceholder();
     const e = getPlaceholder();
-    params[i] = keys.findIndex(name => name === highlight.column) - 1;
+    params[i] = keys.findIndex(name => name === highlight.column);
     params[s] = highlight.tags[0];
     params[e] = highlight.tags[1];
     return {
@@ -989,8 +995,9 @@ const match = async (config) => {
   sql += toKeywords(query, params);
   const options = {
     query: sql,
-    params,
-    tx
+    params: db.adjust(params),
+    tx,
+    adjusted: true
   };
   const rows = await withLog(db, options, query.log);
   if (query.return) {
@@ -1015,6 +1022,9 @@ const all = async (config) => {
   const log = query.log;
   if (type === 'complex') {
     const { where, select, return: returning, omit, ...rest } = query;
+    if (select && !Array.isArray(select)) {
+      throw Error('The select argument should be an array');
+    }
     query = where || {};
     if (omit) {
       const all = Object.keys(db.columns[table]);
@@ -1057,8 +1067,9 @@ const all = async (config) => {
   }
   const options = {
     query: sql,
-    params,
-    tx
+    params: db.adjust(params),
+    tx,
+    adjusted: true
   };
   const post = (rows) => {
     if (rows.length === 0) {

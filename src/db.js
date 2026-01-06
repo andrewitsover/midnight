@@ -232,8 +232,11 @@ class Database {
   }
 
   adjust(params) {
+    if (!params) {
+      return params;
+    }
     const adjusted = {};
-    for (let [key, value] of Object.entries(params)) {
+    for (const [key, value] of Object.entries(params)) {
       adjusted[key] = this.jsToDb(value);
     }
     return adjusted;

@@ -112,13 +112,21 @@ class SQLiteDatabase extends Database {
   }
 
   async commit(tx) {
-    await this.basicRun('commit', tx);
-    tx.lock.release();
+    try {
+      await this.basicRun('commit', tx);
+    }
+    finally {
+      tx.lock.release();
+    }
   }
 
   async rollback(tx) {
-    await this.basicRun('rollback', tx);
-    tx.lock.release();
+    try {
+      await this.basicRun('rollback', tx);
+    }
+    finally {
+      tx.lock.release();
+    }
   }
 
   async getError(sql) {
@@ -134,9 +142,13 @@ class SQLiteDatabase extends Database {
     if (!tx) {
       lock = await this.getLock();
     }
-    statement.run();
-    if (lock) {
-      lock.release();
+    try {
+      statement.run();
+    }
+    finally {
+      if (lock) {
+        lock.release();
+      }
     }
   }
 
@@ -145,15 +157,19 @@ class SQLiteDatabase extends Database {
       await this.initialize();
     }
     const lock = await this.getLock();
-    const inserted = this.db.transaction(() => {
-      for (const insert of inserts) {
-        const { query, params } = insert;
-        const statement = this.db.prepare(query);
-        statement.run(params);
-      }
-    });
-    inserted();
-    lock.release();
+    try {
+      const inserted = this.db.transaction(() => {
+        for (const insert of inserts) {
+          const { query, params } = insert;
+          const statement = this.db.prepare(query);
+          statement.run(params);
+        }
+      });
+      inserted();
+    }
+    finally {
+      lock.release();
+    }
   }
 
   async batch(type, handler) {
@@ -167,22 +183,28 @@ class SQLiteDatabase extends Database {
     const promises = handler(client).flat();
     const handlers = await Promise.all(promises);
     const lock = await this.getLock();
-    const result = this.db.transaction(() => {
-      const responses = [];
-      const flat = handlers.flat();
-      for (const handler of flat) {
-        const { statement, params, post } = handler;
-        const run = post ? 'all' : 'run';
-        let response = isEmpty(params) ? statement[run]() : statement[run](params);
-        if (post) {
-          response = post(response);
+    try {
+      const result = this.db.transaction(() => {
+        const responses = [];
+        const flat = handlers.flat();
+        for (const handler of flat) {
+          const { statement, params, post } = handler;
+          const run = post ? 'all' : 'run';
+          let response = isEmpty(params) ? statement[run]() : statement[run](params);
+          if (post) {
+            response = post(response);
+          }
+          responses.push(response);
         }
-        responses.push(response);
-      }
-      return responses;
-    });
-    lock.release();
-    return result();
+        return responses;
+      });
+      lock.release();
+      return result();
+    }
+    catch (e) {
+      lock.release();
+      throw e;
+    }
   }
 
   cache(query) {
@@ -198,7 +220,7 @@ class SQLiteDatabase extends Database {
       statement = this.db.prepare(query);
     }
     catch (e) {
-      const message = `query: ${query} had the error: ${e}`;
+      const message = `${e}\nQuery: ${query}`;
       throw Error(message);
     }
     this.statements.set(query, statement);
@@ -213,7 +235,7 @@ class SQLiteDatabase extends Database {
     if (params === null) {
       params = undefined;
     }
-    if (params !== undefined && !adjusted) {
+    if (!adjusted) {
       params = this.adjust(params);
     }
     const statement = this.cache(query);
@@ -227,11 +249,19 @@ class SQLiteDatabase extends Database {
     if (!tx) {
       lock = await this.getLock();
     }
-    const result = isEmpty(params) ? statement.run() : statement.run(params);
-    if (lock) {
-      lock.release();
+    try {
+      const result = isEmpty(params) ? statement.run() : statement.run(params);
+      if (lock) {
+        lock.release();
+      }
+      return result.changes;
     }
-    return result.changes;
+    catch (e) {
+      if (lock) {
+        lock.release();
+      }
+      throw e;
+    }
   }
 
   async all(props) {
@@ -242,7 +272,7 @@ class SQLiteDatabase extends Database {
     if (params === null) {
       params = undefined;
     }
-    if (params !== undefined && !adjusted) {
+    if (!adjusted) {
       params = this.adjust(params);
     }
     const statement = this.cache(query);
@@ -258,11 +288,19 @@ class SQLiteDatabase extends Database {
     if (!tx) {
       lock = await this.getLock();
     }
-    const rows = isEmpty(params) ? statement.all() : statement.all(params);
-    if (lock) {
-      lock.release();
+    try {
+      const rows = isEmpty(params) ? statement.all() : statement.all(params);
+      if (lock) {
+        lock.release();
+      }
+      return process(rows, options);
     }
-    return process(rows, options);
+    catch (e) {
+      if (lock) {
+        lock.release();
+      }
+      throw e;
+    }
   }
 
   async exec(sql, tx) {
@@ -273,9 +311,13 @@ class SQLiteDatabase extends Database {
     if (!tx) {
       lock = await this.getLock();
     }
-    this.db.exec(sql);
-    if (lock) {
-      lock.release();
+    try {
+      this.db.exec(sql);
+    }
+    finally {
+      if (lock) {
+        lock.release();
+      }
     }
   }
 
