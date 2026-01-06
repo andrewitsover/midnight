@@ -15,7 +15,7 @@ class SQLiteDatabase extends Database {
     this.path = path;
     this.sqlite3 = sqlite3;
     this.extensions = options.extensions;
-    this.db = null;
+    this.db = this.createDatabase();
     this.lock = null;
   }
 
@@ -37,18 +37,7 @@ class SQLiteDatabase extends Database {
     }
   }
 
-  async initialize() {
-    if (this.initialized) {
-      return;
-    }
-    this.db = await this.createDatabase();
-    this.initialized = true;
-  }
-
   async migrate(sql) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const tx = await this.begin();
     try {
       await tx.deferForeignKeys();
@@ -61,48 +50,34 @@ class SQLiteDatabase extends Database {
     }
   }
 
-  async createDatabase() {
+  createDatabase() {
     const db = new this.sqlite3(this.path);
-    await this.enableForeignKeys(db);
+    db.pragma('foreign_keys = on');
     const extensions = this.extensions;
     if (extensions) {
       if (typeof extensions === 'string') {
-        await this.loadExtension(extensions, db);
+        db.loadExtension(extensions);
       }
       else {
         for (const extension of extensions) {
-          await this.loadExtension(extension, db);
+          db.loadExtension(extension);
         }
       }
     }
     return db;
   }
 
-  async enableForeignKeys(db) {
-    db.pragma('foreign_keys = on');
-  }
-
   async deferForeignKeys() {
     await this.pragma('defer_foreign_keys = true');
   }
-  
-  async loadExtension(path, db) {
-    db.loadExtension(path);
-  }
 
   async pragma(sql) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     return this.db.pragma(sql);
   }
 
   async begin(type) {
     if (type && !['deferred', 'immediate'].includes(type)) {
       throw Error(`invalid transaction type: ${type}`);
-    }
-    if (!this.initialized) {
-      await this.initialize();
     }
     const lock = await this.getLock();
     const tx = { lock };
@@ -134,9 +109,6 @@ class SQLiteDatabase extends Database {
   }
 
   async basicRun(sql, tx) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const statement = this.db.prepare(sql);
     let lock;
     if (!tx) {
@@ -153,9 +125,6 @@ class SQLiteDatabase extends Database {
   }
 
   async insertBatch(inserts) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const lock = await this.getLock();
     try {
       const inserted = this.db.transaction(() => {
@@ -173,9 +142,6 @@ class SQLiteDatabase extends Database {
   }
 
   async batch(type, handler) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     if (!handler) {
       handler = type;
     }
@@ -226,9 +192,6 @@ class SQLiteDatabase extends Database {
   }
 
   async run(props) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let { query, params, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -259,9 +222,6 @@ class SQLiteDatabase extends Database {
   }
 
   async all(props) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let { query, params, options, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -294,9 +254,6 @@ class SQLiteDatabase extends Database {
   }
 
   async exec(sql, tx) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let lock;
     if (!tx) {
       lock = await this.getLock();
@@ -312,7 +269,7 @@ class SQLiteDatabase extends Database {
   }
 
   async close() {
-    if (this.closed || !this.initialized) {
+    if (this.closed) {
       return;
     }
     this.db.close();

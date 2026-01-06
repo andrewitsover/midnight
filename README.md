@@ -450,7 +450,7 @@ Column types can be wrapped in many different methods:
 
 ```Unique```: add a unique index to the column.
 
-```Default```: this is only needed for TypeScript, and is used to define a default value. JavaScript users do not need to use this.
+```Default```: define a default value. You can often simply use a literal instead.
 
 ## Check constraints
 

@@ -1230,7 +1230,6 @@ export class Database {
 export class SQLiteDatabase extends Database {
   constructor(path?: string | URL, options?: SQLiteConfig);
   getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
-  initialize(): Promise<void>;
   close(): Promise<void>;
 }
 
