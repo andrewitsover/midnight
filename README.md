@@ -19,7 +19,7 @@
 ⠀⠀⠀⠀⡇⣿⡅⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠦⠀⠀⠀⠀⠀⠀⡇⢹⢿⡀
 ⠀⠀⠀⠀⠁⠛⠓⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠼⠇⠁
 ```
-The time after the 11th hour. Midnight is a NodeJS ORM for SQLite and Turso with full TypeScript support without needing to generate any code. Even complex SQL queries can be written inside of JavaScript.
+The time after the 11th hour. Midnight is a NodeJS ORM for SQLite with full TypeScript support without needing to generate any code. Even complex SQL queries can be written inside of JavaScript.
 
 Tables are written in JavaScript like this:
 
@@ -42,7 +42,7 @@ class Trees extends Table {
 There are two levels of API. The first is a table-level syntax for basic queries.
 
 ```js
-const tree = await db.trees.get({ 
+const tree = db.trees.get({ 
   id: 1,
   alive: true
 });
@@ -51,7 +51,7 @@ const tree = await db.trees.get({
 The second type of syntax is much like SQL and builds on many of the new features that JavaScript has added to its language in recent times.
 
 ```js
-const trees = await db.query(c => {
+const trees = db.query(c => {
   const {
     forests: f,
     trees: t
@@ -113,10 +113,10 @@ class Clouds extends Table {
 
 const db = database.getClient({ Clouds });
 const sql = db.diff();
-await db.migrate(sql);
+db.migrate(sql);
 
-await db.clouds.insert({ name: 'Nimbus' });
-const clouds = await db.clouds.many();
+db.clouds.insert({ name: 'Nimbus' });
+const clouds = db.clouds.many();
 console.log(clouds);
 ```
 
@@ -135,7 +135,7 @@ Every table has ```get```, ```many```, ```first```, ```query```, ```update```, `
 ```insert``` inserts a row into the database. For batch inserts you can use ```insertMany```, which takes an array of objects.
 
 ```js
-const id = await db.moons.insert({
+const id = db.moons.insert({
   name: 'Europa',
   orbit: 'Retrograde'
 });
@@ -146,7 +146,7 @@ const id = await db.moons.insert({
 ```update``` takes an object with an optional ```where``` property, and a ```set``` property. It returns a number representing the number of rows that were affected by the query. For example:
 
 ```js
-await db.moons.update({
+db.moons.update({
   where: { id: 100 }, 
   set: { orbit: 'Prograde' }
 });
@@ -155,7 +155,7 @@ await db.moons.update({
 If you want to update columns based on their existing value, you can pass a function into the ```set``` properties like this:
 
 ```js
-await db.moons.update({
+db.moons.update({
   set: {
     orbit: (c, f) => f.concat(c.orbit, ' - Circular')
   },
@@ -172,7 +172,7 @@ All of the built-in SQLite functions are available, in addition to the mathemati
 ```upsert``` will update the row if the target's uniqueness contraint is violated by the insert. If ```target``` or ```set``` are not provided, the upsert will do nothing when there is a conflict. ```upsert``` returns the primary key of the inserted or updated row.
 
 ```js
-const id = await db.forests.upsert({
+const id = db.forests.upsert({
   values: {
     id: 1,
     name: 'Daisy Hill Forest',
@@ -190,7 +190,7 @@ const id = await db.forests.upsert({
 ```get``` and ```many``` take two optional arguments. The first argument represents the where clause. For example:
 
 ```js
-const trees = await db.trees.many({ 
+const trees = db.trees.many({ 
   forestId: 9,
   alive: true
 });
@@ -199,7 +199,7 @@ const trees = await db.trees.many({
 If an array is passed in, an ```in``` clause is used, such as:
 
 ```js
-const trees = await db.trees.many({
+const trees = db.trees.many({
   forestId: [1, 2, 3]
 });
 ```
@@ -211,13 +211,13 @@ The second argument to ```get``` or ```many``` selects which columns to return. 
 1. a string representing a column to select. In this case, the result returned is a single value or array of single values, depending on whether ```get``` or ```many``` is used.
 
 ```js
-const planted = await db.trees.get({ id: 3 }, 'planted');
+const planted = db.trees.get({ id: 3 }, 'planted');
 ```
 
 2. an array of strings, representing the columns to select.
 
 ```js
-const tree = await db.trees.get({ id: 3 }, ['id', 'born']);
+const tree = db.trees.get({ id: 3 }, ['id', 'born']);
 ```
 
 ### Query and First
@@ -231,7 +231,7 @@ You can use the ```query``` or ```first``` syntax for more complex queries. ```q
 ```omit```: a string or array of strings representing the columns to omit. All of the other columns will be selected.
 
 ```js
-const rangers = await db.rangers.query({
+const rangers = db.rangers.query({
   omit: 'password',
   where: {
     id: [1, 2, 3]
@@ -242,7 +242,7 @@ const rangers = await db.rangers.query({
 ```orderBy```: a string or an array representing the column or columns to order the result by. This can also be a function that utilises the built-in SQLite functions.
 
 ```js
-const trees = await db.trees.query({
+const trees = db.trees.query({
   where: {
     category: 'Evergreen'
   },
@@ -259,7 +259,7 @@ const trees = await db.trees.query({
 For example:
 
 ```js
-const trees = await db.trees.query({
+const trees = db.trees.query({
   where: { 
     alive: true 
   }, 
@@ -275,8 +275,8 @@ For example:
 
 ```js
 const excluded = [1, 2, 3];
-const moons = await db.moons.many({ id: c => c.not(excluded) });
-const count = await db.moons.count({
+const moons = db.moons.many({ id: c => c.not(excluded) });
+const count = db.moons.count({
   where: {
     id: c => c.gt(10)
   }
@@ -288,7 +288,7 @@ const count = await db.moons.count({
 If you need to perform complex logic in the ```where``` clause, you can use the ```and``` or ```or``` properties. For example:
 
 ```js
-const wolves = await db.animals.query({
+const wolves = db.animals.query({
   where: {
     or: [
       { name: c => c.like('Gray%') },
@@ -319,7 +319,7 @@ All of these functions take three arguments:
 ```distinct```: the same as ```column``` but it aggregates by distinct values.
 
 ```js
-const count = await db.trees.count({
+const count = db.trees.count({
   where: {
     native: true
   }
@@ -329,7 +329,7 @@ const count = await db.trees.count({
 There is also an ```exists``` function that takes one argument representing the where clause.
 
 ```js
-const exists = await db.moons.exists({ 
+const exists = db.moons.exists({ 
   name: 'Cumulus'
 });
 ```
@@ -339,7 +339,7 @@ const exists = await db.moons.exists({
 You can write ```group by``` statements like this:
 
 ```js
-const trees = await db.fighters
+const trees = db.fighters
   .groupBy('forestId')
   .avg({
     column: {
@@ -357,7 +357,7 @@ An aggregate function should come after the ```groupBy``` method. ```distinct```
 In addition to aggregate functions such as ```avg``` or ```count```, there is also an ```array``` function that simply groups the rows into an array. The ```select``` option takes an object with a single property representing the name of the resulting array, and the column or columns to select.
 
 ```js
-const trees = await db.trees
+const trees = db.trees
   .groupBy('forestId')
   .array({
     select: {
@@ -372,45 +372,31 @@ const trees = await db.trees
 ```delete``` takes one argument representing the where clause and returns the number of rows affected by the query.
 
 ```js
-const changes = await db.moons.delete({ id: 100 });
+const changes = db.moons.delete({ id: 100 });
 ```
 
 ## Transactions
 
-Transactions lock all writes to the database until they are complete.
+Transactions allow all operations to succeed or fail together so that the database is not left in an incorrect state. Make sure you do not ```await``` on any functions while performing a transaction as this will allow other operations outside of the transaction to run and therefore be included in the transaction unintentionally. In other words, there should be no ```await``` statement between the ```begin``` and ```commit``` functions.
 
 ```js
-const tx = await db.begin();
 try {
-  const animalId = await tx.animals.insert({
+  db.begin();
+  const animalId = db.animals.insert({
     name: 'Gray Wolf',
     speed: 73
   });
-  const personId = await tx.people.get({ name: c => c.like('Andrew%') }, 'id');
-  await tx.sightings.insert({
+  const personId = db.people.get({ name: c => c.like('Andrew%') }, 'id');
+  db.sightings.insert({
     personId,
     animalId
   });
-  await tx.commit();
+  db.commit();
 }
 catch (e) {
-  await tx.rollback();
+  db.rollback();
+  throw e;
 }
-```
-
-## Batches
-
-You can also run multiple statements inside a single transaction without any logic using ```batch```.
-
-```js
-const forestId = 1;
-const [forest, trees, sightings] = await db.batch((bx) => [
-  bx.forests.get({ id: forestId }),
-  bx.trees.many({ forestId }),
-  bx.sightings.many({ forestId })
-]);
-
-const result = { ...forest, trees, sightings };
 ```
 
 ## Migrations
@@ -584,7 +570,7 @@ Midnight alllows you to create complex SQL queries without leaving JavaScript.
 The following query uses a window function to rank trees by their height.
 
 ```js
-const trees = await db.query(c => {
+const trees = db.query(c => {
   const { 
     id,
     name,
@@ -609,7 +595,7 @@ const trees = await db.query(c => {
 The built-in SQLite functions are just JavaScript functions. This query gets the tree planted the furthest time away from the supplied date.
 
 ```js
-const tree = await db.first(c => {
+const tree = db.first(c => {
   const { id, name, planted } = c.trees;
   const now = new Date();
   const max = c.max(c.timeDiff(planted, now));
@@ -630,7 +616,7 @@ The ```c``` parameter of the query represents the context of the database, inclu
 The ```group``` function represents ```json_group_array``` or ```json_group_object``` depending on the number of parameters supplied to the function.
 
 ```js
-const moons = await db.subquery(c => {
+const moons = db.subquery(c => {
   const { id, name, planetId } = c.moons;
   return {
     select: {
@@ -670,7 +656,7 @@ const sighted = db.subquery(c => {
 You can now use this subquery in other queries.
 
 ```js
-const animals = await db.query(c => {
+const animals = db.query(c => {
   const { animalId, sightedBy } = c.use(sighted);
   const a = c.animals;
   return {
@@ -689,7 +675,7 @@ const animals = await db.query(c => {
 Subqueries can also be used instead of tables in the standard API with the ```use``` method.
 
 ```js
-const sightings = await db.use(sighted).exists({ animalId: 1 });
+const sightings = db.use(sighted).exists({ animalId: 1 });
 ```
 
 The object returned from the ```query``` and ```subquery``` methods can include the following:
@@ -699,7 +685,7 @@ The object returned from the ```query``` and ```subquery``` methods can include 
 ```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
 
 ```js
-const planets = await db.query(c => {
+const planets = db.query(c => {
   const { planets: p, moons: m } = c;
   return {
     select: p,
@@ -752,7 +738,7 @@ export class ForestSearches extends ExternalFTSTable {
 You can now query the table like this:
 
 ```js
-const matches = await db.forestSearches.match({
+const matches = db.forestSearches.match({
   startsWith: 'Mount'
 });
 ```
@@ -760,7 +746,7 @@ const matches = await db.forestSearches.match({
 If you want to search a specific column, you can do:
 
 ```js
-const matches = await db.forstSearches.match({
+const matches = db.forstSearches.match({
   where: {
     otherName: {
       near: ['Mount', 'Park', 2]
@@ -787,7 +773,7 @@ The ```match``` API allows you to search an fts5 table in a number of different 
 You can also query fts5 tables with the basic API like this:
 
 ```js
-const results = await db.forestSearches.query({
+const results = db.forestSearches.query({
   where: { 
     forestSearches: 'Mount'
   },
@@ -806,7 +792,7 @@ const results = await db.forestSearches.query({
 or the SQL-like API like this:
 
 ```js
-const results = await db.query(c => {
+const results = db.query(c => {
   const { 
     forests: f,
     forestSearches: s

@@ -21,8 +21,6 @@ const methodNames = new Set([
   'migrate',
   'getSchema',
   'diff',
-  'batch',
-  'sync',
   'first',
   'firstValue',
   'query',
@@ -33,7 +31,7 @@ const methodNames = new Set([
 
 const groupMethods = (args) => {
   const makeMethod = (method) => {
-    return async (query) => await group({ query, method, ...args });
+    return (query) => group({ query, method, ...args });
   }
   const result = {};
   const methods = ['count', 'avg', 'min', 'max', 'sum', 'array'];
@@ -44,23 +42,23 @@ const groupMethods = (args) => {
 }
 
 const basic = {
-  insert: (args) => async (values) => await insert({ values, ...args }),
-  insertMany: (args) => async (items) => await insertMany({ items, ...args }),
-  update: (args) => async (options) => await update({ options, ...args }),
-  upsert: (args) => async (options) => await upsert({ options, ...args }),
-  exists: (args) => async (query, config) => await exists({ query, ...config, ...args }),
+  insert: (args) => (values) => insert({ values, ...args }),
+  insertMany: (args) => (items) => insertMany({ items, ...args }),
+  update: (args) => (options) => update({ options, ...args }),
+  upsert: (args) => (options) => upsert({ options, ...args }),
+  exists: (args) => (query, config) => exists({ query, ...config, ...args }),
   groupBy: (args) => (by, config) => groupMethods({ by, ...config, ...args }),
-  count: (args) => async (query, config) => await aggregate({ query, method: 'count', ...config, ...args }),
-  avg: (args) => async (query, config) => await aggregate({ query, method: 'avg', ...config, ...args }),
-  min: (args) => async (query, config) => await aggregate({ query, method: 'min', ...config, ...args }),
-  max: (args) => async (query, config) => await aggregate({ query, method: 'max', ...config, ...args }),
-  sum: (args) => async (query, config) => await aggregate({ query, method: 'sum', ...config, ...args }),
-  get: (args) => async (query, columns, config) => await all({ query, columns, first: true, ...config, ...args }),
-  many: (args) => async (query, columns, config) => await all({ query, columns, ...config, ...args }),
-  match: (args) => async (query, config) => await match({ query, ...config, ...args }),
-  query: (args) => async (query, config) => await all({ query, type: 'complex', ...config, ...args }),
-  first: (args) => async (query, config) => await all({ query, first: true, type: 'complex', ...config, ...args }),
-  delete: (args) => async (query) => await remove({ query, ...args })
+  count: (args) => (query, config) => aggregate({ query, method: 'count', ...config, ...args }),
+  avg: (args) => (query, config) => aggregate({ query, method: 'avg', ...config, ...args }),
+  min: (args) => (query, config) => aggregate({ query, method: 'min', ...config, ...args }),
+  max: (args) => (query, config) => aggregate({ query, method: 'max', ...config, ...args }),
+  sum: (args) => (query, config) => aggregate({ query, method: 'sum', ...config, ...args }),
+  get: (args) => (query, columns, config) => all({ query, columns, first: true, ...config, ...args }),
+  many: (args) => (query, columns, config) => all({ query, columns, ...config, ...args }),
+  match: (args) => (query, config) => match({ query, ...config, ...args }),
+  query: (args) => (query, config) => all({ query, type: 'complex', ...config, ...args }),
+  first: (args) => (query, config) => all({ query, first: true, type: 'complex', ...config, ...args }),
+  delete: (args) => (query) => remove({ query, ...args })
 }
 
 const getConverters = (key, value, db, converters, keys = [], optional = []) => {
@@ -143,7 +141,6 @@ const makeQueryHandler = (options) => {
   const { 
     table,
     db,
-    tx,
     dbClient,
     subquery
   } = options;
@@ -160,7 +157,6 @@ const makeQueryHandler = (options) => {
         const run = makeQuery({ 
           db,
           table,
-          tx,
           dbClient,
           subquery
         });
@@ -170,8 +166,8 @@ const makeQueryHandler = (options) => {
           }
         }
         else {
-          target[method] = async (...args) => {
-            return await run(...args);
+          target[method] = (...args) => {
+            return run(...args);
           }
         }
         return target[method];
@@ -181,21 +177,21 @@ const makeQueryHandler = (options) => {
   }
 }
 
-const makeClient = (db, tx) => {
+const makeClient = (db) => {
   const tableHandler = {
     get: function(target, table, dbClient) {
       if (table === 'query' || table === 'queryValues') {
-        return (expression) => db.query(expression, tx);
+        return (expression) => db.query(expression);
       }
       if (table === 'first' || table === 'firstValue') {
-        return (expression) => db.query(expression, tx, true);
+        return (expression) => db.query(expression, true);
       }
       if (table === 'subquery') {
         return (expression) => db.subquery(expression);
       }
       if (db[table] && ['begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
         db[table] = db[table].bind(db);
-        return () => db[table](tx);
+        return () => db[table]();
       }
       if (db[table] && table === 'pragma') {
         db[table] = db[table].bind(db);
@@ -203,9 +199,9 @@ const makeClient = (db, tx) => {
       }
       if (db[table] && table === 'exec') {
         db[table] = db[table].bind(db);
-        return (sql) => db[table](sql, tx);
+        return (sql) => db[table](sql);
       }
-      if (db[table] && ['getTransaction', 'batch', 'sync', 'diff', 'getSchema', 'migrate'].includes(table)) {
+      if (db[table] && ['getTransaction', 'diff', 'getSchema', 'migrate'].includes(table)) {
         db[table] = db[table].bind(db);
         return db[table];
       }
@@ -214,7 +210,6 @@ const makeClient = (db, tx) => {
           return new Proxy({}, makeQueryHandler({ 
             table,
             db,
-            tx,
             dbClient,
             subquery
           }));
@@ -230,7 +225,6 @@ const makeClient = (db, tx) => {
         target[table] = new Proxy({}, makeQueryHandler({ 
           table,
           db,
-          tx,
           dbClient
         }));
       }

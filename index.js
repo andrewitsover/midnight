@@ -1,6 +1,5 @@
 import Database from './src/db.js';
 import SQLiteDatabase from './src/sqlite.js';
-import TursoDatabase from './src/turso.js';
 import { 
   BaseTable, 
   Table, 
@@ -14,7 +13,6 @@ import {
 export {
   Database,
   SQLiteDatabase,
-  TursoDatabase,
   FTSTable,
   ExternalFTSTable,
   BaseTable,

@@ -13,36 +13,17 @@ class SQLiteDatabase extends Database {
   constructor(path, options = {}) {
     super();
     this.db = this.createDatabase(path, options);
-    this.lock = null;
   }
 
-  async getLock() {
-    let next;
-    while (true) {
-      if (!this.lock) {
-        next = Promise.withResolvers();
-        this.lock = next.promise;
-        break;
-      }
-      await this.lock;
-    }
-    return {
-      release: () => {
-        this.lock = null;
-        next.resolve();
-      }
-    }
-  }
-
-  async migrate(sql) {
-    const tx = await this.begin();
+  migrate(sql) {
+    this.begin();
     try {
-      await tx.deferForeignKeys();
-      await tx.exec(sql);
-      await tx.commit();
+      this.deferForeignKeys();
+      this.exec(sql);
+      this.commit();
     }
     catch (e) {
-      await tx.rollback();
+      this.rollback();
       throw e;
     }
   }
@@ -64,108 +45,48 @@ class SQLiteDatabase extends Database {
     return db;
   }
 
-  async deferForeignKeys() {
-    await this.pragma('defer_foreign_keys = true');
+  deferForeignKeys() {
+    this.pragma('defer_foreign_keys = true');
   }
 
-  async pragma(sql) {
+  pragma(sql) {
     return this.db.pragma(sql);
   }
 
-  async begin(type) {
+  begin(type) {
     if (type && !['deferred', 'immediate'].includes(type)) {
       throw Error(`invalid transaction type: ${type}`);
     }
-    const lock = await this.getLock();
-    const tx = { lock };
     const sql = type ? `begin ${type}` : 'begin';
-    await this.basicRun(sql, tx);
-    return makeClient(this, tx);
+    this.basicRun(sql);
   }
 
-  async commit(tx) {
-    try {
-      await this.basicRun('commit', tx);
-    }
-    finally {
-      tx.lock.release();
-    }
+  commit() {
+    this.basicRun('commit');
   }
 
-  async rollback(tx) {
-    try {
-      await this.basicRun('rollback', tx);
-    }
-    finally {
-      tx.lock.release();
-    }
+  rollback() {
+    this.basicRun('rollback');
   }
 
-  async getError(sql) {
+  getError(sql) {
     return this.db.prepare(sql);
   }
 
-  async basicRun(sql, tx) {
+  basicRun(sql) {
     const statement = this.db.prepare(sql);
-    let lock;
-    if (!tx) {
-      lock = await this.getLock();
-    }
-    try {
-      statement.run();
-    }
-    finally {
-      if (lock) {
-        lock.release();
+    statement.run();
+  }
+
+  insertBatch(inserts) {
+    const inserted = this.db.transaction(() => {
+      for (const insert of inserts) {
+        const { query, params } = insert;
+        const statement = this.db.prepare(query);
+        statement.run(params);
       }
-    }
-  }
-
-  async insertBatch(inserts) {
-    const lock = await this.getLock();
-    try {
-      const inserted = this.db.transaction(() => {
-        for (const insert of inserts) {
-          const { query, params } = insert;
-          const statement = this.db.prepare(query);
-          statement.run(params);
-        }
-      });
-      inserted();
-    }
-    finally {
-      lock.release();
-    }
-  }
-
-  async batch(type, handler) {
-    if (!handler) {
-      handler = type;
-    }
-    const client = makeClient(this, { isBatch: true });
-    const promises = handler(client).flat();
-    const handlers = await Promise.all(promises);
-    const lock = await this.getLock();
-    try {
-      const result = this.db.transaction(() => {
-        const responses = [];
-        const flat = handlers.flat();
-        for (const handler of flat) {
-          const { statement, params, post } = handler;
-          const run = post ? 'all' : 'run';
-          let response = isEmpty(params) ? statement[run]() : statement[run](params);
-          if (post) {
-            response = post(response);
-          }
-          responses.push(response);
-        }
-        return responses;
-      });
-      return result();
-    }
-    finally {
-      lock.release();
-    }
+    });
+    inserted();
   }
 
   cache(query) {
@@ -188,8 +109,8 @@ class SQLiteDatabase extends Database {
     return statement;
   }
 
-  async run(props) {
-    let { query, params, tx, adjusted } = props;
+  run(props) {
+    let { query, params, adjusted } = props;
     if (params === null) {
       params = undefined;
     }
@@ -197,29 +118,12 @@ class SQLiteDatabase extends Database {
       params = this.adjust(params);
     }
     const statement = this.cache(query);
-    if (tx && tx.isBatch) {
-      return {
-        statement,
-        params
-      };
-    }
-    let lock;
-    if (!tx) {
-      lock = await this.getLock();
-    }
-    try {
-      const result = isEmpty(params) ? statement.run() : statement.run(params);
-      return result.changes;
-    }
-    finally {
-      if (lock) {
-        lock.release();
-      }
-    }
+    const result = isEmpty(params) ? statement.run() : statement.run(params);
+    return result.changes;
   }
 
-  async all(props) {
-    let { query, params, options, tx, adjusted } = props;
+  all(props) {
+    let { query, params, options, adjusted } = props;
     if (params === null) {
       params = undefined;
     }
@@ -227,45 +131,15 @@ class SQLiteDatabase extends Database {
       params = this.adjust(params);
     }
     const statement = this.cache(query);
-    const process = this.process;
-    if (tx && tx.isBatch) {
-      return {
-        statement,
-        params,
-        post: (rows) => this.process(rows, options)
-      };
-    }
-    let lock;
-    if (!tx) {
-      lock = await this.getLock();
-    }
-    try {
-      const rows = isEmpty(params) ? statement.all() : statement.all(params);
-      return process(rows, options);
-    }
-    finally {
-      if (lock) {
-        lock.release();
-      }
-    }
+    const rows = isEmpty(params) ? statement.all() : statement.all(params);
+    return this.process(rows, options);
   }
 
-  async exec(sql, tx) {
-    let lock;
-    if (!tx) {
-      lock = await this.getLock();
-    }
-    try {
-      this.db.exec(sql);
-    }
-    finally {
-      if (lock) {
-        lock.release();
-      }
-    }
+  exec(sql) {
+    this.db.exec(sql);
   }
 
-  async close() {
+  close() {
     if (this.closed) {
       return;
     }

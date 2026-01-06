@@ -111,8 +111,8 @@ const makeInsertSql = (db, table, query, params) => {
   return `insert into ${table}(${columns.map(c => nameToSql(c)).join(', ')}) values(${placeholders.join(', ')})`;
 }
 
-const processBatch = async (db, options, post) => {
-  const result = await db.all(options);
+const processBatch = (db, options, post) => {
+  const result = db.all(options);
   return {
     statement: result.statement,
     params: result.params,
@@ -123,7 +123,7 @@ const processBatch = async (db, options, post) => {
   }
 }
 
-const processInsert = async (db, sql, params, primaryKey, tx, log) => {
+const processInsert = (db, sql, params, primaryKey, tx, log) => {
   const options = {
     query: sql,
     params,
@@ -132,9 +132,9 @@ const processInsert = async (db, sql, params, primaryKey, tx, log) => {
   };
   const post = (result) => result[0][primaryKey];
   if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
+    return processBatch(db, options, post);
   }
-  const rows = await withLog(db, options, log);
+  const rows = withLog(db, options, log);
   return post(rows);
 }
 
@@ -147,7 +147,7 @@ const verify = (columns) => {
   }
 }
 
-const upsert = async (args) => {
+const upsert = (args) => {
   const { 
     db,
     table,
@@ -171,10 +171,10 @@ const upsert = async (args) => {
   }
   const primaryKey = db.getPrimaryKey(table);
   sql += ` returning ${primaryKey}`;
-  return await processInsert(db, sql, params, primaryKey, tx, log);
+  return processInsert(db, sql, params, primaryKey, tx, log);
 }
 
-const insert = async (args) => {
+const insert = (args) => {
   const { 
     db,
     table,
@@ -188,10 +188,10 @@ const insert = async (args) => {
   const sql = makeInsertSql(db, table, adjusted, params);
   const primaryKey = db.getPrimaryKey(table);
   const query = `${sql} returning ${primaryKey}`;
-  return await processInsert(db, query, params, primaryKey, tx);
+  return processInsert(db, query, params, primaryKey, tx);
 }
 
-const batchInserts = async (tx, db, table, items) => {
+const batchInserts = (tx, db, table, items) => {
   const inserts = [];
   for (const item of items) {
     const params = {};
@@ -205,12 +205,12 @@ const batchInserts = async (tx, db, table, items) => {
     });
   }
   if (tx && tx.isBatch) {
-    return await Promise.all(inserts.map(insert => db.run(insert)));
+    return Promise.all(inserts.map(insert => db.run(insert)));
   }
-  await db.insertBatch(inserts);
+  db.insertBatch(inserts);
 }
 
-const insertMany = async (args) => {
+const insertMany = (args) => {
   const {
     db,
     table,
@@ -226,7 +226,7 @@ const insertMany = async (args) => {
   verify(columns);
   const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
   if (hasBlob) {
-    return await batchInserts(tx, db, table, items);
+    return batchInserts(tx, db, table, items);
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(column => {
@@ -245,7 +245,7 @@ const insertMany = async (args) => {
     params,
     tx
   };
-  return await db.run(options);
+  return db.run(options);
 }
 
 const toWhere = (options) => {
@@ -325,7 +325,7 @@ const createSetClause = (db, table, query, params) => {
   return statements.join(', ');
 }
 
-const update = async (args) => {
+const update = (args) => {
   const { 
     db,
     table,
@@ -355,7 +355,7 @@ const update = async (args) => {
     tx,
     adjusted: true
   };
-  return await withLog(db, runOptions, log, 'run');
+  return withLog(db, runOptions, log, 'run');
 }
 
 const getOrderBy = (orderBy, params) => {
@@ -414,7 +414,7 @@ const toKeywords = (keywords, params, table, columns) => {
   return sql;
 }
 
-const exists = async (config) => {
+const exists = (config) => {
   const {
     db,
     table,
@@ -424,7 +424,7 @@ const exists = async (config) => {
   } = config;
   const query = config.query || {};
   if (groupKeys && groupKeys.length > 0) {
-    const result = await aggregate({ db, table, query, tx, method: 'count', groupKeys });
+    const result = aggregate({ db, table, query, tx, method: 'count', groupKeys });
     return result.map(r => {
       const adjusted = {
         result: r.countResult > 0
@@ -451,9 +451,9 @@ const exists = async (config) => {
     return undefined;
   }
   if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
+    return processBatch(db, options, post);
   }
-  const results = await db.all(options);
+  const results = db.all(options);
   return post(results);
 }
 
@@ -480,7 +480,7 @@ const makeJsonArray = (types, columns) => {
   return sql;
 }
 
-const group = async (config) => {
+const group = (config) => {
   const {
     db,
     table,
@@ -606,13 +606,13 @@ const group = async (config) => {
     return rows;
   }
   if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
+    return processBatch(db, options, post);
   }
-  const rows = await withLog(db, options, log);
+  const rows = withLog(db, options, log);
   return post(rows);
 }
 
-const aggregate = async (config) => {
+const aggregate = (config) => {
   const {
     db,
     table,
@@ -685,9 +685,9 @@ const aggregate = async (config) => {
     return undefined;
   };
   if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
+    return processBatch(db, options, post);
   }
-  const rows = await withLog(db, options, log);
+  const rows = withLog(db, options, log);
   return post(rows);
 }
 
@@ -933,11 +933,11 @@ const parse = (query) => {
   }
 }
 
-const withLog = async (db, options, log, type = 'all') => {
+const withLog = (db, options, log, type = 'all') => {
   let rows;
   if (log) {
     const start = Date.now();
-    rows = await db[type](options);
+    rows = db[type](options);
     const data = {
       sql: options.query,
       params: options.params,
@@ -951,12 +951,12 @@ const withLog = async (db, options, log, type = 'all') => {
     }
   }
   else {
-    rows = await db[type](options);
+    rows = db[type](options);
   }
   return rows;
 }
 
-const match = async (config) => {
+const match = (config) => {
   const {
     db,
     table,
@@ -999,14 +999,14 @@ const match = async (config) => {
     tx,
     adjusted: true
   };
-  const rows = await withLog(db, options, query.log);
+  const rows = withLog(db, options, query.log);
   if (query.return) {
     return rows.map(r => r[query.return]);
   }
   return rows;
 }
 
-const all = async (config) => {
+const all = (config) => {
   const {
     db,
     table,
@@ -1123,13 +1123,13 @@ const all = async (config) => {
     return rows;
   };
   if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
+    return processBatch(db, options, post);
   }
-  const rows = await withLog(db, options, log);
+  const rows = withLog(db, options, log);
   return post(rows);
 }
 
-const remove = async (args) => {
+const remove = (args) => {
   const { 
     db,
     table,
@@ -1162,7 +1162,7 @@ const remove = async (args) => {
     params,
     tx
   };
-  return await db.run(options);
+  return db.run(options);
 }
 
 export {

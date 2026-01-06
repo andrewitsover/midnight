@@ -6,7 +6,7 @@ interface Keywords<T, K> {
   limit?: number;
   offset?: number;
   distinct?: boolean;
-  log?: boolean | ((info: LogInfo) => void | Promise<void>);
+  log?: boolean | ((info: LogInfo) => void);
 }
 
 type ReadQueries<P, T> = Pick<ToQuery<P, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists' | 'groupBy'>;
@@ -14,14 +14,6 @@ type ReadQueries<P, T> = Pick<ToQuery<P, T>, 'get' | 'many' | 'query' | 'first' 
 type ObjectFunction = {
   [key: string]: (...args: any) => any;
 }
-
-type ReturnTypes<T extends ObjectFunction> = {
-  [K in keyof T]: ReturnType<T[K]>;
-};
-
-type ConvertAlias<T, U extends ObjectFunction> = 
-  T & { [K in keyof U]: ReturnType<U[K]> extends Promise<infer R> ? R : never;
-};
 
 interface VirtualKeywords<T> extends Keywords<T, (keyof T)[] | keyof T> {
   rank?: true;
@@ -60,7 +52,7 @@ interface AggregateQuery<W, K> {
   where?: W;
   column?: K;
   distinct?: K;
-  log?: boolean | ((info: LogInfo) => void | Promise<void>);
+  log?: boolean | ((info: LogInfo) => void);
 }
 
 interface ComplexQuery<W, T> extends Keywords<T, Array<keyof T> | keyof T> {
@@ -93,14 +85,14 @@ type AddComputed<T> = {
 interface UpdateQuery<W, T> {
   where?: W | null;
   set: Partial<AddComputed<MakeOptionalNullable<T>>>;
-  log?: boolean | ((info: LogInfo) => void | Promise<void>);
+  log?: boolean | ((info: LogInfo) => void);
 }
 
 interface UpsertQuery<T, K> {
   values: T;
   target?: K;
   set?: Partial<MakeOptionalNullable<T>>;
-  log?: boolean | ((info: LogInfo) => void | Promise<void>);
+  log?: boolean | ((info: LogInfo) => void);
 }
 
 interface GroupQueryKeywords<W, K> {
@@ -109,7 +101,7 @@ interface GroupQueryKeywords<W, K> {
   desc?: boolean;
   limit?: number;
   offset?: number;
-  log?: boolean | ((info: LogInfo) => void | Promise<void>);
+  log?: boolean | ((info: LogInfo) => void);
 }
 
 interface GroupQueryCountStarColumn<A extends string, T, W, K> extends GroupQueryKeywords<W, K> {
@@ -179,19 +171,19 @@ type DateToString<T> = T extends Date
     : T;
 
 interface AggregateMethods<T, W, K extends keyof T, Y> {
-  count<A extends string>(params?: GroupQueryCountStarColumn<A, T, W & ToWhere<{ count: number }>, K | 'count'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  count<A extends string>(params?: GroupQueryCountStarDistinct<A, T, W & ToWhere<{ count: number }>, K | 'count'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  avg<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'avg'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  avg<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'avg'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  max<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'max'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  max<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'max'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  min<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'min'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  min<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'min'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  sum<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  sum<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Promise<Array<Pick<T, K> & { [key in A]: number }>>;
-  array<A extends string, S extends keyof T>(params: GroupArrayValue<A, W, K, S>): Promise<Array<Pick<T, K> & { [key in A]: Array<DateToString<T[S]>> }>>;
-  array<A extends string>(params: GroupArray<A, W, K>): Promise<Array<Pick<T, K> & { [key in A]: Array<DateToString<T>> }>>;
-  array<A extends string, S extends keyof T>(params: GroupArraySelect<A, W, K, S>): Promise<Array<Pick<T, K> & { [key in A]: Array<DateToString<Pick<T, S>>> }>>;
+  count<A extends string>(params?: GroupQueryCountStarColumn<A, T, W & ToWhere<{ count: number }>, K | 'count'>): Array<Pick<T, K> & { [key in A]: number }>;
+  count<A extends string>(params?: GroupQueryCountStarDistinct<A, T, W & ToWhere<{ count: number }>, K | 'count'>): Array<Pick<T, K> & { [key in A]: number }>;
+  avg<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'avg'>): Array<Pick<T, K> & { [key in A]: number }>;
+  avg<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'avg'>): Array<Pick<T, K> & { [key in A]: number }>;
+  max<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'max'>): Array<Pick<T, K> & { [key in A]: number }>;
+  max<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'max'>): Array<Pick<T, K> & { [key in A]: number }>;
+  min<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'min'>): Array<Pick<T, K> & { [key in A]: number }>;
+  min<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'min'>): Array<Pick<T, K> & { [key in A]: number }>;
+  sum<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Array<Pick<T, K> & { [key in A]: number }>;
+  sum<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Array<Pick<T, K> & { [key in A]: number }>;
+  array<A extends string, S extends keyof T>(params: GroupArrayValue<A, W, K, S>): Array<Pick<T, K> & { [key in A]: Array<DateToString<T[S]>> }>;
+  array<A extends string>(params: GroupArray<A, W, K>): Array<Pick<T, K> & { [key in A]: Array<DateToString<T>> }>;
+  array<A extends string, S extends keyof T>(params: GroupArraySelect<A, W, K, S>): Array<Pick<T, K> & { [key in A]: Array<DateToString<Pick<T, S>>> }>;
 }
 
 type IfOddArgs<T> = 
@@ -467,46 +459,46 @@ interface MatchQueryValue<T, K> extends MatchKeywords, VirtualKeywords<T & { row
 }
 
 interface VirtualQueries<T, E, W> {
-  match(query: MatchQuery<T>): Promise<T[]>;
-  match<K extends keyof E>(query: MatchQuerySelect<T, K>): Promise<Pick<E, K>[]>;
-  match<K extends keyof E>(query: MatchQueryValue<T, K>): Promise<E[K][]>;
-  get(query: HighlightQuery<W, T>): Promise<{ id: number, highlight: string } | undefined>;
-  get(query: SnippetQuery<W, T>): Promise<{ id: number, snippet: string } | undefined>;
-  query(query: HighlightQuery<W, T>): Promise<Array<{ id: number, highlight: string }>>;
-  query(query: SnippetQuery<W, T>): Promise<Array<{ id: number, snippet: string }>>;
+  match(query: MatchQuery<T>): T[];
+  match<K extends keyof E>(query: MatchQuerySelect<T, K>): Pick<E, K>[];
+  match<K extends keyof E>(query: MatchQueryValue<T, K>): E[K][];
+  get(query: HighlightQuery<W, T>): { id: number, highlight: string } | undefined;
+  get(query: SnippetQuery<W, T>): { id: number, snippet: string } | undefined;
+  query(query: HighlightQuery<W, T>): Array<{ id: number, highlight: string }>;
+  query(query: SnippetQuery<W, T>): Array<{ id: number, snippet: string }>;
 }
 
 interface WriteQueries<T, I, W, R> {
-  insert(params: I): Promise<R>;
-  insertMany(params: Array<I>): Promise<void>;
-  update(options: UpdateQuery<W, I>): Promise<number>;
-  upsert<K extends keyof T>(options: UpsertQuery<I, K>): Promise<R>;
-  delete(params?: W): Promise<number>;
+  insert(params: I): R;
+  insertMany(params: Array<I>): void;
+  update(options: UpdateQuery<W, I>): number;
+  upsert<K extends keyof T>(options: UpsertQuery<I, K>): R;
+  delete(params?: W): number;
 }
 
 interface Queries<T, E, W, Y> {
-  get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof E>(params: W | null, column: K): Promise<E[K] | undefined>;
-  get<K extends keyof E>(params: W | null, columns: (keyof E)[] | K[]): Promise<Pick<E, K> | undefined>;
-  many(params?: W): Promise<Array<T>>;
-  many<K extends keyof E>(params: W | null, columns: (keyof E)[] | K[]): Promise<Array<Pick<E, K>>>;
-  many<K extends keyof E>(params: W | null, column: K): Promise<Array<E[K]>>;
-  query(): Promise<Array<T>>;
-  query<K extends keyof E>(query: ComplexQueryValue<W, K, T>): Promise<Array<E[K]>>;
-  query<K extends keyof E>(query: ComplexQueryObject<W, K, T>): Promise<Array<Pick<E, K>>>;
-  query<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, T>): Promise<Array<Omit<E, K>>>;
-  query(query: ComplexQuery<W, E>): Promise<Array<T>>;
-  first(): Promise<T | undefined>;
-  first<K extends keyof E>(query: ComplexQueryValue<W, K, T>): Promise<E[K] | undefined>;
-  first<K extends keyof E>(query: ComplexQueryObject<W, K, T>): Promise<Pick<E, K> | undefined>;
-  first<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, T>): Promise<Omit<E, K> | undefined>;
-  first(query: ComplexQuery<W, E>): Promise<T | undefined>;
-  count<K extends keyof E>(query?: AggregateQuery<W, K>): Promise<number>;
-  avg<K extends keyof E>(query: AggregateQuery<W, K>): Promise<number>;
-  max<K extends keyof E>(query: AggregateQuery<W, K>): Promise<E[K]>;
-  min<K extends keyof E>(query: AggregateQuery<W, K>): Promise<E[K]>;
-  sum<K extends keyof E>(query: AggregateQuery<W, K>): Promise<number>;
-  exists(params: W | null): Promise<boolean>;
+  get(params?: W | null): T | undefined;
+  get<K extends keyof E>(params: W | null, column: K): E[K] | undefined;
+  get<K extends keyof E>(params: W | null, columns: (keyof E)[] | K[]): Pick<E, K> | undefined;
+  many(params?: W): Array<T>;
+  many<K extends keyof E>(params: W | null, columns: (keyof E)[] | K[]): Array<Pick<E, K>>;
+  many<K extends keyof E>(params: W | null, column: K): Array<E[K]>;
+  query(): Array<T>;
+  query<K extends keyof E>(query: ComplexQueryValue<W, K, T>): Array<E[K]>;
+  query<K extends keyof E>(query: ComplexQueryObject<W, K, T>): Array<Pick<E, K>>;
+  query<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, T>): Array<Omit<E, K>>;
+  query(query: ComplexQuery<W, E>): Array<T>;
+  first(): T | undefined;
+  first<K extends keyof E>(query: ComplexQueryValue<W, K, T>): E[K] | undefined;
+  first<K extends keyof E>(query: ComplexQueryObject<W, K, T>): Pick<E, K> | undefined;
+  first<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, T>): Omit<E, K> | undefined;
+  first(query: ComplexQuery<W, E>): T | undefined;
+  count<K extends keyof E>(query?: AggregateQuery<W, K>): number;
+  avg<K extends keyof E>(query: AggregateQuery<W, K>): number;
+  max<K extends keyof E>(query: AggregateQuery<W, K>): E[K];
+  min<K extends keyof E>(query: AggregateQuery<W, K>): E[K];
+  sum<K extends keyof E>(query: AggregateQuery<W, K>): number;
+  exists(params: W | null): boolean;
   groupBy<K extends keyof E>(columns: K | Array<K>): AggregateMethods<E, W, K, Y>;
 }
 
@@ -599,18 +591,6 @@ interface SQLiteConfig {
   timeout?: number;
   verbose?: (sql: string) => void;
   nativeBinding?: string;
-}
-
-interface TursoConfig {
-  db: any;
-}
-
-interface FileSystem {
-  readFile: (path: string, encoding: string) => Promise<string>;
-  writeFile: (path: string, content: string) => Promise<void>;
-  readdir: (path: string) => Promise<string[]>;
-  join: (...paths: string[]) => string;
-  readSql: (path: string) => Promise<string>;
 }
 
 declare const intPk1: unique symbol;
@@ -851,7 +831,7 @@ type MakeContext<T extends Record<string, abstract new (...args: any) => any>> =
 };
 
 type Unwrap<T extends any[]> = {
-  [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
+  [K in keyof T]: T[K];
 }
 
 type QueryCompareTypes = Date | number | boolean | null | string | Buffer | symbol;
@@ -908,7 +888,7 @@ interface QueryReturn {
   limit?: number | ComputedNumber | DbNumber | PkNumber;
   bm25?: { [key: symbol]: number | ComputedNumber | DbNumber | PkNumber };
   rank?: boolean | DbBoolean | ComputedBoolean;
-  log?: boolean | ((info: LogInfo) => void | Promise<void>);
+  log?: boolean | ((info: LogInfo) => void);
 }
 
 interface ObjectReturn<S> extends QueryReturn {
@@ -935,22 +915,19 @@ type GetDefined<T> =
     : never);
 
 interface TypedDb<P, C, N> {
-  exec(sql: string): Promise<void>;
-  begin(type?: N): Promise<TypedDb<P, C, N> & P>;
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
-  pragma(sql: string): Promise<any[]>;
-  deferForeignKeys(): Promise<void>;
-  migrate(sql: string): Promise<void>;
+  exec(sql: string): void;
+  begin(type?: N): TypedDb<P, C, N> & P;
+  commit(): void;
+  rollback(): void;
+  pragma(sql: string): any[];
+  deferForeignKeys(): void;
+  migrate(sql: string): void;
   getSchema(): any[];
   diff(schema?: any[]): string;
-  batch<T extends any[]>(batcher: (bx: TypedDb<P, C, N> & P) => T): Promise<Unwrap<T>>;
-  batch<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C, N> & P) => T): Promise<Unwrap<T>>;
-  sync(): Promise<void>;
-  first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>> | undefined>;
-  firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>> | undefined>;
-  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
+  first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>> | undefined;
+  firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>> | undefined;
+  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[];
+  queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>>[];
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
   use<S>(query: S): ReadQueries<P, S>;
 }
@@ -1219,22 +1196,16 @@ export class ExternalFTSTable extends FTSTable {
 
 export class Database {
   constructor();
-  run(args: { query: any, params?: any }): Promise<number>;
-  all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
-  exec(query: string): Promise<void>;
-  begin(): Promise<void>;
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
+  run(args: { query: any, params?: any }): number;
+  all<T>(args: { query: any, params?: any, options?: QueryOptions }): Array<T>;
+  exec(query: string): void;
+  begin(): void;
+  commit(): void;
+  rollback(): void;
 }
 
 export class SQLiteDatabase extends Database {
   constructor(path?: string | URL, options?: SQLiteConfig);
   getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
-  close(): Promise<void>;
-}
-
-export class TursoDatabase extends Database {
-  constructor(options: TursoConfig);
-  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'read' | 'write'> & MakeClient<C>;
-  batch(handler: (batcher: any) => any[], type: 'read' | 'write'): Promise<any[]>;
+  close(): void;
 }

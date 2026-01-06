@@ -86,28 +86,17 @@ class Database {
     return processQuery(this, expression);
   }
 
-  async query(expression, tx, first) {
+  query(expression, first) {
     const { sql, params, log, post } = processQuery(this, expression, first);
     const options = {
       query: sql,
-      params,
-      tx
+      params: this.adjust(params),
+      adjusted: true
     };
-    if (tx && tx.isBatch) {
-      const result = await this.all(options);
-      return {
-        statement: result.statement,
-        params: result.params,
-        post: (meta) => {
-          const response = result.post(meta);
-          return post(response);
-        }
-      }
-    }
     let rows;
     if (log) {
       const start = Date.now();
-      rows = await this.all(options);
+      rows = this.all(options);
       const data = {
         sql,
         params,
@@ -121,12 +110,12 @@ class Database {
       }
     }
     else {
-      rows = await this.all(options);
+      rows = this.all(options);
     }
     return post(rows);
   }
 
-  async migrate() {
+  migrate() {
     return;
   }
 
@@ -287,27 +276,27 @@ class Database {
     return result;
   }
 
-  async basicRun() {
+  basicRun() {
     return;
   }
 
-  async prepare() {
+  prepare() {
     return;
   }
 
-  async run() {
+  run() {
     return;
   }
 
-  async all() {
+  all() {
     return;
   }
 
-  async exec() {
+  exec() {
     return;
   }
 
-  async close() {
+  close() {
     return;
   }
 }
