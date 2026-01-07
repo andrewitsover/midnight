@@ -415,7 +415,7 @@ See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for
 
 In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, ```Date``` is stored as an ISO8601 string, and ```Json``` is a JSONB blob.
 
-To create a table, you simply extend either ```Table```, ```FTSTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ````FTSTable``` is used for defining fts5 tables. Columns start with a lowercase letter.
+To create a table, you simply extend either ```Table```, ```FTSTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ```FTSTable``` is used for defining fts5 tables. Columns start with a lowercase letter.
 
 ```js
 class Moons extends BaseTable {
