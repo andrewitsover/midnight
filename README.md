@@ -746,7 +746,7 @@ const matches = db.forestSearches.match({
 If you want to search a specific column, you can do:
 
 ```js
-const matches = db.forstSearches.match({
+const matches = db.forestSearches.match({
   where: {
     otherName: {
       near: ['Mount', 'Park', 2]
