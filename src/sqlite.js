@@ -143,6 +143,7 @@ class SQLiteDatabase extends Database {
     if (this.closed) {
       return;
     }
+    this.statements.clear();
     this.db.close();
     this.closed = true;
   }
