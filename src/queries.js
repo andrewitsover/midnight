@@ -420,20 +420,8 @@ const exists = (config) => {
     table,
     tx,
     subquery,
-    groupKeys
   } = config;
   const query = config.query || {};
-  if (groupKeys && groupKeys.length > 0) {
-    const result = aggregate({ db, table, query, tx, method: 'count', groupKeys });
-    return result.map(r => {
-      const adjusted = {
-        result: r.countResult > 0
-      };
-      for (const key of groupKeys) {
-        adjusted[key] = r[key];
-      }
-    });
-  }
   const params = {};
   const clause = subquery ? `(${subquery.sql})` : table;
   let sql = `select exists(select 1 from ${clause}`;
@@ -619,7 +607,6 @@ const aggregate = (config) => {
     tx,
     method,
     subquery,
-    groupKeys
   } = config;
   const params = {};
   const query = config.query || {};
@@ -639,22 +626,14 @@ const aggregate = (config) => {
     expression = `${actualMethod}(${before}${field}) as ${alias}`;
   }
   let sql;
-  let groupFields;
-  if (groupKeys && groupKeys.length > 0) {
-    groupFields = groupKeys.map(c => nameToSql(c)).join(', ');
-  }
   const whereClause = toWhere({
     query: where,
     params
   });
-  const groupClause = groupFields ? `, ${groupFields}` : '';
   const tableClause = subquery ? `(${subquery.sql})` : table;
-  sql = `select ${expression}${groupClause} from ${tableClause}`;
+  sql = `select ${expression} from ${tableClause}`;
   if (whereClause) {
     sql += ` where ${whereClause}`;
-  }
-  if (groupFields) {
-    sql += ` group by ${groupFields}`;
   }
   const options = {
     query: sql,
@@ -663,17 +642,6 @@ const aggregate = (config) => {
     adjusted: true
   };
   const post = (results) => {
-    if (groupFields) {
-      if (method == 'min' || method === 'max') {
-        const field = distinct || column;
-        const key = `${method}_result`;
-        for (const result of results) {
-          const value = result[key];
-          result[key] = db.convertToJs(table, field, value);
-        }
-      }
-      return results;
-    }
     if (results.length > 0) {
       const value = results[0][`${method}_result`];
       if (method == 'min' || method === 'max') {
@@ -967,9 +935,9 @@ const match = (config) => {
   const params = {};
   let select = '*';
   if (query.select) {
+    query.select.forEach(c => verify(c));
     select = query
       .select
-      .forEach(c => verify(c))
       .map(c => nameToSql(c))
       .join(', ');
   }
