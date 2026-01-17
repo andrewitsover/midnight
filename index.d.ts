@@ -438,9 +438,25 @@ interface MatchKeywords {
   near?: [...string[], number];
 }
 
+interface MatchAnyKeywords {
+  phrase?: any;
+  startsWith?: any;
+  prefix?: any;
+  and?: any;
+  or?: any;
+  not?: any;
+  near?: any;
+}
+
 interface MatchQuery<T> extends MatchKeywords, VirtualKeywords<T & { rowid: number }> {
   where?: {
     [K in keyof T]?: MatchKeywords | string;
+  }
+}
+
+interface MatchAnyQuery<T> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: number }> {
+  where?: {
+    [K in keyof T]?: MatchAnyKeywords | string;
   }
 }
 
@@ -451,6 +467,13 @@ interface MatchQuerySelect<T, K> extends MatchKeywords, VirtualKeywords<T & { ro
   }
 }
 
+interface MatchQueryAnySelect<T, K> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: number }> {
+  select: (keyof T)[] | K[];
+  where?: {
+    [K in keyof T]?: MatchAnyKeywords | string;
+  }
+}
+
 interface MatchQueryValue<T, K> extends MatchKeywords, VirtualKeywords<T & { rowid: number }> {
   return: K;
   column?: {
@@ -458,10 +481,20 @@ interface MatchQueryValue<T, K> extends MatchKeywords, VirtualKeywords<T & { row
   }
 }
 
+interface MatchQueryAnyValue<T, K> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: number }> {
+  return: K;
+  column?: {
+    [K in keyof T]?: MatchAnyKeywords | string;
+  }
+}
+
 interface VirtualQueries<T, E, W> {
   match(query: MatchQuery<T>): T[];
+  match(query: MatchAnyQuery<T>): T[];
   match<K extends keyof E>(query: MatchQuerySelect<T, K>): Pick<E, K>[];
+  match<K extends keyof E>(query: MatchQueryAnySelect<T, K>): Pick<E, K>[];
   match<K extends keyof E>(query: MatchQueryValue<T, K>): E[K][];
+  match<K extends keyof E>(query: MatchQueryAnyValue<T, K>): E[K][];
   get(query: HighlightQuery<W, T>): { id: number, highlight: string } | undefined;
   get(query: SnippetQuery<W, T>): { id: number, snippet: string } | undefined;
   query(query: HighlightQuery<W, T>): Array<{ id: number, highlight: string }>;

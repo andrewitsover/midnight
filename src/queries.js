@@ -890,8 +890,12 @@ const parse = (query) => {
     return toSql(phrases, type);
   }
   if (near) {
-    const distance = near.pop();
-    return `NEAR(${near.map(p => toSql(p)).join(' ')}, ${distance})`;
+    const clone = [...near];
+    const distance = clone.pop();
+    if (typeof distance !== 'number') {
+      throw Error(`Invalid distance for near: ${distance}`);
+    }
+    return `NEAR(${clone.map(p => toSql(p)).join(' ')}, ${distance})`;
   }
   if (startsWith !== undefined) {
     return toSql({ startsWith });
@@ -903,9 +907,15 @@ const parse = (query) => {
 
 const withLog = (db, options, log, type = 'all') => {
   let rows;
+  let error;
   if (log) {
     const start = Date.now();
-    rows = db[type](options);
+    try {
+      rows = db[type](options);
+    }
+    catch (e) {
+      error = e;
+    }
     const data = {
       sql: options.query,
       params: options.params,
@@ -919,7 +929,15 @@ const withLog = (db, options, log, type = 'all') => {
     }
   }
   else {
-    rows = db[type](options);
+    try {
+      rows = db[type](options);
+    }
+    catch (e) {
+      error = e;
+    }
+  }
+  if (error) {
+    throw error;
   }
   return rows;
 }
@@ -935,10 +953,12 @@ const match = (config) => {
   const params = {};
   let select = '*';
   if (query.select) {
-    query.select.forEach(c => verify(c));
     select = query
       .select
-      .map(c => nameToSql(c))
+      .map(c => {
+        verify(c);
+        return nameToSql(c);
+      })
       .join(', ');
   }
   else if (query.return) {
