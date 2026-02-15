@@ -820,19 +820,32 @@ type ExtractColumns<T> = {
 
 type PkType = PkNumber | PkString | PkDate | PkBuffer;
 
-type ToInsert<T> = {
-  [K in keyof T as T[K] extends PkType | DbTypes
-    ? K
-    : DbNull extends T[K]
+type OptionalKeys<T> = {
+  [K in keyof T]:
+    T[K] extends PkType | DbTypes
       ? K
-      : never]?: Exclude<T[K], DbNull>;
-} & {
-  [K in keyof T as T[K] extends PkType
-    ? never
-    : DbNull extends T[K]
+      : DbNull extends T[K]
+        ? K
+        : never
+}[keyof T];
+
+type RequiredKeys<T> = {
+  [K in keyof T]:
+    T[K] extends PkType
       ? never
-      : K]: T[K];
-};
+      : DbNull extends T[K]
+        ? never
+        : K
+}[keyof T];
+
+type ToInsert<T> =
+  {
+    [K in OptionalKeys<T>]?: Exclude<T[K], DbNull>;
+  } &
+  {
+    [K in RequiredKeys<T>]: T[K];
+  };
+
 
 type ExcludeComputed<T> = {
   [K in keyof T as T[K] extends AnyResult | PkType ? K : never]: T[K]
@@ -1242,3 +1255,6 @@ export class SQLiteDatabase extends Database {
   getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
   close(): void;
 }
+
+export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<T>>>>;
+export type Where<T> = ToWhere<ToJsType<ExtractColumns<T>>>;

@@ -815,3 +815,19 @@ const results = db.query(c => {
 ```
 
 You can also use the ```rank``` keyword.
+
+## Type helpers
+
+To construct arguments outside of the methods themselves, you can use the ```Insert``` and ```Where``` types.
+
+```ts
+import { db } from './database';
+import { Clouds } from './schema';
+import { Insert } from '@andrewitsover/midnight';
+
+const cloud: Insert<Clouds> = {
+  name: 'Nimbus',
+  orbit: 'Prograde'
+};
+const id = db.clouds.insert(cloud);
+```
