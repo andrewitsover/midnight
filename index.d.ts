@@ -346,6 +346,18 @@ type ToDbType<T> =
     U
   ) : T;
 
+type ToDefaultType<T> =
+  T extends null ? DbNull :
+  T extends infer U ? (
+    U extends number ? DefaultNumber :
+    U extends string ? DefaultString :
+    U extends Date ? DefaultDate :
+    U extends boolean ? DefaultBoolean :
+    U extends null ? DbNull :
+    U extends Json ? DefaultJson :
+    U
+  ) : T;
+
 type ToDbInterface<T> = {
   [K in keyof T]: ToDbType<T[K]>;
 };
@@ -362,19 +374,25 @@ type ToJsType<T> =
   : T extends DbNumber ? number :
     T extends PkNumber ? number :
     T extends ComputedNumber ? number :
+    T extends DefaultNumber ? number :
     T extends DbString ? string :
     T extends PkString ? string :
     T extends ComputedString ? string :
+    T extends DefaultString ? string :
     T extends DbDate ? Date :
     T extends PkDate ? Date :
     T extends ComputedDate ? Date :
+    T extends DefaultDate ? Date :
     T extends DbBoolean ? boolean :
     T extends ComputedBoolean ? boolean :
+    T extends DefaultBoolean ? boolean :
     T extends DbJson ? Json :
     T extends ComputedJson ? Json :
+    T extends DefaultJson ? Json :
     T extends DbBuffer ? Buffer :
     T extends PkBuffer ? Buffer :
     T extends ComputedBuffer ? Buffer :
+    T extends DefaultBuffer ? Buffer :
     T extends string ? string :
     T extends number ? number :
     T extends boolean ? boolean :
@@ -636,6 +654,11 @@ declare const intComp2: unique symbol;
 
 type ComputedNumber = typeof intComp1 | typeof intComp2;
 
+declare const intDefault1: unique symbol;
+declare const intDefault2: unique symbol;
+
+type DefaultNumber = typeof intDefault1 | typeof intDefault2;
+
 declare const stringPk1: unique symbol;
 declare const stringPk2: unique symbol;
 
@@ -645,6 +668,11 @@ declare const stringComp1: unique symbol;
 declare const stringComp2: unique symbol;
 
 type ComputedString = typeof stringComp1 | typeof stringComp2;
+
+declare const stringDefault1: unique symbol;
+declare const stringDefault2: unique symbol;
+
+type DefaultString = typeof stringDefault1 | typeof stringDefault2;
 
 declare const bufferPk1: unique symbol;
 declare const bufferPk2: unique symbol;
@@ -656,6 +684,11 @@ declare const bufferComp2: unique symbol;
 
 type ComputedBuffer = typeof bufferComp1 | typeof bufferComp2;
 
+declare const bufferDefault1: unique symbol;
+declare const bufferDefault2: unique symbol;
+
+type DefaultBuffer = typeof bufferDefault1 | typeof bufferDefault2;
+
 declare const datePk1: unique symbol;
 declare const datePk2: unique symbol;
 
@@ -666,15 +699,30 @@ declare const dateComp2: unique symbol;
 
 type ComputedDate = typeof dateComp1 | typeof dateComp2;
 
+declare const dateDefault1: unique symbol;
+declare const dateDefault2: unique symbol;
+
+type DefaultDate = typeof dateDefault1 | typeof dateDefault2;
+
 declare const boolComp1: unique symbol;
 declare const boolComp2: unique symbol;
 
 type ComputedBoolean = typeof boolComp1 | typeof boolComp2;
 
+declare const boolDefault1: unique symbol;
+declare const boolDefault2: unique symbol;
+
+type DefaultBoolean = typeof boolDefault1 | typeof boolDefault2;
+
 declare const jsonComp1: unique symbol;
 declare const jsonComp2: unique symbol;
 
 type ComputedJson = typeof jsonComp1 | typeof jsonComp2;
+
+declare const jsonDefault1: unique symbol;
+declare const jsonDefault2: unique symbol;
+
+type DefaultJson = typeof jsonDefault1 | typeof jsonDefault2;
 
 declare const nullComp1: unique symbol;
 declare const nullComp2: unique symbol;
@@ -716,32 +764,32 @@ declare const dbNull2: unique symbol;
 
 type DbNull = typeof dbNull1 | typeof dbNull2;
 
-type DbAny = ComputedBoolean | ComputedBuffer | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | PkBuffer | DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
+type DbAny = DefaultBoolean | DefaultBuffer | DefaultDate | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedBuffer | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | PkBuffer | DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
 type AnyParam = DbAny | DbNull | ComputedNull;
 
-type AllowedJson = ComputedBoolean | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
+type AllowedJson = DefaultBoolean | DefaultDate | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
 type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
-type OnlyNumbers = number | DbNumber | PkNumber | ComputedNumber;
-type NumberParam = number | null | ComputedNumber | PkNumber | DbNumber | DbNull | ComputedNull;
+type OnlyNumbers = number | DbNumber | PkNumber | ComputedNumber | DefaultNumber;
+type NumberParam = number | null | DefaultNumber | ComputedNumber | PkNumber | DbNumber | DbNull | ComputedNull;
 type NumberResult = DbNumber | DbNull;
 
-type OnlyStrings = string | DbString | PkString | ComputedString;
-type StringParam = string | null | PkString | ComputedString | DbString | DbNull | ComputedNull;
+type OnlyStrings = string | DbString | PkString | ComputedString | DefaultString;
+type StringParam = string | null | PkString | DefaultString | ComputedString | DbString | DbNull | ComputedNull;
 type StringResult = DbString | DbNull;
 
-type NumberBufferParam = number | Buffer | null | DbNumber | PkNumber | ComputedNumber | PkBuffer | ComputedBuffer | DbBuffer | DbNull | ComputedNull;
-type StringBufferParam = string | Buffer | null | DbString | PkString | ComputedString | DbBuffer | DbNull | ComputedNull;
+type NumberBufferParam = number | Buffer | null | DbNumber | PkNumber | DefaultNumber | ComputedNumber | PkBuffer | DefaultBuffer | ComputedBuffer | DbBuffer | DbNull | ComputedNull;
+type StringBufferParam = string | Buffer | null | DbString | PkString | DefaultString | ComputedString | DbBuffer | DbNull | ComputedNull;
 
 type AnyResult = DbString | DbNumber | DbDate | DbBoolean | DbJson | DbBuffer | DbNull;
 
 type BufferResult = DbBuffer | DbNull;
 
-type OnlyDates = DbDate | PkDate | ComputedDate;
-type DateParam = number | string | null | DbNumber | DbString | DbDate | PkNumber | PkString | PkDate | ComputedDate | ComputedNumber | ComputedString | DbNull;
+type OnlyDates = DbDate | PkDate | ComputedDate | DefaultDate;
+type DateParam = number | string | null | DbNumber | DbString | DbDate | PkNumber | PkString | PkDate | DefaultDate | DefaultNumber | ComputedDate | ComputedNumber | ComputedString | DbNull;
 type DateResult = DbDate | DbNull;
 
-type BooleanParam = boolean | DbBoolean | ComputedBoolean;
+type BooleanParam = boolean | DbBoolean | ComputedBoolean | DefaultBoolean;
 type BooleanResult = DbBoolean | DbNull;
 
 type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
@@ -749,6 +797,7 @@ type ExtractResult = DbString | DbNumber | DbBoolean | DbNull;
 type JsonResult = DbJson | DbNull;
 
 type DbTypes = number | string | boolean | Date | Buffer | null;
+type DefaultTypes = DefaultNumber | DefaultString | DefaultBoolean | DefaultDate | DefaultBuffer;
 
 declare const sym1: unique symbol;
 type ForeignKeyAction = typeof sym1;
@@ -815,14 +864,14 @@ type ExtractColumns<T> = {
       : never
     : never]: IsAny<ToDbType<T[K]>> extends true
       ? DbString
-      : ToDbType<T[K]>;
+      : ToDefaultType<T[K]>;
 };
 
 type PkType = PkNumber | PkString | PkDate | PkBuffer;
 
 type OptionalKeys<T> = {
   [K in keyof T]:
-    T[K] extends PkType | DbTypes
+    T[K] extends PkType | DbTypes | DefaultTypes
       ? K
       : DbNull extends T[K]
         ? K
@@ -831,7 +880,7 @@ type OptionalKeys<T> = {
 
 type RequiredKeys<T> = {
   [K in keyof T]:
-    T[K] extends PkType
+    T[K] extends PkType | DbTypes | DefaultTypes
       ? never
       : DbNull extends T[K]
         ? never
@@ -848,7 +897,7 @@ type ToInsert<T> =
 
 
 type ExcludeComputed<T> = {
-  [K in keyof T as T[K] extends AnyResult | PkType ? K : never]: T[K]
+  [K in keyof T as T[K] extends DbTypes | DefaultTypes | AnyResult | PkType ? K : never]: T[K]
 };
 
 type ToQuery<Y, T> = Queries<ToJsType<T>, ToJsType<T>, ToWhere<ToJsType<T>>, Y> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>>;
@@ -1009,9 +1058,9 @@ export class BaseTable {
   DatePrimary: PkDate;
   Bool: DbBoolean;
 
-  Now: DbDate;
-  True: DbBoolean;
-  False: DbBoolean;
+  Now: DefaultDate;
+  True: DefaultBoolean;
+  False: DefaultBoolean;
 
   References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     onDelete?: ForeignActions,
@@ -1064,7 +1113,7 @@ export class BaseTable {
   Unique(...args: [any, ...any[], { [key: symbol]: any }]): void;
   Check<T>(type: T, ...checks: any): ToDbType<T>;
   Null<T>(type: T): ToDbType<T> | DbNull;
-  Default<T extends Primitive>(value: T): ToDbType<T>;
+  Default<T extends Primitive>(value: T): ToDefaultType<T>;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;
   Abs(n: NumberParam): ToComputed<NumberResult>;
