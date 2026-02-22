@@ -440,12 +440,12 @@ Column types can be wrapped in many different methods:
 
 ## Check constraints
 
-Constraints can be represented as either an array of valid values, or one or more comparison functions.
+Constraints can be represented as either an array of valid values using the ```in``` property, or with the ```is``` property.
 
 ```js
 class Trees extends Table {
   height = this.Int;
-  leaves = this.Check(this.Int, this.Gte(0));
+  leaves = this.Check(this.Int, { is: this.Gte(0) });
   alive = true;
 }
 ```
@@ -522,11 +522,11 @@ Partial indexes can be defined on a class field.
 ```js
 class Animals extends Table {
   id = this.IntPrimary;
-  name = this.Index(this.Text, name => {
-    return {
+  name = this.Index(this.Text, name => ({
+    where: {
       [name]: this.Like('%Wolf')
     }
-  });
+  }));
 }
 ```
 

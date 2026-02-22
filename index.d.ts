@@ -1104,14 +1104,15 @@ export class BaseTable {
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
   Index<T>(type: T): ToDbType<T>;
-  Index<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
+  Index<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
   Index(...args: [any, ...any[]]): void;
-  Index(...args: [any, ...any[], { [key: symbol]: any }]): void;
+  Index(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
   Unique<T>(type: T): ToDbType<T>;
-  Unique<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
+  Unique<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
   Unique(...args: [any, ...any[]]): void;
-  Unique(...args: [any, ...any[], { [key: symbol]: any }]): void;
-  Check<T>(type: T, ...checks: any): ToDbType<T>;
+  Unique(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
+  Check(where: SymbolWhere);
+  Check<T>(type: T, ...checks: { in: DbTypes[] } | { is: any }): ToDbType<T>;
   Null<T>(type: T): ToDbType<T> | DbNull;
   Default<T extends Primitive>(value: T): ToDefaultType<T>;
 

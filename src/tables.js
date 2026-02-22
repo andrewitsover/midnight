@@ -249,11 +249,19 @@ class BaseTable {
 
   Check(column, ...checks) {
     const symbol = Symbol();
-    Table.requests.set(symbol, {
-      category: 'Check',
-      column,
-      checks
-    });
+    if (typeof column === 'object' && checks.length === 0) {
+      Table.requests.set(symbol, {
+        category: 'Check',
+        checks: column
+      });
+    }
+    else {
+      Table.requests.set(symbol, {
+        category: 'Check',
+        column,
+        checks
+      });
+    }
     this.Called.push(symbol);
     return symbol;
   }
@@ -418,25 +426,30 @@ const process = (Custom) => {
     const sql = column.sql || column.name;
     const statements = [];
     for (const check of checks) {
-      if (typeof check === 'symbol') {
-        const method = Table.requests.get(check);
-        if (method.category === 'Column') {
-          statements.push(`${sql} = ${method.name}`);
+      if (check.is) {
+        if (typeof check.is === 'symbol') {
+          const method = Table.requests.get(check.is);
+          if (method.category === 'Column') {
+            statements.push(`${sql} = ${method.name}`);
+          }
+          else {
+            const result = processMethod({
+              method,
+              requests: Table.requests
+            });
+            statements.push(`${sql} ${result.sql}`);
+          }
         }
         else {
-          const result = processMethod({
-            method,
-            requests: Table.requests
-          });
-          statements.push(`${sql} ${result.sql}`);
+          statements.push(`${sql} = ${toLiteral(check.is)}`);
         }
       }
-      else if (Array.isArray(check)) {
-        const clause = check.map(s => toLiteral(s)).join(', ');
+      else if (check.in) {
+        const clause = check.in.map(s => toLiteral(s)).join(', ');
         statements.push(`${sql} in (${clause})`);
       }
       else {
-        statements.push(`${sql} = ${toLiteral(check)}`);
+        throw Error('invalid check constraint');
       }
     }
     table.checks.push(statements.join(' and '));
@@ -510,8 +523,12 @@ const process = (Custom) => {
       let where;
       if (request.expression) {
         const result = request.expression(symbol);
+        if (!result || !result.where) {
+          console.log(result);
+          throw Error('invalid index expression');
+        }
         where = toWhere({
-          where: result,
+          where: result.where,
           requests: Table.requests
         });
       }
@@ -584,8 +601,11 @@ const process = (Custom) => {
         else {
           result = request.expression;
         }
+        if (!result || !result.where) {
+          throw Error('Invalid index expression');
+        }
         where = toWhere({
-          where: result,
+          where: result.where,
           requests: Table.requests
         });
       }
@@ -596,8 +616,17 @@ const process = (Custom) => {
       });
     }
     else if (category === 'Check') {
-      const column = getColumn(null, request.column);
-      addCheck(column, request.checks);
+      if (!request.column) {
+        const where = toWhere({
+          where: request.checks,
+          requests: Table.requests
+        });
+        table.checks.push(where);
+      }
+      else {
+        const column = getColumn(null, request.column);
+        addCheck(column, request.checks);
+      }
     }
   }
   table.columns = table.columns.map(column => {
