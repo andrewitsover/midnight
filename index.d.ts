@@ -1111,8 +1111,8 @@ export class BaseTable {
   Unique<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
   Unique(...args: [any, ...any[]]): void;
   Unique(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
-  Check(where: SymbolWhere);
-  Check<T>(type: T, ...checks: { in: DbTypes[] } | { is: any }): ToDbType<T>;
+  Check(where: SymbolWhere): void;
+  Check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDbType<T>;
   Null<T>(type: T): ToDbType<T> | DbNull;
   Default<T extends Primitive>(value: T): ToDefaultType<T>;
 
