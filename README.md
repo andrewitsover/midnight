@@ -701,7 +701,31 @@ In the above example, ```moon``` will be of type ```string``` or ```null``` even
 
 ```distinct```: used instead of ```select``` when you want the results to be distinct.
 
-```join```: a tuple or array of tuples representing the keys to join on.
+```join```: represents the join clause and can take a number of forms. It can be a single tuple or object if there is only one join, or an array of these types if there is more than one. The object takes the same form as there ```where``` clause in other queries.
+
+```js
+const animalRangers = db.query(c => {
+  const { forests: f, animals: a, rangers: r } = c;
+  return {
+    select: {
+      animal: a.name,
+      ranger: r.name
+    },
+    join: [
+      [r.forestId, f.id],
+      {
+        or: [
+          { [a.forestId]: r.forestId },
+          and: [
+            { [a.forestId]: null },
+            { [r.role]: 'Supervisor' }
+          ]
+        ]
+      }
+    ]
+  }
+});
+```
 
 ## Full-text search
 

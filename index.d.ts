@@ -946,24 +946,16 @@ type MakeOptional<T> = {
 
 type SymbolWhere = {
   [key: symbol]: any;
-  and?: [{
+  and?: {
     [key: symbol]: any;
-    and?: [{ 
-      [key: symbol]: any 
-    }];
-    or?: [{ 
-      [key: symbol]: any 
-    }];
-  }];
-  or?: [{
+    and?: { [key: symbol]: any }[];
+    or?: { [key: symbol]: any }[];
+  }[];
+  or?: {
     [key: symbol]: any;
-    and?: [{ 
-      [key: symbol]: any 
-    }];
-    or?: [{ 
-      [key: symbol]: any 
-    }];
-  }];
+    and?: { [key: symbol]: any }[];
+    or?: { [key: symbol]: any }[];
+  }[];
 }
 
 interface LogInfo {
@@ -972,9 +964,11 @@ interface LogInfo {
   durationMs: number;
 }
 
+type JoinType = 'left' | 'right' | 'union';
+
 interface QueryReturn {
   where?: SymbolWhere;
-  join?: [symbol, symbol] | [symbol, symbol, 'left' | 'right' | 'union'] | ([symbol, symbol] | [symbol, symbol, 'left' | 'right' | 'union'])[];
+  join?: SymbolWhere & { type?: JoinType } | [symbol, symbol] | [symbol, symbol, JoinType] | (SymbolWhere & { type?: JoinType } | [symbol, symbol] | [symbol, symbol, JoinType])[];
   groupBy?: symbol | symbol[];
   having?: SymbolWhere;
   orderBy?: symbol | symbol[];

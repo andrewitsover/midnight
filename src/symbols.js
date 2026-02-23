@@ -175,6 +175,30 @@ const replaceParams = (subqueries, sql, params) => {
   }
 }
 
+const getColumns = (where, requests) => {
+  const getSymbols = (clause) => {
+    const found = [];
+    const symbols = Object.getOwnPropertySymbols(clause);
+    found.push(...symbols);
+    for (const symbol of symbols) {
+      const value = clause[symbol];
+      if (typeof value === 'symbol') {
+        found.push(value);
+      }
+    }
+    const other = clause.or || clause.and;
+    if (other) {
+      for (const item of other) {
+        found.push(...getSymbols(item));
+      }
+    }
+    return found;
+  }
+  return getSymbols(where)
+    .map(s => requests.get(s))
+    .filter(s => s.category === 'Column');
+}
+
 const processQuery = (db, expression, firstResult) => {
   const requests = new Map();
   const subqueries = [];
@@ -209,20 +233,28 @@ const processQuery = (db, expression, firstResult) => {
   let first;
   let join;
   if (result.join) {
-    if (Array.isArray(result.join[0])) {
+    if (Array.isArray(result.join[0]) || typeof result.join[0] === 'object') {
       join = result.join;
     }
     else {
       join = [result.join];
     }
     join = join.map(tuple => {
+      if (!Array.isArray(tuple)) {
+        if (!first) {
+          first = getColumns(tuple, requests).at(0);
+          used.add(first.table || first.tableAlias);
+        }
+        return tuple;
+      }
       const [l, r, type] = tuple;
-      return [requests.get(l), requests.get(r), type];
-    })
-  }
-  if (join) {
-    first = join[0][0];
-    used.add(first.table);
+      const processed = [requests.get(l), requests.get(r), type];
+      if (!first) {
+        first = processed[0];
+        used.add(first.table || first.tableAlias);
+      }
+      return processed;
+    });
   }
   let sql = 'select ';
   if (result.distinct) {
@@ -269,13 +301,31 @@ const processQuery = (db, expression, firstResult) => {
   if (join) {
     sql += ` from ${first.table} ${first.tableAlias}`;
     for (const tuple of join) {
-      const [l, r, type] = tuple;
-      const joinClause = type ? `${type} join` : 'join';
-      const [from, to] = used.has(l.table) ? [r, l] : [l, r];
-      const table = from.table || from.tableAlias;
-      const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
-      used.add(table);
-      sql += ` ${joinClause} ${tableClause} on ${from.selector} = ${to.selector}`;
+      if (!Array.isArray(tuple)) {
+        const joinType = tuple.type ? `${tuple.type} join` : 'join';
+        const columns = getColumns(tuple, requests);
+        const { type, ...where } = tuple;
+        const whereClause = toWhere({
+          db,
+          where,
+          params,
+          requests
+        });
+        const from = columns.find(c => !used.has(c.table || c.tableAlias));
+        const table = from.table || from.tableAlias;
+        const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
+        used.add(table);
+        sql += ` ${joinType} ${tableClause} on ${whereClause}`;
+      }
+      else {
+        const [l, r, type] = tuple;
+        const joinType = type ? `${type} join` : 'join';
+        const [from, to] = used.has(l.table || l.tableAlias) ? [r, l] : [l, r];
+        const table = from.table || from.tableAlias;
+        const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
+        used.add(table);
+        sql += ` ${joinType} ${tableClause} on ${from.selector} = ${to.selector}`;
+      }
     }
   }
   else {
