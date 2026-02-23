@@ -1302,3 +1302,4 @@ export class SQLiteDatabase extends Database {
 
 export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<T>>>>;
 export type Where<T> = ToWhere<ToJsType<ExtractColumns<T>>>;
+export type Select<T> = ToJsType<ExtractColumns<T>>;

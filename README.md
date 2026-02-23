@@ -842,7 +842,7 @@ You can also use the ```rank``` keyword.
 
 ## Type helpers
 
-To construct arguments outside of the methods themselves, you can use the ```Insert``` and ```Where``` types.
+To construct arguments outside of the methods themselves, you can use the ```Insert```, ```Where```, and ```Select``` types.
 
 ```ts
 import { db } from './database';
