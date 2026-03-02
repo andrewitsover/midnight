@@ -3,7 +3,7 @@ import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { makeClient } from './proxy.js';
 import { processQuery } from './symbols.js';
-import { process, toSql } from './tables.js';
+import { process, removeCapital, toSql } from './tables.js';
 import toMigration from './migrate.js';
 
 const dbTypes = {
@@ -56,9 +56,13 @@ class Database {
   }
 
   getClient(schema) {
-    const classes = Object.values(schema);
-    for (const type of classes) {
-      const table = process(type);
+    const classTable = {};
+    const entries = Object.entries(schema);
+    for (const [key, type] of entries) {
+      classTable[type.name] = removeCapital(key);
+    }
+    for (const [key, type] of entries) {
+      const table = process(type, key, classTable);
       this.schema.push(table);
     }
     this.addTables();

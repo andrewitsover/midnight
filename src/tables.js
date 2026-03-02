@@ -294,7 +294,7 @@ class BaseTable {
     const request = {
       category: 'ForeignKey',
       column: null,
-      references: removeCapital(instance.name),
+      references: instance.name,
       actions: [],
       index: index === false ? false : true
     };
@@ -362,9 +362,9 @@ const getColumns = (constructor) => {
   });
 }
 
-const process = (Custom) => {
+const process = (Custom, key, classTable) => {
   const instance = new Custom();
-  const name = removeCapital(Custom.name);
+  const name = removeCapital(key);
   const type = Custom.prototype instanceof FTSTable ? 'fts5' : 'base';
   const external = Custom.prototype instanceof ExternalFTSTable;
   const table = {
@@ -492,7 +492,7 @@ const process = (Custom) => {
       table.foreignKeys.push({
         columns: [key],
         references: {
-          table: references,
+          table: classTable[references],
           column: request.column.name
         },
         actions
