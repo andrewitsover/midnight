@@ -645,8 +645,9 @@ const aggregate = (config) => {
     if (results.length > 0) {
       const value = results[0][`${method}_result`];
       if (method == 'min' || method === 'max') {
-        const field = distinct || column;
-        return db.convertToJs(table, field, value);
+        const type = db.columns[table][distinct || column];
+        const converter = db.getDbToJsConverter(type);
+        return converter ? converter(value) : value;
       }
       return value;
     }

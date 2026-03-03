@@ -178,27 +178,6 @@ class Database {
     return primaryKey.name;
   }
 
-  convertToJs(table, column, value, customFields) {
-    if (value === null) {
-      return value;
-    }
-    let type;
-    if (customFields && customFields[column]) {
-      type = customFields[column];
-    }
-    else {
-      type = this.columns[table][column];
-    }
-    if (dbTypes[type]) {
-      return value;
-    }
-    const customType = this.customTypes[type];
-    if (customType.dbToJs) {
-      return customType.dbToJs(value);
-    }
-    return value;
-  }
-
   getDbToJsConverter(type) {
     const customType = this.customTypes[type];
     if (customType) {
