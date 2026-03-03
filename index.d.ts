@@ -889,7 +889,7 @@ type RequiredKeys<T> = {
 
 type ToInsert<T> =
   {
-    [K in OptionalKeys<T>]?: Exclude<T[K], DbNull>;
+    [K in OptionalKeys<T>]?: T[K];
   } &
   {
     [K in RequiredKeys<T>]: T[K];

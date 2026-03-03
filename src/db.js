@@ -34,22 +34,22 @@ class Database {
         name: 'boolean',
         valueTest: (v) => typeof v === 'boolean',
         makeConstraint: (column) => `check (${column} in (0, 1))`,
-        dbToJs: (v) => Boolean(v),
-        jsToDb: (v) => v === true ? 1 : 0,
+        dbToJs: (v) => v === null ? null : Boolean(v),
+        jsToDb: (v) => v === null ? null : v === true ? 1 : 0,
         dbType: 'integer'
       },
       {
         name: 'date',
         valueTest: (v) => v instanceof Date,
-        dbToJs: (v) => new Date(v),
-        jsToDb: (v) => v.toISOString(),
+        dbToJs: (v) => v === null ? null : new Date(v),
+        jsToDb: (v) => v === null ? null : v.toISOString(),
         dbType: 'text'
       },
       {
         name: 'json',
         valueTest: (v) => Object.getPrototypeOf(v) === Object.prototype || Array.isArray(v),
-        dbToJs: (v) => JSON.parse(v),
-        jsToDb: (v) => JSON.stringify(v),
+        dbToJs: (v) => v === null ? null : JSON.parse(v),
+        jsToDb: (v) => v === null ? null : JSON.stringify(v),
         dbType: 'blob'
       }
     ]);
