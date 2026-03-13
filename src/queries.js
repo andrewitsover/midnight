@@ -89,6 +89,20 @@ const getPlaceholders = (query, params, columnTypes) => {
   });
 }
 
+const adjust = (db, table, params) => {
+  const columnTypes = db.columns[table];
+  const processed = {};
+  for (const [name, value] of Object.entries(params)) {
+    if (columnTypes[name] === 'json' && typeof value === 'string') {
+      processed[name] = JSON.stringify(value);
+    }
+    else {
+      processed[name] = value;
+    }
+  }
+  return db.adjust(processed);
+}
+
 const makeInsertSql = (db, table, query, params) => {
   const columns = Object.keys(query);
   const columnTypes = db.columns[table];
@@ -141,13 +155,13 @@ const upsert = (args) => {
   } = args;
   const { values, target, set, log } = options;
   const params = {};
-  const query = db.adjust(values);
+  const query = adjust(db, table, values);
   let sql = makeInsertSql(db, table, query, params);
   verify(Object.keys(values));
   if (target && set) {
     verify([target]);
     verify(Object.keys(set));
-    const query = db.adjust(set);
+    const query = adjust(db, table, set);
     const setClause = createSetClause(db, table, query, params);
     sql += ` on conflict(${target}) do update set ${setClause}`;
   }
@@ -168,7 +182,7 @@ const insert = (args) => {
   } = args;
   const columns = Object.keys(values);
   verify(columns);
-  const adjusted = db.adjust(values);
+  const adjusted = adjust(db, table, values);
   const params = {};
   const sql = makeInsertSql(db, table, adjusted, params);
   const primaryKey = db.getPrimaryKey(table);
@@ -180,7 +194,7 @@ const batchInserts = (tx, db, table, items) => {
   const inserts = [];
   for (const item of items) {
     const params = {};
-    const adjusted = db.adjust(item);
+    const adjusted = adjust(db, table, item);
     const sql = makeInsertSql(db, table, adjusted, params);
     inserts.push({
       query: sql,
@@ -321,7 +335,7 @@ const update = (args) => {
   const keys = Object.keys(set);
   verify(keys);
   const params = {};
-  const query = db.adjust(set);
+  const query = adjust(db, table, set);
   const setString = createSetClause(db, table, query, params);
   let sql = `update ${table} set ${setString}`;
   if (where) {
