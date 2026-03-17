@@ -189,7 +189,7 @@ const makeClient = (db) => {
       if (table === 'subquery') {
         return (expression) => db.subquery(expression);
       }
-      if (db[table] && ['begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
+      if (db[table] && ['begin', 'commit', 'rollback', 'deferForeignKeys'].includes(table)) {
         db[table] = db[table].bind(db);
         return () => db[table]();
       }
