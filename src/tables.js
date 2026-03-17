@@ -156,6 +156,16 @@ class BaseTable {
         });
       }
     }
+    return new Proxy(this, {
+      get(target, prop, receiver) {
+        if (typeof prop === 'string' && Reflect.has(target, prop)) {
+          if (target[prop] === undefined) {
+            target[prop] = target.Text;
+          }
+        }
+        return Reflect.get(target, prop, receiver);
+      }
+    });
   }
 
   get Now() {
@@ -398,7 +408,9 @@ const process = (Custom, key, classTable) => {
     };
     table.columns.push(rowId);
     if (external) {
-      const constructor = Table.classes.get(instance[keys.at(0)]);
+      const constructor = keys
+        .map(k => Table.classes.get(instance[k]))
+        .find(c => c.name !== Custom.name);
       const parent = new constructor();
       virtualTable = removeCapital(parent.constructor.name);
       const parentKeys = getKeys(parent);
