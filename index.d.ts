@@ -556,6 +556,7 @@ interface Queries<T, E, W, Y> {
 type CompareMethods<T> = {
   not: (value: T | T[]) => symbol;
 	gt: (value: NonNullable<T>) => symbol;
+  gte: (value: NonNullable<T>) => symbol;
 	lt: (value: NonNullable<T>) => symbol;
 	lte: (value: NonNullable<T>) => symbol;
 	like: (pattern: NonNullable<T>) => symbol;
@@ -567,6 +568,7 @@ type CompareMethods<T> = {
 type SymbolCompareMethods<T> = {
   not: (column: symbol, value: T) => DbBoolean;
 	gt: (column: symbol, value: NonNullable<T>) => DbBoolean;
+  gte: (column: symbol, value: NonNullable<T>) => DbBoolean;
 	lt: (column: symbol, value: NonNullable<T>) => DbBoolean;
 	lte: (column: symbol, value: NonNullable<T>) => DbBoolean;
 	like: (column: symbol, pattern: NonNullable<T>) => DbBoolean;
