@@ -266,6 +266,18 @@ const processMethod = (options) => {
       type
     }
   }
+  if (name === 'highlight') {
+    const [symbol, before, after] = method.args;
+    const column = requests.get(symbol);
+    const index = Object
+      .keys(db.columns[column.table])
+      .filter(k => k !== 'rowid')
+      .findIndex(c => c === column.name);
+    return {
+      sql: `highlight(${column.table}, ${index}, '${before}', '${after}')`,
+      type
+    }
+  }
   if (name === 'cast') {
     const result = processArg({
       db,

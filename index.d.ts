@@ -309,6 +309,7 @@ interface ComputeMethods {
   multiply(...args: NumberParam[]): NumberResult;
   object<T extends { [key: string]: AllowedJson }>(select: T): ToJson<T>;
   arrayLength(param: JsonParam | any[]): NumberResult;
+  highlight(column: DbString, before: string, after: string): DbString;
 }
 
 interface FrameOptions {
