@@ -424,7 +424,15 @@ const exists = (config) => {
   const params = {};
   const clause = subquery ? `(${subquery.sql})` : table;
   let sql = `select exists(select 1 from ${clause}`;
-  sql += addClauses(table, query, params);
+  if (query) {
+    const where = toWhere({
+      query,
+      params
+    });
+    if (where) {
+      sql += ` where ${where}`;
+    }
+  }
   sql += ') as exists_result';
   const options = {
     query: sql,
@@ -442,15 +450,6 @@ const exists = (config) => {
   }
   const results = db.all(options);
   return post(results);
-}
-
-const addClauses = (table, query, params) => {
-  let sql = '';
-  const where = toWhere(table, query, params);
-  if (where) {
-    sql += ` where ${where}`;
-  }
-  return sql;
 }
 
 const makeJsonArray = (types, columns) => {
@@ -680,25 +679,6 @@ const getConverters = (key, value, db, converters, keys = [], optional = []) => 
       getConverters(k, v, db, converters, [...keys], optional);
     }
   }
-}
-
-const allNulls = (item) => {
-  if (item === null) {
-    return true;
-  }
-  for (const value of Object.values(item)) {
-    if (value === null) {
-      continue;
-    }
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value instanceof Date) {
-      return false;
-    }
-    const isNull = allNulls(value);
-    if (!isNull) {
-      return false;
-    }
-  }
-  return true;
 }
 
 const invertOmit = (all, omit) => {

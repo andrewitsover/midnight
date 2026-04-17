@@ -79,7 +79,7 @@ type MakeOptionalNullable<T> = {
 };
 
 type AddComputed<T> = {
-  [K in keyof T]: T[K] | ((column: T, methods: ComputeMethods) => void);
+  [K in keyof T]: T[K] | ((column: T, methods: ComputeMethods & UpdateCompareMethods) => void);
 };
 
 interface UpdateQuery<W, T> {
@@ -564,6 +564,18 @@ type CompareMethods<T> = {
 	match: (pattern: NonNullable<T>) => symbol;
 	glob: (pattern: NonNullable<T>) => symbol;
 	eq: (value: T) => symbol;
+}
+
+type UpdateCompareMethods = {
+  not<T>(column: T, value: T): DbBoolean;
+	gt<T>(column: T, value: NonNullable<T>): DbBoolean;
+  gte<T>(column: T, value: NonNullable<T>): DbBoolean;
+	lt<T>(column: T, value: NonNullable<T>): DbBoolean;
+	lte<T>(column: T, value: NonNullable<T>): DbBoolean;
+	like<T>(column: T, pattern: NonNullable<T>): DbBoolean;
+	match<T>(column: T, pattern: NonNullable<T>): DbBoolean;
+	glob<T>(column: T, pattern: NonNullable<T>): DbBoolean;
+	eq<T>(column: T, value: T): DbBoolean;
 }
 
 type SymbolCompareMethods<T> = {

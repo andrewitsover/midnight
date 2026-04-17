@@ -1,4 +1,5 @@
 import reserved from './reserved.js';
+import { compareOperators } from './methods.js';
 
 let paramCount = 1;
 
@@ -72,6 +73,9 @@ const expressionHandler = (expression) => {
     ['divide', '/'],
     ['multiply', '*']
   ]);
+  for (const [key, value] of compareOperators) {
+    operators.set(key, value);
+  }
   const createClause = (params) => {
     const processColumn = (column) => {
       if (column.path.length === 0) {
