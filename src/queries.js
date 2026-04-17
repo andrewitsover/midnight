@@ -220,8 +220,7 @@ const insertMany = (args) => {
     return;
   }
   const columnTypes = db.columns[table];
-  const sample = items[0];
-  const columns = Object.keys(sample);
+  const columns = Object.keys(columnTypes);
   verify(columns);
   const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
   if (hasBlob) {
