@@ -1109,12 +1109,6 @@ const remove = (args) => {
     if (typeof query !== 'object') {
       throw Error(`invalid argument to delete: ${query}`);
     }
-    else {
-      const key = Object.keys(query).at(0);
-      if (!key || !Object.keys(db.columns[table]).includes(key)) {
-        throw Error(`table ${table} has no column: ${key}`);
-      }
-    }
   }
   const clause = toWhere({
     table,
