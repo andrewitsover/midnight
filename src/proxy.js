@@ -146,9 +146,6 @@ const makeQueryHandler = (options) => {
   } = options;
   return {
     get: function(target, method) {
-      if (method === 'compute') {
-        return (args) => db.compute(table, args);
-      }
       if (!target[method]) {
         const makeQuery = basic[method];
         if (!makeQuery) {
