@@ -1,15 +1,17 @@
 import reserved from './reserved.js';
 import { compareOperators } from './methods.js';
 
-let paramCount = 1;
+const createPlaceholder = () => {
+  let paramCount = 1;
 
-const getPlaceholder = () => {
-  const count = paramCount;
-  paramCount++;
-  if (paramCount > (2 ** 20)) {
-    paramCount = 0;
+  return () => {
+    const count = paramCount;
+    paramCount++;
+    if (paramCount > (2 ** 20)) {
+      paramCount = 0;
+    }
+    return `p_${count}`;
   }
-  return `p_${count}`;
 }
 
 const toValues = (rows) => {
@@ -25,7 +27,7 @@ const toValues = (rows) => {
   return rows;
 }
 
-const expressionHandler = (expression) => {
+const expressionHandler = (expression, getPlaceholder) => {
   const columnHandler = {
     get: function(target, property) {
       const request = {
@@ -206,6 +208,6 @@ export {
   toValues,
   nameToSql,
   jsonSelector,
-  getPlaceholder,
+  createPlaceholder,
   expressionHandler
 }

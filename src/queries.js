@@ -1,12 +1,18 @@
 import { 
-  getPlaceholder, 
+  createPlaceholder, 
   expressionHandler, 
   jsonSelector,
   nameToSql
 } from './utils.js';
 import { compareOperators } from './methods.js';
 
-const getConditions = (column, query, params) => {
+const getConditions = (args) => {
+  const {
+    column,
+    query,
+    params,
+    getPlaceholder
+  } = args;
   const operatorHandler = {
     get: function(target, property) {
       target.push(property);
@@ -77,18 +83,6 @@ const getConditions = (column, query, params) => {
   return conditions;
 }
 
-const getPlaceholders = (query, params, columnTypes) => {
-  const columns = Object.keys(query);
-  return columns.map(columnName => {
-    const placeholder = getPlaceholder();
-    params[placeholder] = query[columnName];
-    if (columnTypes[columnName] === 'json') {
-      return `jsonb($${placeholder})`;
-    }
-    return `$${placeholder}`;
-  });
-}
-
 const adjust = (db, table, params) => {
   const columnTypes = db.columns[table];
   const processed = {};
@@ -103,10 +97,24 @@ const adjust = (db, table, params) => {
   return db.adjust(processed);
 }
 
-const makeInsertSql = (db, table, query, params) => {
+const makeInsertSql = (args) => {
+  const {
+    db,
+    table,
+    query,
+    params,
+    getPlaceholder
+  } = args;
   const columns = Object.keys(query);
   const columnTypes = db.columns[table];
-  const placeholders = getPlaceholders(query, params, columnTypes);
+  const placeholders = columns.map(columnName => {
+    const placeholder = getPlaceholder();
+    params[placeholder] = query[columnName];
+    if (columnTypes[columnName] === 'json') {
+      return `jsonb($${placeholder})`;
+    }
+    return `$${placeholder}`;
+  });
   return `insert into ${table}(${columns.map(c => nameToSql(c)).join(', ')}) values(${placeholders.join(', ')})`;
 }
 
@@ -153,16 +161,29 @@ const upsert = (args) => {
     options,
     tx
   } = args;
+  const getPlaceholder = createPlaceholder();
   const { values, target, set, log } = options;
   const params = {};
   const query = adjust(db, table, values);
-  let sql = makeInsertSql(db, table, query, params);
+  let sql = makeInsertSql({
+    db,
+    table,
+    query,
+    params,
+    getPlaceholder
+  });
   verify(Object.keys(values));
   if (target && set) {
     verify([target]);
     verify(Object.keys(set));
     const query = adjust(db, table, set);
-    const setClause = createSetClause(db, table, query, params);
+    const setClause = createSetClause({
+      db,
+      table,
+      query,
+      params,
+      getPlaceholder
+    });
     sql += ` on conflict(${target}) do update set ${setClause}`;
   }
   else {
@@ -180,11 +201,18 @@ const insert = (args) => {
     values,
     tx
   } = args;
+  const getPlaceholder = createPlaceholder();
   const columns = Object.keys(values);
   verify(columns);
   const adjusted = adjust(db, table, values);
   const params = {};
-  const sql = makeInsertSql(db, table, adjusted, params);
+  const sql = makeInsertSql({
+    db,
+    table,
+    query: adjusted,
+    params,
+    getPlaceholder
+  });
   const primaryKey = db.getPrimaryKey(table);
   const query = `${sql} returning ${primaryKey}`;
   return processInsert(db, query, params, primaryKey, tx);
@@ -250,7 +278,8 @@ const toWhere = (options) => {
   const {
     query,
     params,
-    type
+    type,
+    getPlaceholder
   } = options;
   if (!query) {
     return '';
@@ -274,14 +303,20 @@ const toWhere = (options) => {
         const clauses = toWhere({
           query,
           params,
-          type: column
+          type: column,
+          getPlaceholder
         });
         filters.push(clauses);
       }
       conditions.push(`(${filters.join(` ${column} `)})`);
     }
     else if (typeof param === 'function') {
-      const result = getConditions(adjusted, param, params);
+      const result = getConditions({
+        column: adjusted,
+        query: param,
+        params,
+        getPlaceholder
+      });
       conditions.push(...result);
     }
     else if (Array.isArray(param)) {
@@ -301,12 +336,19 @@ const toWhere = (options) => {
   return conditions.join(` ${type || 'and'} `);
 }
 
-const createSetClause = (db, table, query, params) => {
+const createSetClause = (args) => {
+  const {
+    db, 
+    table, 
+    query, 
+    params, 
+    getPlaceholder
+  } = args;
   const statements = [];
   const columnTypes = db.columns[table];
   for (const [column, param] of Object.entries(query)) {
     if (typeof param === 'function') {
-      const { createClause } = expressionHandler(param);
+      const { createClause } = expressionHandler(param, getPlaceholder);
       const clause = createClause(params);
       statements.push(`${column} = ${clause}`);
       continue;
@@ -330,18 +372,26 @@ const update = (args) => {
     options,
     tx
   } = args;
+  const getPlaceholder = createPlaceholder();
   const { where, set, log } = options;
   const keys = Object.keys(set);
   verify(keys);
   const params = {};
   const query = adjust(db, table, set);
-  const setString = createSetClause(db, table, query, params);
+  const setString = createSetClause({
+    db, 
+    table, 
+    query, 
+    params, 
+    getPlaceholder
+  });
   let sql = `update ${table} set ${setString}`;
   if (where) {
     const clause = toWhere({
       table,
       query: where,
-      params
+      params,
+      getPlaceholder
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -356,16 +406,14 @@ const update = (args) => {
   return withLog(db, runOptions, log, 'run');
 }
 
-const getOrderBy = (orderBy, params) => {
-  if (typeof orderBy === 'function') {
-    const { createClause } = expressionHandler(orderBy);
-    return createClause(params);
-  }
-  const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
-  return columns.map(c => nameToSql(c)).join(', ');
-}
-
-const toKeywords = (keywords, params, table, columns) => {
+const toKeywords = (args) => {
+  const {
+    keywords,
+    params,
+    table,
+    columns,
+    getPlaceholder
+  } = args;
   let sql = '';
   if (keywords) {
     const { rank, bm25, orderBy, desc, limit, offset } = keywords;
@@ -388,7 +436,15 @@ const toKeywords = (keywords, params, table, columns) => {
       sql += ')';
     }
     if (orderBy) {
-      const clause = getOrderBy(orderBy, params);
+      let clause;
+      if (typeof orderBy === 'function') {
+        const { createClause } = expressionHandler(orderBy, getPlaceholder);
+        clause = createClause(params);
+      }
+      else {
+        const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
+        clause = columns.map(c => nameToSql(c)).join(', ');
+      }
       sql += ` order by ${clause}`;
       if (desc) {
         sql += ' desc';
@@ -419,6 +475,7 @@ const exists = (config) => {
     tx,
     subquery,
   } = config;
+  const getPlaceholder = createPlaceholder();
   const query = config.query || {};
   const params = {};
   const clause = subquery ? `(${subquery.sql})` : table;
@@ -426,7 +483,8 @@ const exists = (config) => {
   if (query) {
     const where = toWhere({
       query,
-      params
+      params,
+      getPlaceholder
     });
     if (where) {
       sql += ` where ${where}`;
@@ -474,6 +532,7 @@ const group = (config) => {
     tx,
     subquery
   } = config;
+  const getPlaceholder = createPlaceholder();
   const { select, column, distinct, where, log, ...keywords } = query;
   const alias = Object.keys(select || column || distinct).at(0);
   verify(alias);
@@ -537,7 +596,8 @@ const group = (config) => {
     const clause = toWhere({
       table,
       query: adjustedWhere,
-      params
+      params,
+      getPlaceholder
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -547,14 +607,19 @@ const group = (config) => {
   if (having) {
     const clauses = toWhere({
       query: having,
-      params
+      params,
+      getPlaceholder
     });
     if (clauses) {
       sql += ` having ${clauses}`;
     }
   }
   if (hasKeywords) {
-    sql += toKeywords(keywords, params);
+    sql += toKeywords({
+      keywords,
+      params,
+      getPlaceholder
+    });
   }
   const withTable = 'flyweight_alias';
   sql = `with ${withTable} as (${sql}) select ${by.map(c => nameToSql(c)).join(', ')}, ${method} as ${alias} from ${withTable}`;
@@ -605,6 +670,7 @@ const aggregate = (config) => {
     method,
     subquery,
   } = config;
+  const getPlaceholder = createPlaceholder();
   const params = {};
   const query = config.query || {};
   const { where, column, distinct, log } = query;
@@ -625,7 +691,8 @@ const aggregate = (config) => {
   let sql;
   const whereClause = toWhere({
     query: where,
-    params
+    params,
+    getPlaceholder
   });
   const tableClause = subquery ? `(${subquery.sql})` : table;
   sql = `select ${expression} from ${tableClause}`;
@@ -757,9 +824,16 @@ const toSelect = (args) => {
   return expandStar(types, computed);
 }
 
-const getVirtualSelect = (keywords, table, columns, params) => {
-  const { highlight, snippet } = keywords;
+const getVirtualSelect = (args) => {
+  const {
+    keywords,
+    table,
+    columns,
+    params,
+    getPlaceholder
+  } = args;
   const keys = Object.keys(columns).filter(k => k !== 'rowid');
+  const { highlight, snippet } = keywords;
   if (highlight) {
     verify(highlight.column);
     const i = getPlaceholder();
@@ -928,6 +1002,7 @@ const match = (config) => {
     query,
     tx
   } = config;
+  const getPlaceholder = createPlaceholder();
   let sql;
   const params = {};
   let select = '*';
@@ -959,7 +1034,11 @@ const match = (config) => {
     sql = `select ${select} from ${table} where ${table} match $${placeholder}`;
     params[placeholder] = parse(query);
   }
-  sql += toKeywords(query, params);
+  sql += toKeywords({
+    keywords: query,
+    params,
+    getPlaceholder
+  });
   const options = {
     query: sql,
     params: db.adjust(params),
@@ -982,6 +1061,7 @@ const all = (config) => {
     subquery,
     type
   } = config;
+  const getPlaceholder = createPlaceholder();
   const params = {};
   let query = config.query || {};
   let columns = config.columns;
@@ -1006,7 +1086,13 @@ const all = (config) => {
   const types = subquery ? subquery.columns : db.columns[table];
   let select;
   if (keywords && (keywords.highlight || keywords.snippet)) {
-    select = getVirtualSelect(keywords, table, types, params);
+    select = getVirtualSelect({
+      keywords,
+      table,
+      columns: types,
+      params,
+      getPlaceholder
+    });
   }
   else {
     select = toSelect({ 
@@ -1023,12 +1109,19 @@ const all = (config) => {
   sql += `${select.clause} from ${tableClause}`;
   const clause = toWhere({
     query,
-    params
+    params,
+    getPlaceholder
   });
   if (clause) {
     sql += ` where ${clause}`;
   }
-  sql += toKeywords(keywords, params, table, db.tables[table]);
+  sql += toKeywords({
+    keywords,
+    params,
+    table,
+    columns: db.tables[table],
+    getPlaceholder
+  });
   if (first) {
     sql += ' limit 1';
   }
@@ -1103,6 +1196,7 @@ const remove = (args) => {
     query,
     tx
   } = args;
+  const getPlaceholder = createPlaceholder();
   let sql = `delete from ${table}`;
   const params = {};
   if (query) {
@@ -1113,7 +1207,8 @@ const remove = (args) => {
   const clause = toWhere({
     table,
     query,
-    params
+    params,
+    getPlaceholder
   });
   if (clause) {
     sql += ` where ${clause}`;

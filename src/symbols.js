@@ -1,6 +1,6 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
-import { addAlias, nameToSql } from './utils.js';
+import { addAlias, nameToSql, createPlaceholder } from './utils.js';
 
 const makeProxy = (options) => {
   const {
@@ -200,6 +200,7 @@ const getColumns = (where, requests) => {
 }
 
 const processQuery = (db, expression, firstResult) => {
+  const getPlaceholder = createPlaceholder();
   const requests = new Map();
   const subqueries = [];
   const proxy = makeProxy({
@@ -271,7 +272,8 @@ const processQuery = (db, expression, firstResult) => {
         db,
         method: request,
         params,
-        requests
+        requests,
+        getPlaceholder
       });
       request.alias = key;
       request.type = valueArg.type;
@@ -309,7 +311,8 @@ const processQuery = (db, expression, firstResult) => {
           db,
           where,
           params,
-          requests
+          requests,
+          getPlaceholder
         });
         const from = columns.find(c => !used.has(c.table || c.tableAlias));
         const table = from.table || from.tableAlias;
@@ -340,7 +343,8 @@ const processQuery = (db, expression, firstResult) => {
       db,
       where,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -353,7 +357,8 @@ const processQuery = (db, expression, firstResult) => {
         db,
         arg: c,
         params,
-        requests
+        requests,
+        getPlaceholder
       }))
       .map(a => a.sql);
     sql += ` group by ${statements.join(', ')}`;
@@ -363,7 +368,8 @@ const processQuery = (db, expression, firstResult) => {
       db,
       where: having,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     if (clause) {
       sql += ` having ${clause}`;
@@ -376,7 +382,8 @@ const processQuery = (db, expression, firstResult) => {
         db,
         arg,
         params,
-        requests
+        requests,
+        getPlaceholder
       }))
       .map(a => a.sql)
       .join(', ');
@@ -406,7 +413,8 @@ const processQuery = (db, expression, firstResult) => {
       db,
       arg: offset,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     sql += ` offset ${result.sql}`;
   }
@@ -415,7 +423,8 @@ const processQuery = (db, expression, firstResult) => {
       db,
       arg: limit,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     sql += ` limit ${result.sql}`;
   }

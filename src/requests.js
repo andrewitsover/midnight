@@ -1,9 +1,14 @@
 import returnTypes from './types.js';
-import { getPlaceholder, jsonSelector } from './utils.js';
+import { jsonSelector } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
 
 const addParam = (options) => {
-  const { db, params, value } = options;
+  const {
+    db,
+    params,
+    value,
+    getPlaceholder
+  } = options;
   const placeholder = getPlaceholder();
   params[placeholder] = db.jsToDb(value);
   return `$${placeholder}`;
@@ -54,7 +59,8 @@ const processArg = (options) => {
     arg,
     params,
     requests,
-    inJson
+    inJson,
+    getPlaceholder
   } = options;
   const request = requests.get(arg);
   if (request && request.category !== 'Column') {
@@ -62,7 +68,8 @@ const processArg = (options) => {
       db,
       method: request,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
   }
   else if (request && request.category === 'Column') {
@@ -82,6 +89,7 @@ const processArg = (options) => {
       db,
       params,
       value: arg,
+      getPlaceholder
     });
   }
   else {
@@ -99,7 +107,8 @@ const getObjectBody = (options) => {
     db,
     select,
     params,
-    requests
+    requests,
+    getPlaceholder
   } = options;
   const items = [];
   for (const [key, value] of Object.entries(select)) {
@@ -109,7 +118,8 @@ const getObjectBody = (options) => {
         db,
         arg: value,
         requests,
-        inJson: true
+        inJson: true,
+        getPlaceholder
       });
       items.push(valueArg.sql);
     }
@@ -117,7 +127,8 @@ const getObjectBody = (options) => {
       const statement = addParam({
         db,
         params,
-        value
+        value,
+        getPlaceholder
       });
       items.push(statement);
     }
@@ -130,7 +141,8 @@ const processWindow = (options) => {
     db,
     query,
     params,
-    requests
+    requests,
+    getPlaceholder
   } = options;
   let sql = '';
   const { 
@@ -145,7 +157,8 @@ const processWindow = (options) => {
       db,
       where,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     sql += `filter (where ${clause})`;
   }
@@ -156,7 +169,8 @@ const processWindow = (options) => {
           db,
           arg,
           params,
-          requests
+          requests,
+          getPlaceholder
         }));
       return args.map(a => a.sql).join(', ');
     }
@@ -214,7 +228,8 @@ const processMethod = (options) => {
     db,
     method,
     params,
-    requests
+    requests,
+    getPlaceholder
   } = options;
   if (method.alias) {
     return {
@@ -233,7 +248,8 @@ const processMethod = (options) => {
       db,
       arg,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     if (method.args.length === 1) {
       if (name === 'not' && arg === null) {
@@ -259,7 +275,8 @@ const processMethod = (options) => {
       db,
       arg: to,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     return {
       sql: `${selector} ${operator} ${toResult.sql}`,
@@ -283,7 +300,8 @@ const processMethod = (options) => {
       db,
       arg,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     const type = method.args.at(1);
     if (!['real', 'integer'].includes(type)) {
@@ -313,7 +331,8 @@ const processMethod = (options) => {
           arg: valueArg,
           params,
           requests,
-          inJson: true
+          inJson: true,
+          getPlaceholder
         });
         sql = `${name}(${body.sql})`;
       }
@@ -343,7 +362,8 @@ const processMethod = (options) => {
           db,
           query: arg,
           params,
-          requests
+          requests,
+          getPlaceholder
         });
         sql += ` ${clause}`;
       }
@@ -367,13 +387,15 @@ const processMethod = (options) => {
         db,
         arg: key,
         params,
-        requests
+        requests,
+        getPlaceholder
       });
       const valueArg = processArg({
         db,
         arg: value,
         params,
-        requests
+        requests,
+        getPlaceholder
       });
       let windowClause = '';
       if (!isSymbol) {
@@ -381,7 +403,8 @@ const processMethod = (options) => {
           db,
           query: arg,
           params,
-          requests
+          requests,
+          getPlaceholder
         });
       }
       const sql = `${name}(${keyArg.sql}, ${valueArg.sql})${windowClause}`;
@@ -395,7 +418,8 @@ const processMethod = (options) => {
         db,
         select: arg,
         params,
-        requests
+        requests,
+        getPlaceholder
       });
       const sql = `${name}(${body})`;
       return {
@@ -422,7 +446,8 @@ const processMethod = (options) => {
           db,
           arg,
           params,
-          requests
+          requests,
+          getPlaceholder
         }));
       if (parsed.length === 1) {
         type = parsed.at(0).type;
@@ -443,7 +468,8 @@ const processMethod = (options) => {
           db,
           arg,
           params,
-          requests
+          requests,
+          getPlaceholder
         }));
       type = parsed.at(0).type;
       sql = `${name}(${parsed.map(a => a.sql).join(', ')})`;
@@ -453,7 +479,8 @@ const processMethod = (options) => {
         db,
         arg,
         params,
-        requests
+        requests,
+        getPlaceholder
       });
       const sql = `${name}(${bodyArg.sql})`;
       if (['min', 'max'].includes(name)) {
@@ -478,7 +505,8 @@ const processMethod = (options) => {
         db,
         arg: field,
         params,
-        requests
+        requests,
+        getPlaceholder
       });
       if (['min', 'max'].includes(name)) {
         type = bodyArg.type;
@@ -492,7 +520,8 @@ const processMethod = (options) => {
       db,
       query: arg,
       params,
-      requests
+      requests,
+      getPlaceholder
     });
     if (clause) {
       sql += ` ${clause}`;
@@ -506,7 +535,8 @@ const processMethod = (options) => {
     db,
     arg,
     params,
-    requests
+    requests,
+    getPlaceholder
   }));
   if (method.name === 'if') {
     const length = method.args.length;
@@ -561,7 +591,8 @@ const toWhere = (options) => {
     db,
     where,
     params,
-    requests
+    requests,
+    getPlaceholder
   } = options;
   const type = options.type || 'and';
   const statements = [];
@@ -584,7 +615,8 @@ const toWhere = (options) => {
           db,
           method: request,
           params,
-          requests
+          requests,
+          getPlaceholder
         });
         selector = keyArg.sql;
       }
@@ -606,7 +638,8 @@ const toWhere = (options) => {
           db,
           arg: param,
           params,
-          requests
+          requests,
+          getPlaceholder
         });
         if (name === 'not' && Array.isArray(param)) {
           statements.push(`${selector} not in (select json_each.value from json_each(${result.sql}))`);
@@ -621,7 +654,8 @@ const toWhere = (options) => {
         db,
         method: valueRequest,
         params,
-        requests
+        requests,
+        getPlaceholder
       });
       statements.push(`${selector} = ${methodArg.sql}`);
     }
@@ -636,7 +670,8 @@ const toWhere = (options) => {
         const statement = addParam({
           db,
           params,
-          value
+          value,
+          getPlaceholder
         });
         if (Array.isArray(value)) {
           statements.push(`${selector} in (select json_each.value from json_each(${statement}))`);
@@ -667,7 +702,8 @@ const toWhere = (options) => {
           where, 
           type,
           params,
-          requests
+          requests,
+          getPlaceholder
         }))
         .join(` ${type} `);
       statements.push(statement);
