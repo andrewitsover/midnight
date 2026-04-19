@@ -17,7 +17,6 @@ const dbTypes = {
 
 class Database {
   constructor() {
-    this.write = null;
     this.tables = {};
     this.mappers = {};
     this.customTypes = {};
@@ -28,7 +27,6 @@ class Database {
     this.statements = new Map();
     this.virtualSet = new Set();
     this.closed = false;
-    this.initialized = false;
     this.registerTypes([
       {
         name: 'boolean',
