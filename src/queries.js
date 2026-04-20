@@ -218,12 +218,25 @@ const insert = (args) => {
   return processInsert(db, query, params, primaryKey, tx);
 }
 
-const batchInserts = (tx, db, table, items) => {
+const batchInserts = (args) => {
+  const {
+    tx,
+    db,
+    table,
+    items
+  } = args;
+  const getPlaceholder = createPlaceholder();
   const inserts = [];
   for (const item of items) {
     const params = {};
     const adjusted = adjust(db, table, item);
-    const sql = makeInsertSql(db, table, adjusted, params);
+    const sql = makeInsertSql({
+      db,
+      table,
+      query: adjusted,
+      params,
+      getPlaceholder
+    });
     inserts.push({
       query: sql,
       params,
@@ -248,11 +261,19 @@ const insertMany = (args) => {
     return;
   }
   const columnTypes = db.columns[table];
-  const columns = Object.keys(columnTypes);
+  const unique = new Set(items.flatMap(Object.keys));
+  const columns = Array.from(unique.values());
   verify(columns);
-  const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
+  const hasBlob = db.tables[table]
+    .filter(c => columns.includes(c.name))
+    .some(c => c.type === 'blob');
   if (hasBlob) {
-    return batchInserts(tx, db, table, items);
+    return batchInserts({
+      tx,
+      db,
+      table,
+      items
+    });
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(column => {
