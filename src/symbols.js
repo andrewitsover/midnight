@@ -282,16 +282,7 @@ const processQuery = (db, expression, firstResult) => {
       parser = db.getDbToJsConverter(valueArg.type);
     }
     else {
-      if (!join && request.name === key) {
-        statements.push(request.selector);
-      }
-      else {
-        let sql = request.selector;
-        if (request.name !== key) {
-          sql += ` as ${nameToSql(key)}`;
-        }
-        statements.push(sql);
-      }
+      statements.push(`${request.selector} as ${nameToSql(key)}`);
       columnTypes[key] = request.type;
       parser = db.getDbToJsConverter(request.type);
     }
