@@ -1,5 +1,5 @@
 import returnTypes from './types.js';
-import { jsonSelector } from './utils.js';
+import { jsonSelector, nameToSql } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
 
 const addParam = (options) => {
@@ -73,7 +73,7 @@ const processArg = (options) => {
     });
   }
   else if (request && request.category === 'Column') {
-    let sql = request.selector || request.sql || request.name;
+    let sql = request.selector || request.sql || nameToSql(request.name);
     const type = request.type;
     if (inJson) {
       sql = jsonSelector(type, request.selector);

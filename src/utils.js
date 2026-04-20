@@ -165,7 +165,7 @@ const addAlias = (clause, alias) => {
     .replaceAll(/\(|\)/gm, ' ')
     .replaceAll('.', ' ')
     .replaceAll(/((^|[^a-z_])\d+([^a-z_]|$))/gmi, m => ' '.repeat(m.length))
-    .replaceAll(/([^a-z0-9_])/gm, m => ' '.repeat(m.length))
+    .replaceAll(/([^a-z0-9_\[\]])/gm, m => ' '.repeat(m.length))
     .split(/(\s+)/gm)
     .filter(s => s.length > 0);
   let index = 0;

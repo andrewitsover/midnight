@@ -786,7 +786,7 @@ const toSelect = (args) => {
     const adjusted = nameToSql(column);
     const sql = computed[column];
     if (sql) {
-      return `${sql} as ${column}`;
+      return `${sql} as ${adjusted}`;
     }
     else if (types[column] === 'json') {
       return `json(${adjusted}) as ${adjusted}`;

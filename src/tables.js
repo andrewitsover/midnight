@@ -1,5 +1,6 @@
 import { compareMethods, computeMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
+import { nameToSql } from './utils.js';
 
 const types = ['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool'];
 const modifiers = [
@@ -435,7 +436,7 @@ const process = (Custom, key, classTable) => {
     }
   }
   const addCheck = (column, checks) => {
-    const sql = column.sql || column.name;
+    const sql = column.sql || nameToSql(column.name);
     const statements = [];
     for (const check of checks) {
       if (check.is) {
@@ -709,8 +710,8 @@ const toVirtual = (table) => {
       }
     }
     else {
-      names.push(column.name);
-      sql += `  ${column.name}${column.unindexed ? ' unindexable' : ''},\n`;
+      names.push(nameToSql(column.name));
+      sql += `  ${nameToSql(column.name)}${column.unindexed ? ' unindexable' : ''},\n`;
     }
   }
   if (!contentless) {
@@ -760,7 +761,7 @@ const columnToSql = (column) => {
       defaultClause = ` default ${toLiteral(column.default)}`;
     }
   }
-  return `${column.name} ${dbType}${notNull}${defaultClause}`;
+  return `${nameToSql(column.name)} ${dbType}${notNull}${defaultClause}`;
 }
 
 const toHash = (index) => {
@@ -794,7 +795,7 @@ const indexToSql = (table, index) => {
   if (type === 'unique') {
     sql += 'unique ';
   }
-  sql += `index ${indexName} on ${table}(${on})`;
+  sql += `index ${indexName} on ${table}(${nameToSql(on)})`;
   if (where) {
     sql += ` where ${where}`;
   }
@@ -830,7 +831,7 @@ const toSql = (table) => {
         actions
       } = foreignKey;
       const actionClause = actions.length > 0 ? ` ${actions.join(' ')}` : '';
-      sql += `  foreign key (${columns.join(', ')}) references ${references.table}(${references.column})${actionClause},\n`;
+      sql += `  foreign key (${columns.map(c => nameToSql(c)).join(', ')}) references ${references.table}(${nameToSql(references.column)})${actionClause},\n`;
     }
   }
   if (checks.length > 0) {
