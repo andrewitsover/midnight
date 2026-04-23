@@ -117,10 +117,6 @@ class Database {
     return post(rows);
   }
 
-  migrate() {
-    return;
-  }
-
   addTables() {
     for (const table of this.schema) {
       if (table.type === 'fts5') {
@@ -252,30 +248,6 @@ class Database {
       return mapper(this, result, options.columns, options.types);
     }
     return result;
-  }
-
-  basicRun() {
-    return;
-  }
-
-  prepare() {
-    return;
-  }
-
-  run() {
-    return;
-  }
-
-  all() {
-    return;
-  }
-
-  exec() {
-    return;
-  }
-
-  close() {
-    return;
   }
 }
 

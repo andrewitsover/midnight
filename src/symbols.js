@@ -199,6 +199,28 @@ const getColumns = (where, requests) => {
     .filter(s => s.category === 'Column');
 }
 
+const toSql = (clauses) => {
+  const keys = [
+    'select',
+    'from',
+    'where',
+    'groupBy',
+    'having',
+    'orderBy',
+    'limit',
+    'offset'
+  ];
+  const statements = [];
+  for (const key of keys) {
+    const adjusted = key.replace('By', ' by');
+    const value = clauses[key];
+    if (value) {
+      statements.push(`${adjusted} ${value}`);
+    }
+  }
+  return statements.join(' ');
+}
+
 const processQuery = (db, expression, firstResult) => {
   const getPlaceholder = createPlaceholder();
   const requests = new Map();
@@ -221,46 +243,16 @@ const processQuery = (db, expression, firstResult) => {
     offset,
     limit
   } = result;
-  const properties = [result.select, result.distinct, result.optional].filter(p => p !== undefined);
+  const properties = [result.select, result.distinct, result.maybe].filter(p => p !== undefined);
   const valueReturn = properties.every(p => typeof p === 'symbol');
   let select;
   if (valueReturn) {
     select = { valueReturn: properties.at(0) };
   }
   else {
-    select = { ...result.select, ...result.distinct, ...result.optional };
+    select = { ...result.select, ...result.distinct, ...result.maybe };
   }
-  const used = new Set();
-  let first;
-  let join;
-  if (result.join) {
-    if (Array.isArray(result.join[0]) || typeof result.join[0] === 'object') {
-      join = result.join;
-    }
-    else {
-      join = [result.join];
-    }
-    join = join.map(tuple => {
-      if (!Array.isArray(tuple)) {
-        if (!first) {
-          first = getColumns(tuple, requests).at(0);
-          used.add(first.table || first.tableAlias);
-        }
-        return tuple;
-      }
-      const [l, r, type] = tuple;
-      const processed = [requests.get(l), requests.get(r), type];
-      if (!first) {
-        first = processed[0];
-        used.add(first.table || first.tableAlias);
-      }
-      return processed;
-    });
-  }
-  let sql = 'select ';
-  if (result.distinct) {
-    sql += 'distinct ';
-  }
+  const clauses = {};
   const statements = [];
   const parsers = {};
   const columnTypes = {};
@@ -290,9 +282,185 @@ const processQuery = (db, expression, firstResult) => {
       parsers[key] = parser;
     }
   }
-  sql += statements.join(', ');
+  const distinct = result.distinct ? 'distinct ' : '';
+  clauses.select = `${distinct}${statements.join(', ')}`;
+  if (where) {
+    clauses.where = toWhere({
+      db,
+      where,
+      params,
+      requests,
+      getPlaceholder
+    });
+  }
+  if (groupBy) {
+    const adjusted = Array.isArray(groupBy) ? groupBy : [groupBy];
+    const statements = adjusted
+      .map(c => processArg({
+        db,
+        arg: c,
+        params,
+        requests,
+        getPlaceholder
+      }))
+      .map(a => a.sql);
+    clauses.groupBy = statements.join(', ');
+  }
+  if (having) {
+    clauses.having = toWhere({
+      db,
+      where: having,
+      params,
+      requests,
+      getPlaceholder
+    });
+  }
+  if (orderBy) {
+    const items = Array.isArray(orderBy) ? orderBy : [orderBy];
+    const clause = items
+      .map(arg => processArg({
+        db,
+        arg,
+        params,
+        requests,
+        getPlaceholder
+      }))
+      .map(a => a.sql)
+      .join(', ');
+    clauses.orderBy = `${clause}${desc ? ' desc' : ''}`;
+  }
+  if (rank) {
+    clauses.orderBy = 'rank';
+  }
+  if (bm25) {
+    const mapped = Object
+      .getOwnPropertySymbols(bm25)
+      .map(s => {
+        return {
+          column: requests.get(s),
+          value: bm25[s]
+        }
+      });
+    const table = mapped.at(0).column.table;
+    const values = mapped.map(s => s.value).join(', ');
+    clauses.orderBy = `bm25(${table}, ${values})`;
+  }
+  if (offset) {
+    const result = processArg({
+      db,
+      arg: offset,
+      params,
+      requests,
+      getPlaceholder
+    });
+    clauses.offset = result.sql;
+  }
+  if (limit) {
+    const result = processArg({
+      db,
+      arg: limit,
+      params,
+      requests,
+      getPlaceholder
+    });
+    clauses.limit = result.sql;
+  }
+  if (firstResult && !limit) {
+    clauses.limit = '1';
+  }
+  const used = new Set();
+  let first;
+  let join;
+  const processJoin = (tuples) => {
+    if (Array.isArray(tuples[0]) || typeof tuples[0] === 'object') {
+      join = tuples;
+    }
+    else {
+      join = [tuples];
+    }
+    join = join.map(tuple => {
+      if (!Array.isArray(tuple)) {
+        if (!first) {
+          first = getColumns(tuple, requests).at(0);
+          used.add(first.table || first.tableAlias);
+        }
+        return tuple;
+      }
+      const [l, r, type] = tuple;
+      const processed = [requests.get(l), requests.get(r), type];
+      if (!first) {
+        first = processed[0];
+        used.add(first.table || first.tableAlias);
+      }
+      return processed;
+    });
+  }
+  if (result.join) {
+    processJoin(result.join);
+  }
+  else {
+    const values = Array.from(requests.values());
+    const columns = values.filter(r => r.category === 'Column');
+    const unique = new Set(columns.map(c => c.table));
+    const tables = Array.from(unique.values());
+    let firstTable;
+    if (tables.length === 1) {
+      const { tableAlias, table } = columns.at(0);
+      clauses.from = `${table} ${tableAlias}`;
+    }
+    else if (tables.length > 1) {
+      const grouped = values
+        .filter(r => r.category === 'UsedColumn')
+        .filter(r => r.method.name === 'group')
+        .map(r => r.column.table);
+      if (grouped.length > 0) {
+        const base = columns
+          .filter(c => !grouped.includes(c.table))
+          .at(0);
+        const { tableAlias, table } = base;
+        firstTable = table;
+        const primaryKey = db.getPrimaryKey(table);
+        clauses.groupBy = `${tableAlias}.${primaryKey}`;
+      }
+      if (!firstTable) {
+        firstTable = tables.at(0);
+      }
+      const makeKey = (table, column) => {
+        const alias = columns.find(c => c.table === table).tableAlias;
+        const symbol = Symbol();
+        const request = {
+          table,
+          tableAlias: alias,
+          selector: `${alias}.${column}`
+        };
+        requests.set(symbol, request);
+        return symbol;
+      }
+      const ordered = [firstTable, ...tables.filter(t => t !== firstTable)];
+      const join = [];
+      for (const table of ordered) {
+        for (const other of ordered.filter(t => t !== table)) {
+          const foreignKeys = db.foreignKeys[other];
+          const relation = foreignKeys
+            .find(k => k.references.table === table);
+          if (relation) {
+            const otherColumn = relation.columns.at(0);
+            const column = relation.references.column;
+            const tableKey = makeKey(table, column);
+            const otherKey = makeKey(other, otherColumn);
+            join.push([tableKey, otherKey]);
+            break;
+          }
+        }
+      }
+      if (join.length !== tables.length - 1) {
+        throw Error('Could not join all tables');
+      }
+      processJoin(join);
+    }
+  }
   if (join) {
-    sql += ` from ${first.table} ${first.tableAlias}`;
+    clauses.from = `${first.table} ${first.tableAlias}`;
     for (const tuple of join) {
       if (!Array.isArray(tuple)) {
         const joinType = tuple.type ? `${tuple.type} join` : 'join';
@@ -309,7 +477,7 @@ const processQuery = (db, expression, firstResult) => {
         const table = from.table || from.tableAlias;
         const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
         used.add(table);
-        sql += ` ${joinType} ${tableClause} on ${whereClause}`;
+        clauses.from += ` ${joinType} ${tableClause} on ${whereClause}`;
       }
       else {
         const [l, r, type] = tuple;
@@ -318,109 +486,9 @@ const processQuery = (db, expression, firstResult) => {
         const table = from.table || from.tableAlias;
         const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
         used.add(table);
-        sql += ` ${joinType} ${tableClause} on ${from.selector} = ${to.selector}`;
+        clauses.from += ` ${joinType} ${tableClause} on ${from.selector} = ${to.selector}`;
       }
     }
-  }
-  else {
-    const columns = Array.from(requests.values()).filter(r => r.category === 'Column');
-    if (columns.length > 0) {
-      const { tableAlias, table } = columns.at(0);
-      sql += ` from ${table} ${tableAlias}`;
-    }
-  }
-  if (where) {
-    const clause = toWhere({
-      db,
-      where,
-      params,
-      requests,
-      getPlaceholder
-    });
-    if (clause) {
-      sql += ` where ${clause}`;
-    }
-  }
-  if (groupBy) {
-    const adjusted = Array.isArray(groupBy) ? groupBy : [groupBy];
-    const statements = adjusted
-      .map(c => processArg({
-        db,
-        arg: c,
-        params,
-        requests,
-        getPlaceholder
-      }))
-      .map(a => a.sql);
-    sql += ` group by ${statements.join(', ')}`;
-  }
-  if (having) {
-    const clause = toWhere({
-      db,
-      where: having,
-      params,
-      requests,
-      getPlaceholder
-    });
-    if (clause) {
-      sql += ` having ${clause}`;
-    }
-  }
-  if (orderBy) {
-    const items = Array.isArray(orderBy) ? orderBy : [orderBy];
-    const clause = items
-      .map(arg => processArg({
-        db,
-        arg,
-        params,
-        requests,
-        getPlaceholder
-      }))
-      .map(a => a.sql)
-      .join(', ');
-    sql += ` order by ${clause}`;
-    if (desc) {
-      sql += ' desc';
-    }
-  }
-  if (rank) {
-    sql += ' order by rank';
-  }
-  if (bm25) {
-    const mapped = Object
-      .getOwnPropertySymbols(bm25)
-      .map(s => {
-        return {
-          column: requests.get(s),
-          value: bm25[s]
-        }
-      });
-    const table = mapped.at(0).column.table;
-    const values = mapped.map(s => s.value).join(', ');
-    sql += ` order by bm25(${table}, ${values})`;
-  }
-  if (offset) {
-    const result = processArg({
-      db,
-      arg: offset,
-      params,
-      requests,
-      getPlaceholder
-    });
-    sql += ` offset ${result.sql}`;
-  }
-  if (limit) {
-    const result = processArg({
-      db,
-      arg: limit,
-      params,
-      requests,
-      getPlaceholder
-    });
-    sql += ` limit ${result.sql}`;
-  }
-  if (firstResult && !limit) {
-    sql += ` limit 1`;
   }
   const post = (rows) => {
     if (Object.keys(parsers).length > 0) {
@@ -437,6 +505,7 @@ const processQuery = (db, expression, firstResult) => {
     }
     return firstResult ? mapped.at(0) : mapped;
   }
+  const sql = toSql(clauses);
   const adjusted = replaceParams(subqueries, sql, params);
   return {
     ...adjusted,

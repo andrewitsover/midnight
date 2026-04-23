@@ -680,16 +680,16 @@ const sightings = db.use(sighted).exists({ animalId: 1 });
 
 The object returned from the ```query``` and ```subquery``` methods can include the following:
 
-```select```, ```optional```, ```distinct```, ```join```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
+```select```, ```maybe```, ```distinct```, ```join```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
 
-```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
+```maybe```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
 
 ```js
 const planets = db.query(c => {
   const { planets: p, moons: m } = c;
   return {
     select: p,
-    optional: {
+    maybe: {
       moon: m.name
     },
     join: [p.id, m.planetId, 'left']

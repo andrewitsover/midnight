@@ -261,13 +261,24 @@ const insertMany = (args) => {
     return;
   }
   const columnTypes = db.columns[table];
-  const unique = new Set(items.flatMap(Object.keys));
-  const columns = Array.from(unique.values());
+  const first = items.at(0);
+  const columns = Object.keys(first);
+  let same = true;
+  for (const item of items) {
+    if (Object.keys(item).length !== columns.length) {
+      same = false;
+      break;
+    }
+    if (!columns.every(k => k in item)) {
+      same = false;
+      break;
+    }
+  }
   verify(columns);
   const hasBlob = db.tables[table]
     .filter(c => columns.includes(c.name))
     .some(c => c.type === 'blob');
-  if (hasBlob) {
+  if (hasBlob || !same) {
     return batchInserts({
       tx,
       db,
