@@ -434,11 +434,12 @@ interface SymbolMethods {
   firstValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   lastValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   nthValue<T extends DbAny>(options: WindowOptions & { expression: T, row: number | DbNumber }): T;
-  group<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
   group<T extends AllowedJson>(select: T): ToJson<T>[];
   group<T>(select: ToDbInterface<T>): ToJson<T>[];
   group<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
-  group<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
+  windowGroup<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
+  windowGroup<T>(options: WindowOptions & { select: ToDbInterface<T> }): ToJson<T>[];
+  windowGroup<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
 }
 
 interface Compute<T> {
@@ -954,9 +955,10 @@ type SubqueryContext =
   { use<T>(context: T): T }
 
 type MakeOptional<T> = {
-  [K in keyof T]: T[K] extends Array<infer U>
-    ? Array<U | DbNull>
-    : T[K] | DbNull;
+  [K in keyof T]:
+    T[K] extends object
+      ? T[K]
+      : T[K] | DbNull;
 };
 
 type SymbolWhere = {
@@ -1107,41 +1109,19 @@ export class BaseTable {
     onUpdate?: ForeignActions,
     index?: false
   }): GetPrimaryKey<InstanceType<T>>;
-  References<T extends abstract new (...args: any[]) => any, N extends false>(table: T, options?: {
-    onDelete?: ForeignActions,
-    onUpdate?: ForeignActions,
-    notNull: N,
-    index?: false
-  }): GetPrimaryKey<InstanceType<T>> | DbNull;
   References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends false>(table: T, options?: {
-    column: K,
-    onDelete?: ForeignActions,
-    onUpdate?: ForeignActions,
-    notNull: N,
-    index?: false
-  }): PkToDbType<InstanceType<T>[K]> | DbNull;
   Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     index?: false
   }): GetPrimaryKey<InstanceType<T>>;
-  Cascade<T extends abstract new (...args: any[]) => any, N extends false>(table: T, options?: {
-    notNull: N,
-    index?: false
-  }): GetPrimaryKey<InstanceType<T>> | DbNull;
   Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>, N extends false>(table: T, options?: {
-    column: K,
-    notNull: N,
-    index?: false
-  }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
   Index<T>(type: T): ToDbType<T>;
   Index<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;

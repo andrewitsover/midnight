@@ -284,7 +284,12 @@ class BaseTable {
       return result.symbol;
     }
     const request = Table.requests.get(value);
-    request.notNull = false;
+    if (request.category === 'ForeignKey') {
+      request.column.notNull = false;
+    }
+    else {
+      request.notNull = false;
+    }
     return value;
   }
 
@@ -299,7 +304,6 @@ class BaseTable {
       column,
       onDelete,
       onUpdate,
-      notNull,
       index
     } = options || {};
     const request = {
@@ -316,7 +320,7 @@ class BaseTable {
     }
     const target = columns.at(0);
     target.primaryKey = false;
-    target.notNull = notNull === false ? false : true;
+    target.notNull = true;
     request.column = target;
     if (onDelete) {
       request.actions.push(`on delete ${onDelete}`);

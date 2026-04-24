@@ -22,6 +22,7 @@ class Database {
     this.customTypes = {};
     this.columns = {};
     this.computed = {};
+    this.notNull = {};
     this.foreignKeys = {};
     this.schema = [];
     this.statements = new Map();
@@ -125,10 +126,12 @@ class Database {
       this.tables[table.name] = table.columns;
       this.columns[table.name] = {};
       this.computed[table.name] = {};
+      this.notNull[table.name] = {};
       this.foreignKeys[table.name] = table.foreignKeys;
       const columns = [...table.columns, ...table.computed];
       for (const column of columns) {
         this.columns[table.name][column.name] = column.type;
+        this.notNull[table.name][column.name] = column.notNull;
       }
       for (const computed of table.computed) {
         this.computed[table.name][computed.name] = computed.sql;

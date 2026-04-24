@@ -52,16 +52,12 @@ The second type of syntax is much like SQL and builds on many of the new feature
 
 ```js
 const trees = db.query(c => {
-  const {
-    forests: f,
-    trees: t
-  } = c;
+  const { forests: f, trees: t } = c;
   return {
     select: {
       ...t,
       forest: f.name
     },
-    join: [t.forestId, f.id],
     where: {
       [t.id]: [1, 2, 3]
     }
@@ -473,7 +469,7 @@ class Rangers extends Table {
 
 Foreign keys do not need to specify a column type, as the type will be determined by the table that is referenced.
 
-By default, an index is created for the foreign key, and the column is set to not null. Also, the related column in the referenced table is assumed to be the primary key of that table.
+By default, an index is created for the foreign key, and the column is set to not null. You can use the ```Null`` function to make the foreign key optional. Also, the related column in the referenced table is assumed to be the primary key of that table.
 
 ```js
 class Sightings extends Table {
@@ -486,7 +482,6 @@ class Animals extends Table {
   name = this.Text;
   ownerId = this.References(Sightings, {
     column: 'personId',
-    notNull: false,
     index: false,
     onDelete: 'set null',
     onUpdate: 'cascade'
@@ -640,15 +635,12 @@ The query below creates a list of people that have sighted a particular ```anima
 
 ```js
 const sighted = db.subquery(c => {
-  const { personId, animalId } = c.sightings;
-  const p = c.people;
+  const { sightings: s, people: p } = c.sightings;
   return {
     select: {
-      animalId,
+      animalId: s.animalId,
       sightedBy: c.group(p)
-    },
-    join: [personId, p.id],
-    groupBy: animalId
+    }
   }
 });
 ```
@@ -682,7 +674,7 @@ The object returned from the ```query``` and ```subquery``` methods can include 
 
 ```select```, ```maybe```, ```distinct```, ```join```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
 
-```maybe```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
+```maybe```: the same as ```select``` but implies that these columns may be ```null```. This is useful for columns that come from a left join.
 
 ```js
 const planets = db.query(c => {
@@ -691,8 +683,7 @@ const planets = db.query(c => {
     select: p,
     maybe: {
       moon: m.name
-    },
-    join: [p.id, m.planetId, 'left']
+    }
   }
 });
 ```
@@ -726,6 +717,10 @@ const animalRangers = db.query(c => {
   }
 });
 ```
+
+## Inferred joins
+
+In most cases, the ```join``` and ```groupBy``` clauses can be inferred by the foreign key constraints and the use of the ```group``` function and ```maybe``` property if there are left joins.
 
 ## Full-text search
 

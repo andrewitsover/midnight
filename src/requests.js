@@ -244,7 +244,8 @@ const processMethod = (options) => {
     method,
     params,
     requests,
-    getPlaceholder
+    getPlaceholder,
+    left
   } = options;
   if (method.alias) {
     return {
@@ -333,18 +334,25 @@ const processMethod = (options) => {
     }
   }
   if (['json_group_array', 'json_group_object', 'json_object'].includes(name)) {
+    const isWindow = method.name === 'windowGroup';
     if (name === 'json_group_array') {
       let sql;
-      const argRequest = requests.get(arg);
-      const selectRequest = !argRequest && requests.get(arg.select);
-      const request = argRequest || selectRequest;
-      const argIsProxy = argRequest && argRequest.isProxy;
-      const isProxy = request && request.isProxy;
       let valueArg;
-      if (!isProxy) {
-        valueArg = isSymbol ? arg : (typeof arg.select === 'symbol' ? arg.select : null);
+      let selectArg;
+      const select = isWindow ? arg.select : arg;
+      const request = requests.get(select);
+      if (request && request.isProxy) {
+        selectArg = { ...select };
       }
-      if (!isProxy && valueArg) {
+      else {
+        if (!request) {
+          selectArg = select;
+        }
+        else {
+          valueArg = select;
+        }
+      }
+      if (valueArg) {
         const body = processArg({
           db,
           arg: valueArg,
@@ -357,28 +365,16 @@ const processMethod = (options) => {
         sql = `${name}(${body.sql})`;
       }
       else {
-        let select;
-        if (isProxy) {
-          if (argIsProxy) {
-            select = { ...arg };
-          }
-          else {
-            select = { ...arg.select };
-          }
-        }
-        else {
-          select = arg.select ? arg.select : arg;
-        }
         const body = getObjectBody({
           db,
-          select,
+          select: selectArg,
           params,
           requests,
           root
         });
         sql = `${name}(json_object(${body}))`;
       }
-      if (!argIsProxy && arg.select) {
+      if (isWindow) {
         const clause = processWindow({
           db,
           query: arg,
@@ -389,6 +385,17 @@ const processMethod = (options) => {
         });
         sql += ` ${clause}`;
       }
+      else if (left) {
+        const used = Array.from(requests.values())
+          .filter(r => r.category === 'UsedColumn')
+          .filter(r => r.method === root)
+          .map(r => r.column)
+          .filter(c => db.notNull[c.table][c.name])
+          .at(0);
+        if (used) {
+          sql += ` filter (where ${used.selector} is not null)`;
+        }
+      }
       return {
         sql: sql.trim(),
         type
@@ -397,13 +404,13 @@ const processMethod = (options) => {
     else if (name === 'json_group_object') {
       let key;
       let value;
-      if (isSymbol) {
-        key = arg;
-        value = method.args.at(1);
-      }
-      else {
+      if (isWindow) {
         key = arg.key;
         value = arg.value;
+      }
+      else {
+        key = arg;
+        value = method.args.at(1);
       }
       const keyArg = processArg({
         db,
@@ -422,7 +429,7 @@ const processMethod = (options) => {
         root
       });
       let windowClause = '';
-      if (!isSymbol) {
+      if (isWindow) {
         windowClause = processWindow({
           db,
           query: arg,

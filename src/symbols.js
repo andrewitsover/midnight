@@ -252,6 +252,7 @@ const processQuery = (db, expression, firstResult) => {
   else {
     select = { ...result.select, ...result.distinct, ...result.maybe };
   }
+  const maybeSymbols = new Set(Object.values(result.maybe || {}));
   const clauses = {};
   const statements = [];
   const parsers = {};
@@ -260,12 +261,14 @@ const processQuery = (db, expression, firstResult) => {
     let parser;
     const request = requests.get(value);
     if (request.category !== 'Column') {
+      const left = request.name === 'group' && maybeSymbols.has(value);
       const valueArg = processMethod({
         db,
         method: request,
         params,
         requests,
-        getPlaceholder
+        getPlaceholder,
+        left
       });
       request.alias = key;
       request.type = valueArg.type;
@@ -401,17 +404,33 @@ const processQuery = (db, expression, firstResult) => {
   else {
     const values = Array.from(requests.values());
     const columns = values.filter(r => r.category === 'Column');
+    const used = values.filter(r => r.category === 'UsedColumn');
     const unique = new Set(columns.map(c => c.table));
     const tables = Array.from(unique.values());
+    const left = new Set();
+    if (result.maybe) {
+      for (const symbol of Object.values(result.maybe)) {
+        const request = requests.get(symbol);
+        if (request.category === 'Method') {
+          for (const item of used) {
+            if (item.method === request) {
+              left.add(item.column.table);
+            }
+          }
+        }
+        else if (request.category === 'Column') {
+          left.add(request.table);
+        }
+      }
+    }
     let firstTable;
     if (tables.length === 1) {
       const { tableAlias, table } = columns.at(0);
       clauses.from = `${table} ${tableAlias}`;
     }
     else if (tables.length > 1) {
-      const grouped = values
-        .filter(r => r.category === 'UsedColumn')
-        .filter(r => r.method.name === 'group')
+      const grouped = used
+        .filter(r => ['group', 'windowGroup'].includes(r.method.name))
         .map(r => r.column.table);
       if (grouped.length > 0) {
         const base = columns
@@ -448,7 +467,11 @@ const processQuery = (db, expression, firstResult) => {
             const column = relation.references.column;
             const tableKey = makeKey(table, column);
             const otherKey = makeKey(other, otherColumn);
-            join.push([tableKey, otherKey]);
+            let type;
+            if (left.has(table) || left.has(other)) {
+              type = 'left';
+            }
+            join.push([tableKey, otherKey, type]);
             break;
           }
         }
