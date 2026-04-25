@@ -1061,15 +1061,12 @@ type RemoveNull<T> = {
 };
 
 type GetDefined<T> =
-  (T extends { select: infer V }
-    ? ToJsType<V> : never) |
-  (T extends { distinct: infer V }
-    ? ToJsType<V> : never) |
-  (T extends { maybe: infer V }
-    ? V extends ToDbInterface<infer _>
-      ? ToJsType<MakeOptional<NonNullable<V>>>
-      : ToJsType<V> | null
-    : never);
+  ToJsType<
+    (T extends { select: any } ? T['select'] : unknown) &
+    (T extends { distinct: any } ? T['distinct'] : unknown) &
+    (T extends { certain: any } ? Exclude<T['certain'], DbNull> : unknown) &
+    (T extends { maybe: any } ? NonNullable<T['maybe']> | DbNull : unknown)
+  >;
 
 interface TypedDb<P, C, N> {
   exec(sql: string): void;
