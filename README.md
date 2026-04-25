@@ -672,7 +672,7 @@ const sightings = db.use(sighted).exists({ animalId: 1 });
 
 The object returned from the ```query``` and ```subquery``` methods can include the following:
 
-```select```, ```maybe```, ```distinct```, ```join```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
+```select```, ```maybe```, ```certain```, ```distinct```, ```join```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
 
 ```maybe```: the same as ```select``` but implies that these columns may be ```null```. This is useful for columns that come from a left join.
 
@@ -683,6 +683,22 @@ const planets = db.query(c => {
     select: p,
     maybe: {
       moon: m.name
+    }
+  }
+});
+```
+
+```certain```: removes ```null``` from the column types.
+
+```js
+const user = db.first(c => {
+  const { forests: f, not } = c;
+  return {
+    certain: {
+      density: f.density
+    },
+    where: {
+      [f.density]: not(null)
     }
   }
 });

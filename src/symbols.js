@@ -23,6 +23,12 @@ const makeProxy = (options) => {
   }
   const makeTableHandler = (table) => {
     const tableAlias = makeAlias(table);
+    const symbol = Symbol();
+    requests.set(symbol, {
+      category: 'Table',
+      name: table,
+      alias: tableAlias
+    });
     const keys = Object.keys(db.columns[table]);
     const handler = {
       get: function(target, property) {
@@ -243,14 +249,14 @@ const processQuery = (db, expression, firstResult) => {
     offset,
     limit
   } = result;
-  const properties = [result.select, result.distinct, result.maybe].filter(p => p !== undefined);
+  const properties = [result.select, result.distinct, result.maybe, result.certain].filter(p => p !== undefined);
   const valueReturn = properties.every(p => typeof p === 'symbol');
   let select;
   if (valueReturn) {
     select = { valueReturn: properties.at(0) };
   }
   else {
-    select = { ...result.select, ...result.distinct, ...result.maybe };
+    select = { ...result.select, ...result.distinct, ...result.maybe, ...result.certain };
   }
   const maybeSymbols = new Set(Object.values(result.maybe || {}));
   const clauses = {};
@@ -407,6 +413,12 @@ const processQuery = (db, expression, firstResult) => {
     const used = values.filter(r => r.category === 'UsedColumn');
     const unique = new Set(columns.map(c => c.table));
     const tables = Array.from(unique.values());
+    const extracted = values.filter(v => v.category === 'Table');
+    for (const table of extracted) {
+      if (!tables.includes(table.name)) {
+        tables.push(table.name);
+      }
+    }
     const left = new Set();
     if (result.maybe) {
       for (const symbol of Object.values(result.maybe)) {
@@ -445,7 +457,7 @@ const processQuery = (db, expression, firstResult) => {
         firstTable = tables.at(0);
       }
       const makeKey = (table, column) => {
-        const alias = columns.find(c => c.table === table).tableAlias;
+        const alias = extracted.find(c => c.name === table).alias;
         const symbol = Symbol();
         const request = {
           table,
