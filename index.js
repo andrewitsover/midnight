@@ -1,5 +1,4 @@
-import Database from './src/db.js';
-import SQLiteDatabase from './src/sqlite.js';
+import Database from './src/sqlite.js';
 import { 
   BaseTable, 
   Table, 
@@ -12,7 +11,6 @@ import {
 
 export {
   Database,
-  SQLiteDatabase,
   FTSTable,
   ExternalFTSTable,
   BaseTable,

@@ -99,9 +99,9 @@ Paste the code below into the ```main.js``` file.
 This example will create a ```clouds``` table in a database named ```forest.db``` and then insert and read some rows.
 
 ```js
-import { SQLiteDatabase, Table } from '@andrewitsover/midnight';
+import { Database, Table } from '@andrewitsover/midnight';
 
-const database = new SQLiteDatabase('forest.db');
+const database = new Database('forest.db');
 
 class Clouds extends Table {
   name;

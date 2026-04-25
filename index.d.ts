@@ -1333,18 +1333,14 @@ export class ExternalFTSTable extends FTSTable {
 }
 
 export class Database {
-  constructor();
+  constructor(path?: string | URL, options?: SQLiteConfig);
+  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
   run(args: { query: any, params?: any }): number;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Array<T>;
   exec(query: string): void;
   begin(): void;
   commit(): void;
   rollback(): void;
-}
-
-export class SQLiteDatabase extends Database {
-  constructor(path?: string | URL, options?: SQLiteConfig);
-  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
   close(): void;
 }
 
