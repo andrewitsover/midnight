@@ -258,8 +258,8 @@ const processMethod = (options) => {
   const root = options.root ? options.root : method;
   const name = toDbName(method);
   const operator = mathOperators.get(name);
-  let type = operator ? 'real' : (method.type === 'Compare' ? 'boolean' : returnTypes[name]);
-  if (method.type === 'Compare') {
+  let type = operator ? 'real' : (method.subcategory === 'Compare' ? 'boolean' : returnTypes[name]);
+  if (method.subcategory === 'Compare') {
     const operator = compareOperators.get(name);
     const result = processArg({
       db,
@@ -461,7 +461,7 @@ const processMethod = (options) => {
       };
     }
   }
-  if (method.type === 'Window') {
+  if (method.subcategory === 'Window') {
     let sql;
     if (name === 'ntile') {
       const { groups } = arg;
@@ -665,7 +665,7 @@ const toWhere = (options) => {
     }
     const value = where[symbol];
     const valueRequest = requests.get(value);
-    if (valueRequest && valueRequest.type === 'Compare') {
+    if (valueRequest && valueRequest.subcategory === 'Compare') {
       const { name, args } = valueRequest;
       const param = args.at(0);
       if (name === 'not' && param === null) {

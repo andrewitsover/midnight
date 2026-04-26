@@ -115,15 +115,15 @@ const makeProxy = (options) => {
       const isCompare = compareMethods.includes(property);
       const isCompute = computeMethods.includes(property);
       const isWindow = windowMethods.includes(property);
-      let type;
+      let subcategory;
       if (isCompare) {
-        type = 'Compare';
+        subcategory = 'Compare';
       }
       else if (isCompute) {
-        type = 'Compute';
+        subcategory = 'Compute';
       }
       else if (isWindow) {
-        type = 'Window';
+        subcategory = 'Window';
       }
       else {
         return makeTableHandler(property);
@@ -131,8 +131,9 @@ const makeProxy = (options) => {
       const symbol = Symbol();
       const request = {
         category: 'Method',
-        type,
+        subcategory,
         name: property,
+        type: null,
         args: null,
         alias: null
       }
@@ -140,7 +141,7 @@ const makeProxy = (options) => {
       return (...args) => {
         request.args = args;
         if (['min', 'max'].includes(property) && args.length === 1) {
-          request.type = 'Window';
+          request.subcategory = 'Window';
         }
         return symbol;
       }
@@ -451,7 +452,9 @@ const processQuery = (db, expression, firstResult) => {
         const { tableAlias, table } = base;
         firstTable = table;
         const primaryKey = db.getPrimaryKey(table);
-        clauses.groupBy = `${tableAlias}.${primaryKey}`;
+        if (!clauses.groupBy) {
+          clauses.groupBy = `${tableAlias}.${primaryKey}`;
+        }
       }
       if (!firstTable) {
         firstTable = tables.at(0);

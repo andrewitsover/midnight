@@ -113,14 +113,15 @@ class BaseTable {
       if (['Date', 'Json'].includes(name)) {
         name = `To${name}`;
       }
-      const type = compareMethods.includes(method) ? 'Compare' : 'Compute';
+      const subcategory = compareMethods.includes(method) ? 'Compare' : 'Compute';
       Object.defineProperty(this, name, {
         get: function() {
           const symbol = Symbol();
           const request = {
             category: 'Method',
-            type,
+            subcategory,
             name: method,
+            type: null,
             args: null
           };
           Table.requests.set(symbol, request);
