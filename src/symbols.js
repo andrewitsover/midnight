@@ -449,11 +449,31 @@ const processQuery = (db, expression, firstResult) => {
         const base = columns
           .filter(c => !grouped.includes(c.table))
           .at(0);
-        const { tableAlias, table } = base;
-        firstTable = table;
-        const primaryKey = db.getPrimaryKey(table);
-        if (!clauses.groupBy) {
-          clauses.groupBy = `${tableAlias}.${primaryKey}`;
+        if (base) {
+          const { tableAlias, table } = base;
+          firstTable = table;
+          const primaryKey = db.getPrimaryKey(table);
+          if (!clauses.groupBy) {
+            clauses.groupBy = `${tableAlias}.${primaryKey}`;
+          }
+        }
+        else {
+          const first = Object.values(select)
+            .map(s => requests.get(s))
+            .filter(s => s.category !== 'Method' || s.subcategory !== 'Window')
+            .at(0);
+          if (first) {
+            if (first.category !== 'Column') {
+              const found = used.find(u => u.method === first);
+              if (found) {
+                firstTable = found.column.table;
+                clauses.groupBy = found.column.selector;
+              }
+            }
+            else {
+              clauses.groupBy = first.selector;
+            }
+          }
         }
       }
       if (!firstTable) {
@@ -487,7 +507,6 @@ const processQuery = (db, expression, firstResult) => {
               type = 'left';
             }
             join.push([tableKey, otherKey, type]);
-            break;
           }
         }
       }
