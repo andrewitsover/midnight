@@ -330,39 +330,6 @@ const exists = db.moons.exists({
 });
 ```
 
-### GroupBy
-
-You can write ```group by``` statements like this:
-
-```js
-const trees = db.fighters
-  .groupBy('forestId')
-  .avg({
-    column: {
-      height: 'heightCm'
-    },
-    where: {
-      avg: c => c.gt(170)
-    },
-    limit: 3
-  });
-```
-
-An aggregate function should come after the ```groupBy``` method. ```distinct``` can be used instead of ```column``` to aggregate by distinct values. ```distinct``` or ```column``` needs to be an object with a single property representing the alias for the aggregrate function, and the column to aggregate by.
-
-In addition to aggregate functions such as ```avg``` or ```count```, there is also an ```array``` function that simply groups the rows into an array. The ```select``` option takes an object with a single property representing the name of the resulting array, and the column or columns to select.
-
-```js
-const trees = db.trees
-  .groupBy('forestId')
-  .array({
-    select: {
-      planted: 'planted'
-    },
-    limit: 3
-  });
-```
-
 ### Delete
 
 ```delete``` takes one argument representing the where clause and returns the number of rows affected by the query.

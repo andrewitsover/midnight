@@ -4,7 +4,6 @@ import {
   update,
   upsert,
   exists,
-  group,
   aggregate,
   match,
   all,
@@ -29,25 +28,12 @@ const methodNames = new Set([
   'use'
 ]);
 
-const groupMethods = (args) => {
-  const makeMethod = (method) => {
-    return (query) => group({ query, method, ...args });
-  }
-  const result = {};
-  const methods = ['count', 'avg', 'min', 'max', 'sum', 'array'];
-  methods.forEach(m => {
-    result[m] = makeMethod(m)
-  });
-  return result;
-}
-
 const basic = {
   insert: (args) => (values) => insert({ values, ...args }),
   insertMany: (args) => (items) => insertMany({ items, ...args }),
   update: (args) => (options) => update({ options, ...args }),
   upsert: (args) => (options) => upsert({ options, ...args }),
   exists: (args) => (query, config) => exists({ query, ...config, ...args }),
-  groupBy: (args) => (by, config) => groupMethods({ by, ...config, ...args }),
   count: (args) => (query, config) => aggregate({ query, method: 'count', ...config, ...args }),
   avg: (args) => (query, config) => aggregate({ query, method: 'avg', ...config, ...args }),
   min: (args) => (query, config) => aggregate({ query, method: 'min', ...config, ...args }),
@@ -157,15 +143,8 @@ const makeQueryHandler = (options) => {
           dbClient,
           subquery
         });
-        if (method === 'groupBy') {
-          target[method] = (...args) => {
-            return run(...args);
-          }
-        }
-        else {
-          target[method] = (...args) => {
-            return run(...args);
-          }
+        target[method] = (...args) => {
+          return run(...args);
         }
         return target[method];
       }

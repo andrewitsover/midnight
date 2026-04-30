@@ -9,7 +9,7 @@ interface Keywords<T, K> {
   log?: boolean | ((info: LogInfo) => void);
 }
 
-type ReadQueries<P, T> = Pick<ToQuery<P, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists' | 'groupBy'>;
+type ReadQueries<P, T> = Pick<ToQuery<P, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists'>;
 
 type ObjectFunction = {
   [key: string]: (...args: any) => any;
@@ -552,7 +552,6 @@ interface Queries<T, E, W, Y> {
   min<K extends keyof E>(query: AggregateQuery<W, K>): E[K];
   sum<K extends keyof E>(query: AggregateQuery<W, K>): number;
   exists(params: W | null): boolean;
-  groupBy<K extends keyof E>(columns: K | Array<K>): AggregateMethods<E, W, K, Y>;
 }
 
 type CompareMethods<T> = {
