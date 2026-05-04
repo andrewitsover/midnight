@@ -540,6 +540,7 @@ const processQuery = (db, expression, firstResult) => {
         const [table] = tableKey.split(' ');
         const relation = db.foreignKeys[column.table]
           .filter(k => k.references.table === table)
+          .filter(k => k.columns.length === 1)
           .find(k => k.columns.at(0) === column.name);
         hints.set(tableKey, { relation, otherKey: toKey(column) });
         usedKeys.add(relation);
@@ -602,6 +603,7 @@ const processQuery = (db, expression, firstResult) => {
                   }
                   else {
                     found = db.foreignKeys[table]
+                      .filter(k => k.columns.length === 1)
                       .some(k => k.columns.at(0) === original.name);
                   }
                   if (found) {
@@ -628,6 +630,7 @@ const processQuery = (db, expression, firstResult) => {
               const foreignKeys = db.foreignKeys[other];
               const relation = foreignKeys
                 .filter(k => !usedKeys.has(k))
+                .filter(k => k.columns.length === 1)
                 .find(k => k.references.table === table);
               process(relation, otherKey);
             }
