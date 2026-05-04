@@ -67,11 +67,23 @@ const makeProxy = (options) => {
       }
     };
     const proxy = new Proxy({}, handler);
-    requests.set(proxy, { isProxy: true });
+    const tableKey = `${table} ${tableAlias}`;
+    requests.set(proxy, { isProxy: true, tableKey });
     return proxy;
   }
   const handler = {
     get: function(target, property) {
+      if (property === 'hint') {
+        return (...args) => {
+          const [column, proxy] = args.map(a => requests.get(a));
+          const symbol = Symbol();
+          requests.set(symbol, {
+            category: 'Hint',
+            tableKey: proxy.tableKey,
+            column
+          });
+        }
+      }
       if (property === 'use') {
         return (context) => {
           const keys = Object.keys(context.columns);
@@ -85,11 +97,13 @@ const makeProxy = (options) => {
             get: function(target, property) {
               const symbol = Symbol();
               const type = context.columns[property];
+              const original = context.original[property];
               requests.set(symbol, {
                 category: 'Column',
                 name: property,
                 selector: `${tableAlias}.${property}`,
                 type,
+                original,
                 tableAlias
               });
               return symbol;
@@ -109,6 +123,9 @@ const makeProxy = (options) => {
           }
           const proxy = new Proxy({}, handler);
           requests.set(proxy, { isProxy: true });
+          for (const key of Object.keys(proxy)) {
+            proxy[key];
+          }
           return proxy;
         }
       }
@@ -228,6 +245,13 @@ const toSql = (clauses) => {
   return statements.join(' ');
 }
 
+const toKey = (column) => {
+  if (column.table) {
+    return `${column.table} ${column.tableAlias}`;
+  }
+  return column.tableAlias;
+}
+
 const processQuery = (db, expression, firstResult) => {
   const getPlaceholder = createPlaceholder();
   const requests = new Map();
@@ -264,6 +288,7 @@ const processQuery = (db, expression, firstResult) => {
   const statements = [];
   const parsers = {};
   const columnTypes = {};
+  const original = {};
   for (const [key, value] of Object.entries(select)) {
     let parser;
     const request = requests.get(value);
@@ -286,6 +311,7 @@ const processQuery = (db, expression, firstResult) => {
     else {
       statements.push(`${request.selector} as ${nameToSql(key)}`);
       columnTypes[key] = request.type;
+      original[key] = request;
       parser = db.getDbToJsConverter(request.type);
     }
     if (parser) {
@@ -392,7 +418,7 @@ const processQuery = (db, expression, firstResult) => {
       if (!Array.isArray(tuple)) {
         if (!first) {
           first = getColumns(tuple, requests).at(0);
-          used.add(first.table || first.tableAlias);
+          used.add(toKey(first));
         }
         return tuple;
       }
@@ -400,7 +426,7 @@ const processQuery = (db, expression, firstResult) => {
       const processed = [requests.get(l), requests.get(r), type];
       if (!first) {
         first = processed[0];
-        used.add(first.table || first.tableAlias);
+        used.add(toKey(first));
       }
       return processed;
     });
@@ -410,16 +436,22 @@ const processQuery = (db, expression, firstResult) => {
   }
   else {
     const values = Array.from(requests.values());
-    const columns = values.filter(r => r.category === 'Column');
-    const used = values.filter(r => r.category === 'UsedColumn');
-    const unique = new Set(columns.map(c => c.table));
-    const tables = Array.from(unique.values());
-    const extracted = values.filter(v => v.category === 'Table');
-    for (const table of extracted) {
-      if (!tables.includes(table.name)) {
-        tables.push(table.name);
+    const set = new Set();
+    const columns = [];
+    for (const value of values) {
+      if (value.category === 'Column') {
+        if (set.has(value.selector)) {
+          continue;
+        }
+        else {
+          columns.push(value);
+          set.add(value.selector);
+        }
       }
     }
+    const used = values.filter(r => r.category === 'UsedColumn');
+    const unique = new Set(columns.map(c => toKey(c)));
+    const tables = Array.from(unique.values());
     const left = new Set();
     if (result.maybe) {
       for (const symbol of Object.values(result.maybe)) {
@@ -427,86 +459,178 @@ const processQuery = (db, expression, firstResult) => {
         if (request.category === 'Method') {
           for (const item of used) {
             if (item.method === request) {
-              left.add(item.column.table);
+              left.add(toKey(item.column));
             }
           }
         }
         else if (request.category === 'Column') {
-          left.add(request.table);
+          left.add(toKey(request));
+        }
+      }
+    }
+    const extracted = values.filter(v => v.category === 'Table');
+    for (const table of extracted) {
+      const key = `${table.name} ${table.alias}`;
+      if (!tables.includes(key)) {
+        tables.push(key);
+        if (result.maybe) {
+          left.add(key);
         }
       }
     }
     let firstTable;
+    const grouped = used
+        .filter(r => r.method.subcategory === 'Window')
+        .map(r => r.column.table);
+    if (grouped.length > 0) {
+      const ungrouped = columns
+        .filter(c => !grouped.includes(c.table));
+      const base = ungrouped.at(0);
+      if (base) {
+        const { tableAlias, table } = base;
+        firstTable = `${table} ${tableAlias}`;
+        if (!clauses.groupBy) {
+          if (ungrouped.length === 1) {
+            clauses.groupBy = base.selector;
+          }
+          else {
+            const primaryKey = db.getPrimaryKey(table);
+            clauses.groupBy = `${tableAlias}.${primaryKey}`;
+          }
+        }
+      }
+      else {
+        const first = Object.values(select)
+          .map(s => requests.get(s))
+          .filter(s => s.category !== 'Method' || s.subcategory !== 'Window')
+          .at(0);
+        if (first) {
+          if (first.category !== 'Column') {
+            const found = used.find(u => u.method === first);
+            if (found) {
+              firstTable = toKey(found.column);
+              clauses.groupBy = found.column.selector;
+            }
+          }
+          else {
+            clauses.groupBy = first.selector;
+          }
+        }
+      }
+    }
     if (tables.length === 1) {
       const { tableAlias, table } = columns.at(0);
       clauses.from = `${table} ${tableAlias}`;
     }
     else if (tables.length > 1) {
-      const grouped = used
-        .filter(r => ['group', 'windowGroup'].includes(r.method.name))
-        .map(r => r.column.table);
-      if (grouped.length > 0) {
-        const base = columns
-          .filter(c => !grouped.includes(c.table))
-          .at(0);
-        if (base) {
-          const { tableAlias, table } = base;
-          firstTable = table;
-          const primaryKey = db.getPrimaryKey(table);
-          if (!clauses.groupBy) {
-            clauses.groupBy = `${tableAlias}.${primaryKey}`;
-          }
-        }
-        else {
-          const first = Object.values(select)
-            .map(s => requests.get(s))
-            .filter(s => s.category !== 'Method' || s.subcategory !== 'Window')
-            .at(0);
-          if (first) {
-            if (first.category !== 'Column') {
-              const found = used.find(u => u.method === first);
-              if (found) {
-                firstTable = found.column.table;
-                clauses.groupBy = found.column.selector;
-              }
-            }
-            else {
-              clauses.groupBy = first.selector;
-            }
-          }
-        }
-      }
       if (!firstTable) {
         firstTable = tables.at(0);
       }
-      const makeKey = (table, column) => {
-        const alias = extracted.find(c => c.name === table).alias;
+      const makeKey = (request) => {
         const symbol = Symbol();
-        const request = {
-          table,
-          tableAlias: alias,
-          selector: `${alias}.${column}`
-        };
         requests.set(symbol, request);
         return symbol;
       }
+      const filtered = values.filter(r => r.category === 'Hint');
+      const hints = new Map();
+      const usedKeys = new Set();
+      for (const hint of filtered) {
+        const { tableKey, column } = hint;
+        hints.set(tableKey, column);
+        const [table] = tableKey.split(' ');
+        const relation = db.foreignKeys[column.table]
+          .filter(k => k.references.table === table)
+          .find(k => k.columns.at(0) === column.name);
+        hints.set(tableKey, { relation, otherKey: toKey(column) });
+        usedKeys.add(relation);
+      }
       const ordered = [firstTable, ...tables.filter(t => t !== firstTable)];
       const join = [];
-      for (const table of ordered) {
-        for (const other of ordered.filter(t => t !== table)) {
-          const foreignKeys = db.foreignKeys[other];
-          const relation = foreignKeys
-            .find(k => k.references.table === table);
+      const joined = new Set();
+      for (const tableKey of ordered) {
+        const [table, tableAlias] = tableKey.split(' ');
+        const process = (relation, otherKey) => {
+          const joinKey = [tableKey, otherKey].sort().join(' ');
+          if (joined.has(joinKey)) {
+            return;
+          }
+          const [other, otherAlias] = otherKey.split(' ');
           if (relation) {
             const otherColumn = relation.columns.at(0);
             const column = relation.references.column;
-            const tableKey = makeKey(table, column);
-            const otherKey = makeKey(other, otherColumn);
+            const tableSymbol = makeKey({
+              table,
+              tableAlias,
+              selector: `${tableAlias}.${column}`
+            });
+            const otherSymbol = makeKey({
+              table: other,
+              tableAlias: otherAlias,
+              selector: `${otherAlias}.${otherColumn}`
+            });
             let type;
-            if (left.has(table) || left.has(other)) {
+            if (left.has(tableKey) || left.has(otherKey)) {
               type = 'left';
             }
-            join.push([tableKey, otherKey, type]);
+            joined.add(joinKey);
+            join.push([tableSymbol, otherSymbol, type]);
+          }
+        }
+        const hint = hints.get(tableKey);
+        if (hint) {
+          const { relation, otherKey } = hint;
+          const joinKey = [tableKey, otherKey].sort().join(' ');
+          process(relation, otherKey);
+        }
+        else {
+          for (const otherKey of ordered.filter(t => t !== tableKey)) {
+            const joinKey = [tableKey, otherKey].sort().join(' ');
+            if (joined.has(joinKey)) {
+              continue;
+            }
+            const split = otherKey.split(' ');
+            const [other] = split;
+            if (split.length === 1) {
+              const selected = columns.filter(c => c.tableAlias === other);
+              for (const column of selected) {
+                const original = column.original;
+                if (original && original.table === table) {
+                  const primaryKey = db.getPrimaryKey(table);
+                  let found = false;
+                  if (primaryKey === original.name) {
+                    found = true;
+                  }
+                  else {
+                    found = db.foreignKeys[table]
+                      .some(k => k.columns.at(0) === original.name);
+                  }
+                  if (found) {
+                    const otherSymbol = makeKey({
+                      tableAlias: other,
+                      selector: `${other}.${column.name}`
+                    });
+                    const tableSymbol = makeKey({
+                      table,
+                      tableAlias,
+                      selector: `${tableAlias}.${primaryKey}`
+                    });
+                    let type;
+                    if (left.has(tableKey) || left.has(otherKey)) {
+                      type = 'left';
+                    }
+                    joined.add(joinKey);
+                    join.push([tableSymbol, otherSymbol, type]);
+                  }
+                }
+              }
+            }
+            else {
+              const foreignKeys = db.foreignKeys[other];
+              const relation = foreignKeys
+                .filter(k => !usedKeys.has(k))
+                .find(k => k.references.table === table);
+              process(relation, otherKey);
+            }
           }
         }
       }
@@ -517,7 +641,7 @@ const processQuery = (db, expression, firstResult) => {
     }
   }
   if (join) {
-    clauses.from = `${first.table} ${first.tableAlias}`;
+    clauses.from = first.table? `${first.table} ${first.tableAlias}` : first.tableAlias;
     for (const tuple of join) {
       if (!Array.isArray(tuple)) {
         const joinType = tuple.type ? `${tuple.type} join` : 'join';
@@ -530,19 +654,19 @@ const processQuery = (db, expression, firstResult) => {
           requests,
           getPlaceholder
         });
-        const from = columns.find(c => !used.has(c.table || c.tableAlias));
+        const from = columns.find(c => !used.has(toKey(c)));
         const table = from.table || from.tableAlias;
         const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
-        used.add(table);
+        used.add(toKey(from));
         clauses.from += ` ${joinType} ${tableClause} on ${whereClause}`;
       }
       else {
         const [l, r, type] = tuple;
         const joinType = type ? `${type} join` : 'join';
-        const [from, to] = used.has(l.table || l.tableAlias) ? [r, l] : [l, r];
+        const [from, to] = used.has(toKey(l)) ? [r, l] : [l, r];
         const table = from.table || from.tableAlias;
         const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
-        used.add(table);
+        used.add(toKey(from));
         clauses.from += ` ${joinType} ${tableClause} on ${from.selector} = ${to.selector}`;
       }
     }
@@ -568,6 +692,7 @@ const processQuery = (db, expression, firstResult) => {
     ...adjusted,
     columns: columnTypes,
     log: result.log,
+    original,
     post
   }
 }
