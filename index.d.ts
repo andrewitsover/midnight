@@ -883,6 +883,7 @@ type ExtractColumns<T> = {
 };
 
 type PkType = PkNumber | PkString | PkDate | PkBuffer;
+type ComputedType = ComputedNumber | ComputedString | ComputedDate | ComputedBoolean | ComputedJson | ComputedBuffer;
 
 type OptionalKeys<T> = {
   [K in keyof T]:
@@ -1039,26 +1040,12 @@ interface ValueReturn<S> extends QueryReturn {
   certain?: S;
 }
 
-type RemoveNull<T> = {
-  [K in keyof T]: Exclude<
-    T[K] extends object
-      ? {
-          [K2 in keyof T[K]]: Exclude<
-            T[K][K2] extends object
-              ? {
-                  [K3 in keyof T[K][K2]]: Exclude<
-                    T[K][K2][K3],
-                    DbNull
-                  >;
-                }
-              : T[K][K2],
-            DbNull
-          >;
-        }
-      : T[K],
-    DbNull
-  >;
-};
+type RemoveNull<T> =
+  T extends (infer U)[]
+    ? RemoveNull<U>[]
+    : T extends object
+      ? { [K in keyof T]: RemoveNull<Exclude<T[K], DbNull>> }
+      : Exclude<T, DbNull>;
 
 type GetDefined<T> =
   ToJsType<
@@ -1108,6 +1095,41 @@ type ToComputed<T> =
 
 type ForeignActions = 'no action' | 'restrict' | 'set null' | 'set default' | 'cascade';
 
+interface Null {
+  Int: DbNumber | DbNull;
+  Real: DbNumber | DbNull;
+  Text: DbString | DbNull;
+  Blob: DbBuffer | DbNull;
+  Json: DbJson | DbNull;
+  Date: DbDate | DbNull;
+  Bool: DbBoolean | DbNull;
+
+  Now: DefaultDate | DbNull;
+  True: DefaultBoolean | DbNull;
+  False: DefaultBoolean | DbNull;
+
+  References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+    column: K,
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]> | DbNull;
+  Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
+    index?: false
+  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+    column: K,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]> | DbNull;
+
+  Default<T extends Primitive>(value: T): ToDefaultType<T> | DbNull;
+}
+
 export class BaseTable {
   Int: DbNumber;
   IntPrimary: PkNumber;
@@ -1125,6 +1147,8 @@ export class BaseTable {
   Now: DefaultDate;
   True: DefaultBoolean;
   False: DefaultBoolean;
+
+  Function<T>(type: T, lambda: () => ToDbType<T>): T;
 
   References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     onDelete?: ForeignActions,
@@ -1155,7 +1179,7 @@ export class BaseTable {
   Unique(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
   Check(where: SymbolWhere): void;
   Check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDbType<T>;
-  Null<T>(type: T): ToDbType<T> | DbNull;
+  Null: Null;
   Default<T extends Primitive>(value: T): ToDefaultType<T>;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;

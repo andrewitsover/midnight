@@ -1,8 +1,8 @@
 import Database from './src/sqlite.js';
-import { 
-  BaseTable, 
-  Table, 
-  FTSTable, 
+import {
+  BaseTable,
+  Table,
+  FTSTable,
   ExternalFTSTable,
   Unicode61,
   Ascii,

@@ -164,6 +164,13 @@ const upsert = (args) => {
   const getPlaceholder = createPlaceholder();
   const { values, target, set, log } = options;
   const params = {};
+  const columns = Object.keys(values);
+  const lambdas = Object
+    .keys(db.lambdas[table])
+    .filter(k => !columns.includes(k));
+  for (const key of lambdas) {
+    values[key] = db.lambdas[table][key]();
+  }
   const query = adjust(db, table, values);
   let sql = makeInsertSql({
     db,
@@ -203,6 +210,12 @@ const insert = (args) => {
   } = args;
   const getPlaceholder = createPlaceholder();
   const columns = Object.keys(values);
+  const lambdas = Object
+    .keys(db.lambdas[table])
+    .filter(k => !columns.includes(k));
+  for (const key of lambdas) {
+    values[key] = db.lambdas[table][key]();
+  }
   verify(columns);
   const adjusted = adjust(db, table, values);
   const params = {};
@@ -250,6 +263,21 @@ const batchInserts = (args) => {
   db.insertBatch(inserts);
 }
 
+const shapes = (items) => {
+  const map = new Map();
+  for (const item of items) {
+    const key = Object.keys(item).join(' ');
+    const existing = map.get(key);
+    if (existing) {
+      existing.push(item);
+    }
+    else {
+      map.set(key, [item]);
+    }
+  }
+  return map.values();
+}
+
 const insertMany = (args) => {
   const {
     db,
@@ -261,49 +289,52 @@ const insertMany = (args) => {
     return;
   }
   const columnTypes = db.columns[table];
-  const first = items.at(0);
-  const columns = Object.keys(first);
-  let same = true;
-  for (const item of items) {
-    if (Object.keys(item).length !== columns.length) {
-      same = false;
-      break;
+  const result = shapes(items);
+  for (const items of result) {
+    const first = items.at(0);
+    const columns = Object.keys(first);
+    const lambdas = Object
+      .keys(db.lambdas[table])
+      .filter(k => !columns.includes(k));
+    columns.push(...lambdas);
+    if (lambdas.length > 0) {
+      for (const item of items) {
+        for (const key of lambdas) {
+          item[key] = db.lambdas[table][key]();
+        }
+      }
     }
-    if (!columns.every(k => k in item)) {
-      same = false;
-      break;
+    verify(columns);
+    const hasBlob = db.tables[table]
+      .filter(c => columns.includes(c.name))
+      .some(c => c.type === 'blob');
+    if (hasBlob) {
+      return batchInserts({
+        tx,
+        db,
+        table,
+        items
+      });
     }
+    let sql = `insert into ${table}(${columns.join(', ')}) select `;
+    const select = columns.map(column => {
+      if (columnTypes[column] === 'json') {
+        return `jsonb(json_each.value ->> '${column}')`;
+      }
+      return `json_each.value ->> '${column}'`;
+    }).join(', ');
+    sql += select;
+    sql += ' from json_each($items)';
+    const params = {
+      items: JSON.stringify(items)
+    };
+    const options = {
+      query: sql,
+      params,
+      tx
+    };
+    db.run(options);
   }
-  verify(columns);
-  const hasBlob = db.tables[table]
-    .filter(c => columns.includes(c.name))
-    .some(c => c.type === 'blob');
-  if (hasBlob || !same) {
-    return batchInserts({
-      tx,
-      db,
-      table,
-      items
-    });
-  }
-  let sql = `insert into ${table}(${columns.join(', ')}) select `;
-  const select = columns.map(column => {
-    if (columnTypes[column] === 'json') {
-      return `jsonb(json_each.value ->> '${column}')`;
-    }
-    return `json_each.value ->> '${column}'`;
-  }).join(', ');
-  sql += select;
-  sql += ' from json_each($items)';
-  const params = {
-    items: JSON.stringify(items)
-  };
-  const options = {
-    query: sql,
-    params,
-    tx
-  };
-  return db.run(options);
 }
 
 const toWhere = (options) => {

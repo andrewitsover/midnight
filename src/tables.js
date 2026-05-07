@@ -5,7 +5,7 @@ import { nameToSql } from './utils.js';
 const types = ['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool'];
 const modifiers = [
   ['', {}],
-  ['Primary', { primaryKey: true }]
+  ['Primary', { notNull: true, primaryKey: true }]
 ];
 
 const removeCapital = (name) => {
@@ -18,8 +18,7 @@ const addCapital = (name) => {
 
 const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
 
-const toColumn = (literal) => {
-  const instance = new Table();
+const toColumn = (literal, instance) => {
   const type = typeof literal;
   let symbol;
   if (type === 'string') {
@@ -103,6 +102,39 @@ class Trigram {
 class BaseTable {
   static requests = new Map();
   static classes = new Map();
+  get Null() {
+    if (!this.Proxy) {
+      this.Proxy = new Proxy(this, {
+        get(target, prop, receiver) {
+          const value = Reflect.get(target, prop, receiver);
+
+          if (['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool', 'Now', 'True', 'False'].includes(prop)) {
+            const request = BaseTable.requests.get(value);
+            request.notNull = false;
+            return value;
+          }
+          else if (['References', 'Cascade'].includes(prop)) {
+            return (...args) => {
+              const result = value.apply(target, args);
+              const request = BaseTable.requests.get(result);
+              request.column.notNull = false;
+              return result;
+            }
+          }
+          else if (prop === 'Default') {
+            return (...args) => {
+              const result = value.apply(target, args);
+              const request = BaseTable.requests.get(result);
+              request.notNull = false;
+              return result;
+            }
+          }
+          return value;
+        }
+      });
+    }
+    return this.Proxy;
+  }
   Called = [];
 
   constructor() {
@@ -204,9 +236,15 @@ class BaseTable {
   }
 
   Default(value) {
-    const { symbol, column } = toColumn(value);
+    const { symbol, column } = toColumn(value, this);
     Table.requests.set(symbol, column);
     return symbol;
+  }
+
+  Function(type, lambda) {
+    const column = Table.requests.get(type);
+    column.lambda = lambda;
+    return type;
   }
 
   get Unindexed() {
@@ -276,22 +314,6 @@ class BaseTable {
     }
     this.Called.push(symbol);
     return symbol;
-  }
-
-  Null(value) {
-    if (typeof value !== 'symbol') {
-      const result = toColumn(value);
-      result.column.notNull = false;
-      return result.symbol;
-    }
-    const request = Table.requests.get(value);
-    if (request.category === 'ForeignKey') {
-      request.column.notNull = false;
-    }
-    else {
-      request.notNull = false;
-    }
-    return value;
   }
 
   Cascade(instance, options) {
@@ -369,7 +391,7 @@ const getColumns = (constructor) => {
       request = Table.requests.get(symbol);
     }
     else {
-      const result = toColumn(value);
+      const result = toColumn(value, instance);
       request = result.column;
     }
     const clone = { ...request };
@@ -386,6 +408,7 @@ const process = (Custom, key, classTable) => {
   const table = {
     name,
     type,
+    lambdas: {},
     columns: [],
     computed: [],
     indexes: [],
@@ -478,7 +501,7 @@ const process = (Custom, key, classTable) => {
     }
     const type = typeof value;
     if (type !== 'symbol') {
-      const result = toColumn(value);
+      const result = toColumn(value, instance);
       result.column.name = key;
       return {
         category: 'Literal',
@@ -587,7 +610,11 @@ const process = (Custom, key, classTable) => {
     }
     else {
       if (result.name !== 'rowid') {
-        table.columns.push(result);
+        const { lambda, ...column } = result;
+        if (lambda) {
+          table.lambdas[column.name] = lambda;
+        }
+        table.columns.push(column);
         Table.requests.set(value, result);
       }
     }
