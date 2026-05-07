@@ -676,6 +676,8 @@ const planets = db.query(c => {
 });
 ```
 
+In the above example, ```moon``` will be of type ```string``` or ```null``` even though it is normally not null.
+
 ```certain```: removes ```null``` from the column types.
 
 ```js
@@ -691,8 +693,6 @@ const user = db.first(c => {
   }
 });
 ```
-
-In the above example, ```moon``` will be of type ```string``` or ```null``` even though it is normally not null.
 
 ```distinct```: used instead of ```select``` when you want the results to be distinct.
 
