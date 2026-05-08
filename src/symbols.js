@@ -485,7 +485,14 @@ const processQuery = (db, expression, firstResult) => {
     if (grouped.length > 0) {
       const ungrouped = columns
         .filter(c => !grouped.includes(c.table));
-      const base = ungrouped.at(0);
+      let base;
+      if (select) {
+        const first = requests.get(Object.values(select).at(0));
+        base = ungrouped.find(c => c === first);
+      }
+      if (!base) {
+        base = ungrouped.at(0);
+      }
       if (base) {
         const { tableAlias, table } = base;
         firstTable = `${table} ${tableAlias}`;
