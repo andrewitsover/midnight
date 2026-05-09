@@ -998,34 +998,6 @@ interface QueryReturn {
   log?: boolean | ((info: LogInfo) => void);
 }
 
-interface QueryReturnAny {
-  where?: SymbolWhere;
-  join?: any;
-  groupBy?: any;
-  having?: SymbolWhere;
-  orderBy?: any;
-  desc?: any;
-  offset?: any;
-  limit?: any;
-  bm25?: { [key: symbol]: number | ComputedNumber | DbNumber | PkNumber };
-  rank?: boolean | DbBoolean | ComputedBoolean;
-  log?: boolean | ((info: LogInfo) => void);
-}
-
-interface ObjectReturnAny<S> extends QueryReturnAny {
-  select?: { [key: string | symbol]: S };
-  distinct?: { [key: string | symbol]: S };
-  maybe?: { [key: string | symbol]: S };
-  certain?: { [key: string | symbol]: S };
-}
-
-interface ValueReturnAny<S> extends QueryReturnAny {
-  select?: S;
-  distinct?: S;
-  maybe?: S;
-  certain?: S;
-}
-
 interface ObjectReturn<S> extends QueryReturn {
   select?: { [key: string | symbol]: S };
   distinct?: { [key: string | symbol]: S };
@@ -1066,15 +1038,10 @@ interface TypedDb<P, C, N> {
   getSchema(): any[];
   diff(schema?: any[]): string;
   first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>> | undefined;
-  first<S extends SelectType, K extends ObjectReturnAny<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>> | undefined;
   firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>> | undefined;
-  firstValue<S extends SelectType, K extends ValueReturnAny<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>> | undefined;
   query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>[];
-  query<S extends SelectType, K extends ObjectReturnAny<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>[];
   queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>>[];
-  queryValues<S extends SelectType, K extends ValueReturnAny<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>>[];
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>;
-  subquery<S extends SelectType, K extends ObjectReturnAny<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>;
   use<S>(query: S): ReadQueries<P, S>;
 }
 
