@@ -8,6 +8,10 @@ import {
   Ascii,
   Trigram
 } from './src/tables.js';
+import {
+  pick,
+  omit
+} from './src/utils.js';
 
 export {
   Database,
@@ -17,5 +21,7 @@ export {
   Table,
   Unicode61,
   Ascii,
-  Trigram
+  Trigram,
+  pick,
+  omit
 }

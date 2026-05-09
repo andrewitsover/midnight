@@ -1338,3 +1338,6 @@ export class Database {
 export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<T>>>>;
 export type Where<T> = ToWhere<ToJsType<ExtractColumns<T>>>;
 export type Select<T> = ToJsType<ExtractColumns<T>>;
+
+export function pick<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Pick<T, K[number]>;
+export function omit<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Omit<T, K[number]>;

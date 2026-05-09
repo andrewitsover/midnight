@@ -1,6 +1,15 @@
 import reserved from './reserved.js';
 import { compareOperators } from './methods.js';
 
+const pick = (table, columns) => Object.fromEntries(columns.map(c => [c, table[c]]));
+
+const omit = (table, columns) => {
+  const entries = Object.keys(table)
+    .filter(k => !columns.includes(k))
+    .map(c => [c, table[c]]);
+  return Object.fromEntries(entries);
+};
+
 const createPlaceholder = () => {
   let paramCount = 1;
 
@@ -204,6 +213,8 @@ const nameToSql = (column, alias) => {
 }
 
 export {
+  pick,
+  omit,
   addAlias,
   toValues,
   nameToSql,
