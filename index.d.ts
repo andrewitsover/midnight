@@ -872,10 +872,12 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 type ExtractColumns<T> = {
   [K in keyof T as K extends string
-    ? K extends `${infer First}${string}`
-      ? First extends Lowercase<First>
-        ? K
-        : never
+    ? K extends `${infer First}${infer Rest}`
+      ? First extends Uppercase<First>
+        ? Rest extends Uncapitalize<Rest>
+          ? never
+          : K
+        : K
       : never
     : never]: IsAny<ToDbType<T[K]>> extends true
       ? DbString
@@ -953,7 +955,7 @@ type SubqueryContext =
   ComputeMethods &
   SymbolMethods &
   { use<T>(context: T): T } &
-  { hint(column: any, table: any) }
+  { hint(column: any, table: any): void }
 
 type MakeOptional<T> = {
   [K in keyof T]:
