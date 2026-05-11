@@ -221,7 +221,7 @@ interface ComputeMethods {
   if<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToDbType<T | null>;
   if(...args: any[]): AnyResult;
   instr(a: OnlyStrings, b: OnlyStrings): DbNumber;
-  instr(a: StringBufferParam, b: StringBufferParam): NumberResult;
+  instr(a: StringBlobaram, b: StringBlobParam): NumberResult;
   length(value: any): NumberResult;
   lower(value: OnlyStrings): DbString;
   lower(value: StringParam): StringResult;
@@ -244,7 +244,7 @@ interface ComputeMethods {
   sign(value: any): NumberResult;
   substring<T extends StringParam>(value: T, start: NumberParam, length?: NumberParam): T;
   trim<T extends StringParam>(value: T, remove?: StringParam): T;
-  unhex(hex: StringParam, ignore?: StringParam): BufferResult;
+  unhex(hex: StringParam, ignore?: StringParam): BlobResult;
   unicode(value: OnlyStrings): DbNumber;
   unicode(value: StringParam): NumberResult;
   upper(value: OnlyStrings): DbString;
@@ -390,10 +390,10 @@ type ToJsType<T> =
     T extends DbJson ? Json :
     T extends ComputedJson ? Json :
     T extends DefaultJson ? Json :
-    T extends DbBuffer ? Buffer :
-    T extends PkBuffer ? Buffer :
-    T extends ComputedBuffer ? Buffer :
-    T extends DefaultBuffer ? Buffer :
+    T extends DbBlob ? Uint8Array :
+    T extends PkBlob ? Uint8Array :
+    T extends ComputedBlob ? Uint8Array :
+    T extends DefaultBlob ? Uint8Array :
     T extends string ? string :
     T extends number ? number :
     T extends boolean ? boolean :
@@ -650,13 +650,30 @@ interface QueryOptions {
   parse: boolean;
 }
 
+interface SQLiteLimits {
+  length?: number;
+  sqlLength?: number;
+  column?: number;
+  exprDepth?: number;
+  compoundSelect?: number;
+  vdbeOp?: number;
+  functionArg?: number;
+  attach?: number;
+  likePatternLength?: number;
+  variableNumber?: number;
+  triggerDepth?: number;
+}
+
 interface SQLiteConfig {
-  extensions?: string | URL | Array<string | URL>;
+  open?: boolean;
   readonly?: boolean;
-  fileMustExist?: boolean;
+  enableForeignKeyConstraints?: boolean;
+  enableDoubleQuotedStringLiterals?: boolean;
+  allowExtension?: boolean;
   timeout?: number;
-  verbose?: (sql: string) => void;
-  nativeBinding?: string;
+  readBigInts?: boolean;
+  defensive?: boolean;
+  limits?: SQLiteLimits;
 }
 
 declare const intPk1: unique symbol;
@@ -689,20 +706,20 @@ declare const stringDefault2: unique symbol;
 
 type DefaultString = typeof stringDefault1 | typeof stringDefault2;
 
-declare const bufferPk1: unique symbol;
-declare const bufferPk2: unique symbol;
+declare const blobPk1: unique symbol;
+declare const blobPk2: unique symbol;
 
-type PkBuffer = typeof bufferPk1 | typeof bufferPk2;
+type PkBlob = typeof blobPk1 | typeof blobPk2;
 
-declare const bufferComp1: unique symbol;
-declare const bufferComp2: unique symbol;
+declare const blobComp1: unique symbol;
+declare const blobComp2: unique symbol;
 
-type ComputedBuffer = typeof bufferComp1 | typeof bufferComp2;
+type ComputedBlob = typeof blobComp1 | typeof blobComp2;
 
-declare const bufferDefault1: unique symbol;
-declare const bufferDefault2: unique symbol;
+declare const blobDefault1: unique symbol;
+declare const blobDefault2: unique symbol;
 
-type DefaultBuffer = typeof bufferDefault1 | typeof bufferDefault2;
+type DefaultBlob = typeof blobDefault1 | typeof blobDefault2;
 
 declare const datePk1: unique symbol;
 declare const datePk2: unique symbol;
@@ -769,17 +786,17 @@ declare const dbJson2: unique symbol;
 
 type DbJson = typeof dbJson1 | typeof dbJson2;
 
-declare const dbBuffer1: unique symbol;
-declare const dbBuffer2: unique symbol;
+declare const dbBlob1: unique symbol;
+declare const dbBlob2: unique symbol;
 
-type DbBuffer = typeof dbBuffer1 | typeof dbBuffer2;
+type DbBlob = typeof dbBlob1 | typeof dbBlob2;
 
 declare const dbNull1: unique symbol;
 declare const dbNull2: unique symbol;
 
 type DbNull = typeof dbNull1 | typeof dbNull2;
 
-type DbAny = DefaultBoolean | DefaultBuffer | DefaultDate | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedBuffer | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | PkBuffer | DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
+type DbAny = DefaultBoolean | DefaultBlob | DefaultDate | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedBlob | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | PkBlob | DbNumber | DbString | DbBlob | DbJson | DbDate | DbBoolean;
 type AnyParam = DbAny | DbNull | ComputedNull;
 
 type AllowedJson = DefaultBoolean | DefaultDate | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
@@ -793,12 +810,12 @@ type OnlyStrings = string | DbString | PkString | ComputedString | DefaultString
 type StringParam = string | null | PkString | DefaultString | ComputedString | DbString | DbNull | ComputedNull;
 type StringResult = DbString | DbNull;
 
-type NumberBufferParam = number | Buffer | null | DbNumber | PkNumber | DefaultNumber | ComputedNumber | PkBuffer | DefaultBuffer | ComputedBuffer | DbBuffer | DbNull | ComputedNull;
-type StringBufferParam = string | Buffer | null | DbString | PkString | DefaultString | ComputedString | DbBuffer | DbNull | ComputedNull;
+type NumberBlobParam = number | Uint8Array | null | DbNumber | PkNumber | DefaultNumber | ComputedNumber | PkBlob | DefaultBlob | ComputedBlob | DbBlob | DbNull | ComputedNull;
+type StringBlobParam = string | Uint8Array | null | DbString | PkString | DefaultString | ComputedString | DbBlob | DbNull | ComputedNull;
 
-type AnyResult = DbString | DbNumber | DbDate | DbBoolean | DbJson | DbBuffer | DbNull;
+type AnyResult = DbString | DbNumber | DbDate | DbBoolean | DbJson | DbBlob | DbNull;
 
-type BufferResult = DbBuffer | DbNull;
+type BlobResult = DbBlob | DbNull;
 
 type OnlyDates = DbDate | PkDate | ComputedDate | DefaultDate;
 type DateParam = number | string | null | DbNumber | DbString | DbDate | PkNumber | PkString | PkDate | DefaultDate | DefaultNumber | ComputedDate | ComputedNumber | ComputedString | DbNull;
@@ -807,12 +824,12 @@ type DateResult = DbDate | DbNull;
 type BooleanParam = boolean | DbBoolean | ComputedBoolean | DefaultBoolean;
 type BooleanResult = DbBoolean | DbNull;
 
-type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
+type JsonParam = string | Uint8Array | null | DbString | DbBlob | DbJson | DbNull;
 type ExtractResult = DbString | DbNumber | DbBoolean | DbNull;
 type JsonResult = DbJson | DbNull;
 
-type DbTypes = number | string | boolean | Date | Buffer | null;
-type DefaultTypes = DefaultNumber | DefaultString | DefaultBoolean | DefaultDate | DefaultBuffer;
+type DbTypes = number | string | boolean | Date | Uint8Array | null;
+type DefaultTypes = DefaultNumber | DefaultString | DefaultBoolean | DefaultDate | DefaultBlob;
 
 declare const sym1: unique symbol;
 type ForeignKeyAction = typeof sym1;
@@ -836,21 +853,21 @@ type DbCheck = typeof sym8 | typeof sym9;
 type GetReturnType<T> =
   PkNumber extends T[keyof T] ? number :
   PkString extends T[keyof T] ? string :
-  PkBuffer extends T[keyof T] ? Buffer :
+  PkBlob extends T[keyof T] ? Uint8Array :
   PkDate extends T[keyof T] ? Date :
   number;
 
 type GetPrimaryKey<T> =
   PkNumber extends T[keyof T] ? DbNumber :
   PkString extends T[keyof T] ? DbString :
-  PkBuffer extends T[keyof T] ? DbBuffer :
+  PkBlob extends T[keyof T] ? DbBlob :
   PkDate extends T[keyof T] ? DbDate :
   never;
 
 type PkToDbType<T> = 
   T extends PkNumber ? DbNumber :
   T extends PkString ? DbString :
-  T extends PkBuffer ? DbBuffer :
+  T extends PkBlob ? DbBlob :
   T extends PkDate ? DbDate :
   T;
 
@@ -884,8 +901,8 @@ type ExtractColumns<T> = {
       : ToDefaultType<T[K]>;
 };
 
-type PkType = PkNumber | PkString | PkDate | PkBuffer;
-type ComputedType = ComputedNumber | ComputedString | ComputedDate | ComputedBoolean | ComputedJson | ComputedBuffer;
+type PkType = PkNumber | PkString | PkDate | PkBlob;
+type ComputedType = ComputedNumber | ComputedString | ComputedDate | ComputedBoolean | ComputedJson | ComputedBlob;
 
 type OptionalKeys<T> = {
   [K in keyof T]:
@@ -947,7 +964,7 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K];
 }
 
-type QueryCompareTypes = Date | number | boolean | null | string | Buffer | symbol;
+type QueryCompareTypes = Date | number | boolean | null | string | Uint8Array | symbol;
 
 type SubqueryContext = 
   CompareMethods<QueryCompareTypes> &
@@ -1034,8 +1051,6 @@ interface TypedDb<P, C, N> {
   begin(type?: N): TypedDb<P, C, N> & P;
   commit(): void;
   rollback(): void;
-  pragma(sql: string): any[];
-  deferForeignKeys(): void;
   migrate(sql: string): void;
   getSchema(): any[];
   diff(schema?: any[]): string;
@@ -1058,7 +1073,7 @@ type ToComputed<T> =
   T extends number ? ComputedNumber :
   T extends Date ? ComputedDate :
   T extends string ? ComputedString :
-  T extends Buffer ? ComputedBuffer :
+  T extends Uint8Array ? ComputedBlob :
   T extends null ? ComputedNull :
   T;
 
@@ -1068,7 +1083,7 @@ interface Null {
   Int: DbNumber | DbNull;
   Real: DbNumber | DbNull;
   Text: DbString | DbNull;
-  Blob: DbBuffer | DbNull;
+  Blob: DbBlob | DbNull;
   Json: DbJson | DbNull;
   Date: DbDate | DbNull;
   Bool: DbBoolean | DbNull;
@@ -1106,8 +1121,8 @@ export class BaseTable {
   RealPrimary: PkNumber;
   Text: DbString;
   TextPrimary: PkString;
-  Blob: DbBuffer;
-  BlobPrimary: PkBuffer;
+  Blob: DbBlob
+  BlobPrimary: PkBlob;
   Json: DbJson;
   Date: DbDate;
   DatePrimary: PkDate;
@@ -1169,7 +1184,7 @@ export class BaseTable {
   If<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToComputed<ToDbType<T | null>>;
   If(...args: any[]): ToComputed<AnyResult>;
   Instr(a: OnlyStrings, b: OnlyStrings): ToComputed<DbNumber>;
-  Instr(a: StringBufferParam, b: StringBufferParam): ToComputed<NumberResult>;
+  Instr(a: StringBlobParam, b: StringBlobParam): ToComputed<NumberResult>;
   Length(value: any): ToComputed<NumberResult>;
   Lower(value: OnlyStrings): ToComputed<DbString>;
   Lower(value: StringParam): ToComputed<StringResult>;
@@ -1192,7 +1207,7 @@ export class BaseTable {
   Sign(value: any): ToComputed<NumberResult>;
   Substring<T extends StringParam>(value: T, start: NumberParam, length?: NumberParam): ToComputed<T>;
   Trim<T extends StringParam>(value: T, remove?: StringParam): ToComputed<T>;
-  Unhex(hex: StringParam, ignore?: StringParam): ToComputed<BufferResult>;
+  Unhex(hex: StringParam, ignore?: StringParam): ToComputed<BlobResult>;
   Unicode(value: OnlyStrings): ToComputed<DbNumber>;
   Unicode(value: StringParam): ToComputed<NumberResult>;
   Upper(value: OnlyStrings): ToComputed<DbString>;

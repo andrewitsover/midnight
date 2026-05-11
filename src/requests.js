@@ -31,7 +31,7 @@ const getParamType = (param) => {
   if (param instanceof Date) {
     return 'date';
   }
-  if (Buffer && Buffer.isBuffer(param)) {
+  if (param instanceof Uint8Array) {
     return 'blob';
   }
   return 'json';

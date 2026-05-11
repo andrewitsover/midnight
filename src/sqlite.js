@@ -5,7 +5,7 @@ import { mapOne, mapMany } from './map.js';
 import { processQuery } from './symbols.js';
 import { process, removeCapital, toSql } from './tables.js';
 import toMigration from './migrate.js';
-import sqlite3 from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 
 const dbTypes = {
   integer: true,
@@ -61,7 +61,13 @@ class Database {
         dbType: 'blob'
       }
     ]);
-    this.db = this.createDatabase(path, options);
+    if (path) {
+      this.db = new DatabaseSync(path, options);
+    }
+  }
+
+  get inTransaction() {
+    return this.db.isTransaction;
   }
 
   getClient(schema) {
@@ -183,7 +189,7 @@ class Database {
     if (value === undefined) {
       return null;
     }
-    if (value === null || typeof value === 'string' || typeof value === 'number' || (typeof Buffer !== 'undefined' && Buffer.isBuffer(value))) {
+    if (value === null || typeof value === 'string' || typeof value === 'number' || value instanceof Uint8Array) {
       return value;
     }
     else {
@@ -255,7 +261,7 @@ class Database {
   migrate(sql) {
     this.begin();
     try {
-      this.deferForeignKeys();
+      this.exec('pragma defer_foreign_keys = true');
       this.exec(sql);
       this.commit();
     }
@@ -265,54 +271,24 @@ class Database {
     }
   }
 
-  createDatabase(path, options) {
-    const { extensions, ...rest } = options;
-    const db = new sqlite3(path, rest);
-    db.pragma('foreign_keys = on');
-    if (extensions) {
-      if (typeof extensions === 'string') {
-        db.loadExtension(extensions);
-      }
-      else {
-        for (const extension of extensions) {
-          db.loadExtension(extension);
-        }
-      }
-    }
-    return db;
-  }
-
-  deferForeignKeys() {
-    this.pragma('defer_foreign_keys = true');
-  }
-
-  pragma(sql) {
-    return this.db.pragma(sql);
-  }
-
   begin(type) {
     if (type && !['deferred', 'immediate'].includes(type)) {
       throw Error(`invalid transaction type: ${type}`);
     }
     const sql = type ? `begin ${type}` : 'begin';
-    this.basicRun(sql);
+    this.db.exec(sql);
   }
 
   commit() {
-    this.basicRun('commit');
+    this.db.exec('commit');
   }
 
   rollback() {
-    this.basicRun('rollback');
+    this.db.exec('rollback');
   }
 
   getError(sql) {
     return this.db.prepare(sql);
-  }
-
-  basicRun(sql) {
-    const statement = this.db.prepare(sql);
-    statement.run();
   }
 
   insertBatch(inserts) {

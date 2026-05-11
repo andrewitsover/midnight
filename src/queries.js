@@ -118,18 +118,6 @@ const makeInsertSql = (args) => {
   return `insert into ${table}(${columns.map(c => nameToSql(c)).join(', ')}) values(${placeholders.join(', ')})`;
 }
 
-const processBatch = (db, options, post) => {
-  const result = db.all(options);
-  return {
-    statement: result.statement,
-    params: result.params,
-    post: (meta) => {
-      const response = result.post(meta);
-      return post(response);
-    }
-  }
-}
-
 const processInsert = (db, sql, params, primaryKey, tx, log) => {
   const options = {
     query: sql,
@@ -137,12 +125,8 @@ const processInsert = (db, sql, params, primaryKey, tx, log) => {
     tx,
     adjusted: true
   };
-  const post = (result) => result[0][primaryKey];
-  if (tx && tx.isBatch) {
-    return processBatch(db, options, post);
-  }
   const rows = withLog(db, options, log);
-  return post(rows);
+  return rows[0][primaryKey];
 }
 
 const verify = (columns) => {
@@ -257,10 +241,20 @@ const batchInserts = (args) => {
       adjusted: true
     });
   }
-  if (tx && tx.isBatch) {
-    return Promise.all(inserts.map(insert => db.run(insert)));
+  if (db.inTransaction) {
+    inserts.forEach(insert => db.run(insert));
   }
-  db.insertBatch(inserts);
+  else {
+    try {
+      db.begin();
+      inserts.forEach(insert => db.run(insert));
+      db.commit();
+    }
+    catch (e) {
+      db.rollback();
+      throw e;
+    }
+  }
 }
 
 const shapes = (items) => {
@@ -559,17 +553,11 @@ const exists = (config) => {
     params,
     tx
   };
-  const post = (results) => {
-    if (results.length > 0) {
-      return Boolean(results[0].exists_result);
-    }
-    return undefined;
-  }
-  if (tx && tx.isBatch) {
-    return processBatch(db, options, post);
-  }
   const results = db.all(options);
-  return post(results);
+  if (results.length > 0) {
+    return Boolean(results[0].exists_result);
+  }
+  return undefined;
 }
 
 const makeJsonArray = (types, columns) => {
@@ -692,37 +680,31 @@ const group = (config) => {
     tx,
     adjusted: true
   };
-  const post = (rows) => {
-    if (rows.length === 0) {
-      return rows;
-    }
-    let byParser;
-    if (subquery) {
-      byParser = db.getDbToJsConverter(subquery.columns[by]);
-    }
-    else {
-      byParser = db.getDbToJsConverter(db.columns[table][by]);
-    }
-    const selectColumn = select ? Object.keys(select).at(0) : null;
-    if (!byParser && !selectColumn) {
-      return rows;
-    }
-    const parser = db.getDbToJsConverter('json');
-    for (let i = 0; i < rows.length; i++) {
-      if (byParser) {
-        rows[i][by] = byParser(rows[i][by]);
-      }
-      if (selectColumn) {
-        rows[i][selectColumn] = parser(rows[i][selectColumn]);
-      }
-    }
+  const rows = withLog(db, options, log);
+  if (rows.length === 0) {
     return rows;
   }
-  if (tx && tx.isBatch) {
-    return processBatch(db, options, post);
+  let byParser;
+  if (subquery) {
+    byParser = db.getDbToJsConverter(subquery.columns[by]);
   }
-  const rows = withLog(db, options, log);
-  return post(rows);
+  else {
+    byParser = db.getDbToJsConverter(db.columns[table][by]);
+  }
+  const selectColumn = select ? Object.keys(select).at(0) : null;
+  if (!byParser && !selectColumn) {
+    return rows;
+  }
+  const parser = db.getDbToJsConverter('json');
+  for (let i = 0; i < rows.length; i++) {
+    if (byParser) {
+      rows[i][by] = byParser(rows[i][by]);
+    }
+    if (selectColumn) {
+      rows[i][selectColumn] = parser(rows[i][selectColumn]);
+    }
+  }
+  return rows;
 }
 
 const aggregate = (config) => {
@@ -768,23 +750,17 @@ const aggregate = (config) => {
     tx,
     adjusted: true
   };
-  const post = (results) => {
-    if (results.length > 0) {
-      const value = results[0][`${method}_result`];
-      if (method == 'min' || method === 'max') {
-        const type = db.columns[table][distinct || column];
-        const converter = db.getDbToJsConverter(type);
-        return converter ? converter(value) : value;
-      }
-      return value;
-    }
-    return undefined;
-  };
-  if (tx && tx.isBatch) {
-    return processBatch(db, options, post);
-  }
   const rows = withLog(db, options, log);
-  return post(rows);
+  if (rows.length > 0) {
+    const value = rows[0][`${method}_result`];
+    if (method == 'min' || method === 'max') {
+      const type = db.columns[table][distinct || column];
+      const converter = db.getDbToJsConverter(type);
+      return converter ? converter(value) : value;
+    }
+    return value;
+  }
+  return undefined;
 }
 
 const getConverters = (key, value, db, converters, keys = [], optional = []) => {
@@ -1194,62 +1170,56 @@ const all = (config) => {
     tx,
     adjusted: true
   };
-  const post = (rows) => {
-    if (rows.length === 0) {
-      if (first) {
-        return undefined;
-      }
-      return rows;
-    }
-    const sample = rows[0];
-    const keys = Object.keys(sample);
-    let parsers;
-    if (subquery) {
-      parsers = keys
-        .map(key => {
-          const type = subquery.columns[key];
-          const converter = db.getDbToJsConverter(type);
-          return [key, converter];
-        })
-        .filter(item => item[1] !== null);
-    }
-    else {
-      parsers = keys
-        .map(key => [key, db.getDbToJsConverter(db.columns[table][key])])
-        .filter(item => item[1] !== null);
-    }
-    if (parsers.length > 0) {
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        for (const [key, parser] of parsers) {
-          row[key] = parser(row[key]);
-        }
-      }
-    }
-    if (returnValue) {
-      const key = keys[0];
-      const mapped = rows.map(item => item[key]);
-      if (first) {
-        if (mapped.length > 0) {
-          return mapped.at(0);
-        }
-        return undefined;
-      }
-      return mapped;
-    }
+  const rows = withLog(db, options, log);
+  if (rows.length === 0) {
     if (first) {
-      if (rows.length > 0) {
-        return rows.at(0);
-      }
       return undefined;
     }
     return rows;
-  };
-  if (tx && tx.isBatch) {
-    return processBatch(db, options, post);
   }
-  const rows = withLog(db, options, log);
-  return post(rows);
+  const sample = rows[0];
+  const keys = Object.keys(sample);
+  let parsers;
+  if (subquery) {
+    parsers = keys
+      .map(key => {
+        const type = subquery.columns[key];
+        const converter = db.getDbToJsConverter(type);
+        return [key, converter];
+      })
+      .filter(item => item[1] !== null);
+  }
+  else {
+    parsers = keys
+      .map(key => [key, db.getDbToJsConverter(db.columns[table][key])])
+      .filter(item => item[1] !== null);
+  }
+  if (parsers.length > 0) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      for (const [key, parser] of parsers) {
+        row[key] = parser(row[key]);
+      }
+    }
+  }
+  if (returnValue) {
+    const key = keys[0];
+    const mapped = rows.map(item => item[key]);
+    if (first) {
+      if (mapped.length > 0) {
+        return mapped.at(0);
+      }
+      return undefined;
+    }
+    return mapped;
+  }
+  if (first) {
+    if (rows.length > 0) {
+      return rows.at(0);
+    }
+    return undefined;
+  }
+  return rows;
 }
 
 const remove = (args) => {

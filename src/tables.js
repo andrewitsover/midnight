@@ -276,8 +276,8 @@ class BaseTable {
     let columns = args;
     const type = typeof last;
     const isDate = last instanceof Date;
-    const isBuffer = Buffer && Buffer.isBuffer(last);
-    if (!isDate && !isBuffer && ['function', 'object'].includes(type)) {
+    const isBlob = last instanceof Uint8Array;
+    if (!isDate && !isBlob && ['function', 'object'].includes(type)) {
       expression = args.pop();
     }
     Table.requests.set(symbol, {

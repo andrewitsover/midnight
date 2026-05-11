@@ -1,6 +1,6 @@
 {
   "name": "@andrewitsover/midnight",
-  "version": "2.0.44",
+  "version": "2.0.45",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
@@ -17,10 +17,7 @@
     "@types/node": "^22.15.30",
     "esbuild": "0.25.5"
   },
-  "dependencies": {
-    "better-sqlite3": "^12.2.0"
-  },
   "engines": {
-    "node": ">=22.13.1"
+    "node": ">=26.1.0"
   }
 }

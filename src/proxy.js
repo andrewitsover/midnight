@@ -15,8 +15,6 @@ const methodNames = new Set([
   'begin',
   'commit',
   'rollback',
-  'pragma',
-  'deferForeignKeys',
   'migrate',
   'getSchema',
   'diff',
@@ -165,13 +163,9 @@ const makeClient = (db) => {
       if (table === 'subquery') {
         return (expression) => db.subquery(expression);
       }
-      if (db[table] && ['begin', 'commit', 'rollback', 'deferForeignKeys'].includes(table)) {
+      if (db[table] && ['begin', 'commit', 'rollback'].includes(table)) {
         db[table] = db[table].bind(db);
         return () => db[table]();
-      }
-      if (db[table] && table === 'pragma') {
-        db[table] = db[table].bind(db);
-        return (sql) => db[table](sql);
       }
       if (db[table] && table === 'exec') {
         db[table] = db[table].bind(db);
