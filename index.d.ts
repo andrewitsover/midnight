@@ -1246,9 +1246,9 @@ type GetDefined<T> =
     (T extends { maybe: any } ? NonNullable<T['maybe']> | DbNull : unknown)
   >;
 
-interface TypedDb<P, C, N> {
+interface TypedDb<P, C> {
   exec(sql: string): void;
-  begin(type?: N): void;
+  begin(type?: 'deferred' | 'immediate'): void;
   commit(): void;
   rollback(): void;
   migrate(sql: string): void;
@@ -1588,7 +1588,7 @@ export class ExternalFTSTable extends FTSTable {
 
 export class Database {
   constructor(path?: string | URL, options?: SQLiteConfig);
-  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>, 'deferred' | 'immediate'> & MakeClient<C>;
+  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C>;
   run(args: { query: any, params?: any }): number;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Array<T>;
   exec(query: string): void;
