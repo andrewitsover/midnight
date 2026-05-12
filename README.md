@@ -33,7 +33,7 @@ class Forests extends Table {
 
 class Trees extends Table {
   name;
-  planted = this.Index(this.Date);
+  planted = this.Index(this.PlainDate);
   forestId = this.Cascade(Forests);
   alive = this.True;
 }
@@ -376,7 +376,9 @@ See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for
 
 ## Creating tables
 
-In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, ```Date``` is stored as an ISO8601 string, and ```Json``` is a JSONB blob.
+In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, and ```Json``` is a JSONB blob. 
+
+All of the Temporal date types are also available and stored as strings internally. This includes ```Duration```, ```Instant```, ```PlainDate```, ```PlainDateTime```, ```PlainMonthDay```, ```PlainTime```, ```PlainYearMonth```, and ```ZonedDateTime```.
 
 To create a table, you simply extend either ```Table```, ```FTSTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ```FTSTable``` is used for defining fts5 tables. Columns start with a lowercase letter.
 
@@ -385,7 +387,7 @@ class Moons extends BaseTable {
   id = this.IntPrimary;
   name = this.Unique(this.Text);
   planetId = this.Null.Cascade(Planets);
-  discovered = this.Now;
+  discovered = this.Now.Instant;
 }
 ```
 
@@ -406,7 +408,7 @@ Standard columns, columns with default values, and foreign keys can be specified
 ```js
 class Animals extends Table {
   name = this.Null.Text;
-  spotted = this.Null.Now;
+  spotted = this.Null.Now.Instant;
   forestId = this.Null.Cascade(Forests);
 }
 ```
@@ -440,7 +442,7 @@ Constraints can also be defined in the ```Attributes``` function and span across
 class Rangers extends Table {
   admin = this.False;
   staffLimit = this.Default(3);
-  createdAt = this.Now;
+  createdAt = this.Now.Instant;
 
   Attributes = () => {
     this.Check({
@@ -488,7 +490,7 @@ class Trees extends Table {
   id = this.IntPrimary;
   name;
   category;
-  planted = this.Now;
+  planted = this.Now.Instant;
 
   Attributes = () => {
     const computed = this.Cast(this.StrfTime('%Y', this.planted), 'integer');
@@ -580,7 +582,7 @@ The built-in SQLite functions are just JavaScript functions. This query gets the
 ```js
 const tree = db.first(c => {
   const { id, name, planted } = c.trees;
-  const now = new Date();
+  const now = Temporal.Now.plainDateISO();
   const max = c.max(c.timeDiff(planted, now));
   return {
     select: {

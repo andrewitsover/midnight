@@ -230,8 +230,8 @@ interface ComputeMethods {
   nullif<T extends DbAny>(a: T, b: any): T | DbNull;
   nullif(a: any, b: any): AnyResult;
   octetLength(value: any): NumberResult;
-  replace(value: OnlyStrings, occurances: OnlyStrings, substitute: OnlyStrings): DbString;
-  replace(value: StringParam, occurances: StringParam, substitute: StringParam): StringResult;
+  replace(value: OnlyStrings, occurrences: OnlyStrings, substitute: OnlyStrings): DbString;
+  replace(value: StringParam, occurrences: StringParam, substitute: StringParam): StringResult;
   round(value: OnlyNumbers, places?: NumberParam): DbNumber;
   round(value: NumberParam, places?: NumberParam): NumberResult;
   rtrim<T extends StringParam>(value: T, remove?: StringParam): T;
@@ -246,20 +246,20 @@ interface ComputeMethods {
   upper(value: StringParam): StringResult;
   date(): DbString;
   date(time: AnyDateType): DbString;
-  date(time: DateParam, ...modifers: StringParam[]): StringResult;
+  date(time: DateParam, ...modifiers: StringParam[]): StringResult;
   time(): DbString;
   time(time: AnyDateType): DbString;
-  time(time: DateParam, ...modifers: StringParam[]): StringResult;
+  time(time: DateParam, ...modifiers: StringParam[]): StringResult;
   dateTime(): DbString;
   dateTime(time: CompatibleDate): DbString;
-  dateTime(time: DateParam, ...modifers: StringParam[]): StringResult;
+  dateTime(time: DateParam, ...modifiers: StringParam[]): StringResult;
   julianDay(): DbNumber;
   julianDay(time: CompatibleDate): DbNumber;
-  julianDay(time: DateParam, ...modifers: StringParam[]): NumberResult;
+  julianDay(time: DateParam, ...modifiers: StringParam[]): NumberResult;
   unixEpoch(): DbNumber;
   unixEpoch(time: CompatibleDate): DbNumber;
-  unixEpoch(time: DateParam, ...modifers: StringParam[]): StringResult;
-  strfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): StringResult;
+  unixEpoch(time: DateParam, ...modifiers: StringParam[]): StringResult;
+  strfTime(format: StringParam, time: DateParam, ...modifiers: StringParam[]): StringResult;
   timeDiff(start: CompatibleDate, end: CompatibleDate): DbString;
   timeDiff(start: DateParam, end: DateParam): StringResult;
   acos(value: NumberParam): NumberResult;
@@ -998,7 +998,7 @@ type AnyResult = DbString | DbNumber | DateTypes | DbBoolean | DbJson | DbBlob |
 
 type BlobResult = DbBlob | DbNull;
 
-type DateParam = number | string | null | DbNumber | PkNumber | PkString | DefaultNumber | ComputedNumber | ComputedString | CompatibleDate | DbNull;
+type DateParam = number | string | null | DbNumber | DbString | PkNumber | PkString | DefaultNumber | ComputedNumber | ComputedString | CompatibleDate | DbNull;
 
 type BooleanParam = boolean | DbBoolean | ComputedBoolean | DefaultBoolean;
 type BooleanResult = DbBoolean | DbNull;
@@ -1248,7 +1248,7 @@ type GetDefined<T> =
 
 interface TypedDb<P, C, N> {
   exec(sql: string): void;
-  begin(type?: N): TypedDb<P, C, N> & P;
+  begin(type?: N): void;
   commit(): void;
   rollback(): void;
   migrate(sql: string): void;
@@ -1444,8 +1444,8 @@ export class BaseTable {
   Nullif<T extends DbAny>(a: T, b: any): ToComputed<T | DbNull>;
   Nullif(a: any, b: any): ToComputed<AnyResult>;
   OctetLength(value: any): ToComputed<NumberResult>;
-  Replace(value: OnlyStrings, occurances: OnlyStrings, substitute: OnlyStrings): ToComputed<DbString>;
-  Replace(value: StringParam, occurances: StringParam, substitute: StringParam): ToComputed<StringResult>;
+  Replace(value: OnlyStrings, occurrences: OnlyStrings, substitute: OnlyStrings): ToComputed<DbString>;
+  Replace(value: StringParam, occurrences: StringParam, substitute: StringParam): ToComputed<StringResult>;
   Round(value: OnlyNumbers, places?: NumberParam): ToComputed<DbNumber>;
   Round(value: NumberParam, places?: NumberParam): ToComputed<NumberResult>;
   Rtrim<T extends StringParam>(value: T, remove?: StringParam): ToComputed<T>;
@@ -1460,20 +1460,20 @@ export class BaseTable {
   Upper(value: StringParam): ToComputed<StringResult>;
   ToDate(): ToComputed<DbString>;
   ToDate(time: CompatibleDate): ToComputed<DbString>;
-  ToDate(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  ToDate(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
   Time(): ToComputed<DbString>;
   Time(time: CompatibleDate): ToComputed<DbString>;
-  Time(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  Time(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
   DateTime(): ToComputed<DbString>;
   DateTime(time: CompatibleDate): ToComputed<DbString>;
-  DateTime(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  DateTime(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
   JulianDay(): ToComputed<DbNumber>;
   JulianDay(time: CompatibleDate): ToComputed<DbNumber>;
-  JulianDay(time: DateParam, ...modifers: StringParam[]): ToComputed<NumberResult>;
+  JulianDay(time: DateParam, ...modifiers: StringParam[]): ToComputed<NumberResult>;
   UnixEpoch(): ToComputed<DbNumber>;
   UnixEpoch(time: CompatibleDate): ToComputed<DbNumber>;
-  UnixEpoch(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
-  StrfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  UnixEpoch(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
+  StrfTime(format: StringParam, time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
   TimeDiff(start: CompatibleDate, end: CompatibleDate): ToComputed<DbString>;
   TimeDiff(start: DateParam, end: DateParam): ToComputed<StringResult>;
   Acos(value: NumberParam): ToComputed<NumberResult>;
