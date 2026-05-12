@@ -14,8 +14,8 @@
   "author": "Andrew Jones",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^22.15.30",
-    "esbuild": "0.25.5"
+    "@types/node": "^25.6.2",
+    "esbuild": "^0.28.0"
   },
   "engines": {
     "node": ">=26.1.0"

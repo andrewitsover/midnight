@@ -164,10 +164,10 @@ interface GroupArrayValue<A extends string, W, K, S> extends GroupArrayKeywords<
   }
 }
 
-type DateToString<T> = T extends Date
+type DateToString<T> = T extends AnyTemporal
   ? string
   : T extends object
-    ? { [K in keyof T]: T[K] extends Date ? string : T[K] }
+    ? { [K in keyof T]: T[K] extends AnyTemporal ? string : T[K] }
     : T;
 
 interface AggregateMethods<T, W, K extends keyof T, Y> {
@@ -207,12 +207,7 @@ interface ComputeMethods {
   abs(n: NumberParam): NumberResult;
   cast(value: any, to: 'real'): DbNumber;
   cast(value: any, to: 'integer'): DbNumber;
-  coalesce(a: StringResult, b: string): DbString;
-  coalesce(a: NumberResult, b: number): DbNumber;
-  coalesce(a: BooleanResult, b: boolean): DbBoolean;
-  coalesce(a: DateResult, b: Date): DbDate;
-  coalesce<T extends DbAny>(a: T, b: T, ...rest: T[]): T;
-  coalesce(a: any, b: any, ...rest: any[]): AnyResult;
+  coalesce<T extends DbAny | DbTypes | DbNull>(a: T, b: T, ...rest: T[]): ToDbType<T>;
   concat(...args: any[]): DbString;
   concatWs(...args: any[]): DbString;
   format(format: OnlyStrings, ...args: any[]): DbString;
@@ -221,7 +216,7 @@ interface ComputeMethods {
   if<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToDbType<T | null>;
   if(...args: any[]): AnyResult;
   instr(a: OnlyStrings, b: OnlyStrings): DbNumber;
-  instr(a: StringBlobaram, b: StringBlobParam): NumberResult;
+  instr(a: StringBlobParam, b: StringBlobParam): NumberResult;
   length(value: any): NumberResult;
   lower(value: OnlyStrings): DbString;
   lower(value: StringParam): StringResult;
@@ -250,22 +245,22 @@ interface ComputeMethods {
   upper(value: OnlyStrings): DbString;
   upper(value: StringParam): StringResult;
   date(): DbString;
-  date(time: OnlyDates): DbString;
+  date(time: AnyDateType): DbString;
   date(time: DateParam, ...modifers: StringParam[]): StringResult;
   time(): DbString;
-  time(time: OnlyDates): DbString;
+  time(time: AnyDateType): DbString;
   time(time: DateParam, ...modifers: StringParam[]): StringResult;
   dateTime(): DbString;
-  dateTime(time: OnlyDates): DbString;
+  dateTime(time: CompatibleDate): DbString;
   dateTime(time: DateParam, ...modifers: StringParam[]): StringResult;
   julianDay(): DbNumber;
-  julianDay(time: OnlyDates): DbNumber;
+  julianDay(time: CompatibleDate): DbNumber;
   julianDay(time: DateParam, ...modifers: StringParam[]): NumberResult;
   unixEpoch(): DbNumber;
-  unixEpoch(time: OnlyDates): DbNumber;
+  unixEpoch(time: CompatibleDate): DbNumber;
   unixEpoch(time: DateParam, ...modifers: StringParam[]): StringResult;
   strfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): StringResult;
-  timeDiff(start: OnlyDates, end: OnlyDates): DbString;
+  timeDiff(start: CompatibleDate, end: CompatibleDate): DbString;
   timeDiff(start: DateParam, end: DateParam): StringResult;
   acos(value: NumberParam): NumberResult;
   acosh(value: NumberParam): NumberResult;
@@ -328,10 +323,10 @@ interface WindowOptions {
 }
 
 type ToJson<T> =
-  T extends DbDate ? DbString :
-  T extends (infer U)[] ? U extends DbDate ? DbString[] : U[] :
+  T extends AnyDateType ? DbString :
+  T extends (infer U)[] ? U extends AnyDateType ? DbString[] : U[] :
   T extends object ? { 
-    [K in keyof T]: T[K] extends DbDate 
+    [K in keyof T]: T[K] extends AnyDateType 
       ? DbString : T[K] 
   } : T;
 
@@ -340,7 +335,14 @@ type ToDbType<T> =
   T extends infer U ? (
     U extends number ? DbNumber :
     U extends string ? DbString :
-    U extends Date ? DbDate :
+    U extends Temporal.Duration ? DbDuration :
+    U extends Temporal.Instant ? DbInstant :
+    U extends Temporal.PlainDate ? DbPlainDate :
+    U extends Temporal.PlainDateTime ? DbPlainDateTime :
+    U extends Temporal.PlainMonthDay ? DbPlainMonthDay :
+    U extends Temporal.PlainTime ? DbPlainTime :
+    U extends Temporal.PlainYearMonth ? DbPlainYearMonth :
+    U extends Temporal.ZonedDateTime ? DbZonedDateTime :
     U extends boolean ? DbBoolean :
     U extends null ? DbNull :
     U extends Json ? DbJson :
@@ -352,7 +354,14 @@ type ToDefaultType<T> =
   T extends infer U ? (
     U extends number ? DefaultNumber :
     U extends string ? DefaultString :
-    U extends Date ? DefaultDate :
+    U extends Temporal.Duration ? DefaultDuration :
+    U extends Temporal.Instant ? DefaultInstant :
+    U extends Temporal.PlainDate ? DefaultPlainDate :
+    U extends Temporal.PlainDateTime ? DefaultPlainDateTime :
+    U extends Temporal.PlainMonthDay ? DefaultPlainMonthDay :
+    U extends Temporal.PlainTime ? DefaultPlainTime :
+    U extends Temporal.PlainYearMonth ? DefaultPlainYearMonth :
+    U extends Temporal.ZonedDateTime ? DefaultZonedDateTime :
     U extends boolean ? DefaultBoolean :
     U extends null ? DbNull :
     U extends Json ? DefaultJson :
@@ -380,10 +389,14 @@ type ToJsType<T> =
     T extends PkString ? string :
     T extends ComputedString ? string :
     T extends DefaultString ? string :
-    T extends DbDate ? Date :
-    T extends PkDate ? Date :
-    T extends ComputedDate ? Date :
-    T extends DefaultDate ? Date :
+    T extends AnyDurationType ? Temporal.Duration :
+    T extends AnyInstantType ? Temporal.Instant :
+    T extends AnyPlainDateType ? Temporal.PlainDate :
+    T extends AnyPlainDateTimeType ? Temporal.PlainDateTime :
+    T extends AnyPlainMonthDayType ? Temporal.PlainMonthDay :
+    T extends AnyPlainTimeType ? Temporal.PlainTime :
+    T extends AnyPlainYearMonthType ? Temporal.PlainYearMonth :
+    T extends AnyZonedDateTimeType ? Temporal.ZonedDateTime :
     T extends DbBoolean ? boolean :
     T extends ComputedBoolean ? boolean :
     T extends DefaultBoolean ? boolean :
@@ -397,7 +410,14 @@ type ToJsType<T> =
     T extends string ? string :
     T extends number ? number :
     T extends boolean ? boolean :
-    T extends Date ? Date :
+    T extends Temporal.Duration ? Temporal.Duration :
+    T extends Temporal.Instant ? Temporal.Instant :
+    T extends Temporal.PlainDate ? Temporal.PlainDate :
+    T extends Temporal.PlainDateTime ? Temporal.PlainDateTime :
+    T extends Temporal.PlainMonthDay ? Temporal.PlainMonthDay :
+    T extends Temporal.PlainTime ? Temporal.PlainTime :
+    T extends Temporal.PlainYearMonth ? Temporal.PlainYearMonth :
+    T extends Temporal.ZonedDateTime ? Temporal.ZonedDateTime :
     never;
 
 interface LagOptions<T> {
@@ -590,7 +610,7 @@ type SymbolCompareMethods<T> = {
 	eq: (column: symbol, value: T) => DbBoolean;
 }
 
-type Transform<T> = NonNullable<T> extends string | number | Date
+type Transform<T> = NonNullable<T> extends string | number | AnyTemporal
   ? CompareMethods<T>
   : NonNullable<T> extends boolean
   ? Pick<CompareMethods<T>, 'not' | 'eq'>
@@ -630,7 +650,7 @@ type OptionalToNull<T> = {
   [K in keyof T]-?: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K];
 };
 
-type Primitive = string | number | boolean | Date;
+type Primitive = string | number | boolean | AnyTemporal;
 
 type ReplaceJson<T> =
   null extends T
@@ -721,21 +741,6 @@ declare const blobDefault2: unique symbol;
 
 type DefaultBlob = typeof blobDefault1 | typeof blobDefault2;
 
-declare const datePk1: unique symbol;
-declare const datePk2: unique symbol;
-
-type PkDate = typeof datePk1 | typeof datePk2;
-
-declare const dateComp1: unique symbol;
-declare const dateComp2: unique symbol;
-
-type ComputedDate = typeof dateComp1 | typeof dateComp2;
-
-declare const dateDefault1: unique symbol;
-declare const dateDefault2: unique symbol;
-
-type DefaultDate = typeof dateDefault1 | typeof dateDefault2;
-
 declare const boolComp1: unique symbol;
 declare const boolComp2: unique symbol;
 
@@ -776,10 +781,186 @@ declare const dbBoolean2: unique symbol;
 
 type DbBoolean = typeof dbBoolean1 | typeof dbBoolean2;
 
-declare const dbDate1: unique symbol;
-declare const dbDate2: unique symbol;
+declare const dbDuration1: unique symbol;
+declare const dbDuration2: unique symbol;
 
-type DbDate = typeof dbDate1 | typeof dbDate2;
+type DbDuration = typeof dbDuration1 | typeof dbDuration2;
+
+declare const dbInstant1: unique symbol;
+declare const dbInstant2: unique symbol;
+
+type DbInstant = typeof dbInstant1 | typeof dbInstant2;
+
+declare const dbPlainDate1: unique symbol;
+declare const dbPlainDate2: unique symbol;
+
+type DbPlainDate = typeof dbPlainDate1 | typeof dbPlainDate2;
+
+declare const dbPlainDateTime1: unique symbol;
+declare const dbPlainDateTime2: unique symbol;
+
+type DbPlainDateTime = typeof dbPlainDateTime1 | typeof dbPlainDateTime2;
+
+declare const dbPlainMonthDay1: unique symbol;
+declare const dbPlainMonthDay2: unique symbol;
+
+type DbPlainMonthDay = typeof dbPlainMonthDay1 | typeof dbPlainMonthDay2;
+
+declare const dbPlainTime1: unique symbol;
+declare const dbPlainTime2: unique symbol;
+
+type DbPlainTime = typeof dbPlainTime1 | typeof dbPlainTime2;
+
+declare const dbPlainYearMonth1: unique symbol;
+declare const dbPlainYearMonth2: unique symbol;
+
+type DbPlainYearMonth = typeof dbPlainYearMonth1 | typeof dbPlainYearMonth2;
+
+declare const dbZonedDateTime1: unique symbol;
+declare const dbZonedDateTime2: unique symbol;
+
+type DbZonedDateTime = typeof dbZonedDateTime1 | typeof dbZonedDateTime2;
+
+declare const durationPk1: unique symbol;
+declare const durationPk2: unique symbol;
+
+type PkDuration = typeof durationPk1 | typeof durationPk2;
+
+declare const instantPk1: unique symbol;
+declare const instantPk2: unique symbol;
+
+type PkInstant = typeof instantPk1 | typeof instantPk2;
+
+declare const plainDatePk1: unique symbol;
+declare const plainDatePk2: unique symbol;
+
+type PkPlainDate = typeof plainDatePk1 | typeof plainDatePk2;
+
+declare const plainDateTimePk1: unique symbol;
+declare const plainDateTimePk2: unique symbol;
+
+type PkPlainDateTime = typeof plainDateTimePk1 | typeof plainDateTimePk2;
+
+declare const plainMonthDayPk1: unique symbol;
+declare const plainMonthDayPk2: unique symbol;
+
+type PkPlainMonthDay = typeof plainMonthDayPk1 | typeof plainMonthDayPk2;
+
+declare const plainTimePk1: unique symbol;
+declare const plainTimePk2: unique symbol;
+
+type PkPlainTime = typeof plainTimePk1 | typeof plainTimePk2;
+
+declare const plainYearMonthPk1: unique symbol;
+declare const plainYearMonthPk2: unique symbol;
+
+type PkPlainYearMonth = typeof plainYearMonthPk1 | typeof plainYearMonthPk2;
+
+declare const zonedDateTimePk1: unique symbol;
+declare const zonedDateTimePk2: unique symbol;
+
+type PkZonedDateTime = typeof zonedDateTimePk1 | typeof zonedDateTimePk2;
+
+declare const durationDefault1: unique symbol;
+declare const durationDefault2: unique symbol;
+
+type DefaultDuration = typeof durationDefault1 | typeof durationDefault2;
+
+declare const instantDefault1: unique symbol;
+declare const instantDefault2: unique symbol;
+
+type DefaultInstant = typeof instantDefault1 | typeof instantDefault2;
+
+declare const plainDateDefault1: unique symbol;
+declare const plainDateDefault2: unique symbol;
+
+type DefaultPlainDate = typeof plainDateDefault1 | typeof plainDateDefault2;
+
+declare const plainDateTimeDefault1: unique symbol;
+declare const plainDateTimeDefault2: unique symbol;
+
+type DefaultPlainDateTime = typeof plainDateTimeDefault1 | typeof plainDateTimeDefault2;
+
+declare const plainMonthDayDefault1: unique symbol;
+declare const plainMonthDayDefault2: unique symbol;
+
+type DefaultPlainMonthDay = typeof plainMonthDayDefault1 | typeof plainMonthDayDefault2;
+
+declare const plainTimeDefault1: unique symbol;
+declare const plainTimeDefault2: unique symbol;
+
+type DefaultPlainTime = typeof plainTimeDefault1 | typeof plainTimeDefault2;
+
+declare const plainYearMonthDefault1: unique symbol;
+declare const plainYearMonthDefault2: unique symbol;
+
+type DefaultPlainYearMonth = typeof plainYearMonthDefault1 | typeof plainYearMonthDefault2;
+
+declare const zonedDateTimeDefault1: unique symbol;
+declare const zonedDateTimeDefault2: unique symbol;
+
+type DefaultZonedDateTime = typeof zonedDateTimeDefault1 | typeof zonedDateTimeDefault2;
+
+declare const durationComp1: unique symbol;
+declare const durationComp2: unique symbol;
+
+type ComputedDuration = typeof durationComp1 | typeof durationComp2;
+
+declare const instantComp1: unique symbol;
+declare const instantComp2: unique symbol;
+
+type ComputedInstant = typeof instantComp1 | typeof instantComp2;
+
+declare const plainDateComp1: unique symbol;
+declare const plainDateComp2: unique symbol;
+
+type ComputedPlainDate = typeof plainDateComp1 | typeof plainDateComp2;
+
+declare const plainDateTimeComp1: unique symbol;
+declare const plainDateTimeComp2: unique symbol;
+
+type ComputedPlainDateTime = typeof plainDateTimeComp1 | typeof plainDateTimeComp2;
+
+declare const plainMonthDayComp1: unique symbol;
+declare const plainMonthDayComp2: unique symbol;
+
+type ComputedPlainMonthDay = typeof plainMonthDayComp1 | typeof plainMonthDayComp2;
+
+declare const plainTimeComp1: unique symbol;
+declare const plainTimeComp2: unique symbol;
+
+type ComputedPlainTime = typeof plainTimeComp1 | typeof plainTimeComp2;
+
+declare const plainYearMonthComp1: unique symbol;
+declare const plainYearMonthComp2: unique symbol;
+
+type ComputedPlainYearMonth = typeof plainYearMonthComp1 | typeof plainYearMonthComp2;
+
+declare const zonedDateTimeComp1: unique symbol;
+declare const zonedDateTimeComp2: unique symbol;
+
+type ComputedZonedDateTime = typeof zonedDateTimeComp1 | typeof zonedDateTimeComp2;
+
+type DateTypes = DbDuration | DbInstant | DbPlainDate | DbPlainDateTime | DbPlainMonthDay | DbPlainTime | DbPlainYearMonth | DbZonedDateTime;
+type PkDateTypes = PkDuration | PkInstant | PkPlainDate | PkPlainDateTime | PkPlainMonthDay | PkPlainTime | PkPlainYearMonth | PkZonedDateTime;
+type ComputedDateTypes = ComputedDuration | ComputedInstant | ComputedPlainDate | ComputedPlainDateTime | ComputedPlainMonthDay | ComputedPlainTime | ComputedPlainYearMonth | ComputedZonedDateTime;
+type DefaultDateTypes = DefaultDuration | DefaultInstant | DefaultPlainDate | DefaultPlainDateTime | DefaultPlainMonthDay | DefaultPlainTime | DefaultPlainYearMonth | DefaultZonedDateTime;
+type AnyDateType = DateTypes | PkDateTypes | ComputedDateTypes | DefaultDateTypes;
+type CompatibleDateTypes = DbInstant | DbPlainDate | DbPlainDateTime | DbPlainMonthDay | DbPlainTime | DbPlainYearMonth;
+type CompatiblePrimaryDateTypes = PkInstant | PkPlainDate | PkPlainDateTime | PkPlainMonthDay | PkPlainTime | PkPlainYearMonth;
+type CompatibleComputedDateTypes = ComputedInstant | ComputedPlainDate | ComputedPlainDateTime | ComputedPlainMonthDay | ComputedPlainTime | ComputedPlainYearMonth;
+type CompatibleDefaultDateTypes = DefaultInstant | DefaultPlainDate | DefaultPlainDateTime | DefaultPlainMonthDay | DefaultPlainTime | DefaultPlainYearMonth;
+type CompatibleDate = CompatibleDateTypes | CompatiblePrimaryDateTypes | CompatibleComputedDateTypes | CompatibleDefaultDateTypes;
+
+type AnyDurationType = DefaultDuration | ComputedDuration | PkDuration | DbDuration;
+type AnyInstantType = DefaultInstant | ComputedInstant | PkInstant | DbInstant;
+type AnyPlainDateType = DefaultPlainDate | ComputedPlainDate | PkPlainDate | DbPlainDate;
+type AnyPlainDateTimeType = DefaultPlainDateTime | ComputedPlainDateTime | PkPlainDateTime | DbPlainDateTime;
+type AnyPlainMonthDayType = DefaultPlainMonthDay | ComputedPlainMonthDay | PkPlainMonthDay | DbPlainMonthDay;
+type AnyPlainTimeType = DefaultPlainTime | ComputedPlainTime | PkPlainTime | DbPlainTime;
+type AnyPlainYearMonthType = DefaultPlainYearMonth | ComputedPlainYearMonth | PkPlainYearMonth | DbPlainYearMonth;
+type AnyZonedDateTimeType = DefaultZonedDateTime | ComputedZonedDateTime | PkZonedDateTime | DbZonedDateTime;
+type AnyTemporal = Temporal.Duration | Temporal.Instant | Temporal.PlainDate | Temporal.PlainDateTime | Temporal.PlainMonthDay | Temporal.PlainTime | Temporal.PlainYearMonth | Temporal.ZonedDateTime;
 
 declare const dbJson1: unique symbol;
 declare const dbJson2: unique symbol;
@@ -796,10 +977,10 @@ declare const dbNull2: unique symbol;
 
 type DbNull = typeof dbNull1 | typeof dbNull2;
 
-type DbAny = DefaultBoolean | DefaultBlob | DefaultDate | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedBlob | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | PkBlob | DbNumber | DbString | DbBlob | DbJson | DbDate | DbBoolean;
+type DbAny = DefaultBoolean | DefaultBlob | AnyDateType | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedBlob | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkString | PkBlob | DbNumber | DbString | DbBlob | DbJson | DbBoolean;
 type AnyParam = DbAny | DbNull | ComputedNull;
 
-type AllowedJson = DefaultBoolean | DefaultDate | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
+type AllowedJson = DefaultBoolean | AnyDateType | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkString | DbNumber | DbString | DbJson | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
 type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
 type OnlyNumbers = number | DbNumber | PkNumber | ComputedNumber | DefaultNumber;
@@ -813,13 +994,11 @@ type StringResult = DbString | DbNull;
 type NumberBlobParam = number | Uint8Array | null | DbNumber | PkNumber | DefaultNumber | ComputedNumber | PkBlob | DefaultBlob | ComputedBlob | DbBlob | DbNull | ComputedNull;
 type StringBlobParam = string | Uint8Array | null | DbString | PkString | DefaultString | ComputedString | DbBlob | DbNull | ComputedNull;
 
-type AnyResult = DbString | DbNumber | DbDate | DbBoolean | DbJson | DbBlob | DbNull;
+type AnyResult = DbString | DbNumber | DateTypes | DbBoolean | DbJson | DbBlob | DbNull;
 
 type BlobResult = DbBlob | DbNull;
 
-type OnlyDates = DbDate | PkDate | ComputedDate | DefaultDate;
-type DateParam = number | string | null | DbNumber | DbString | DbDate | PkNumber | PkString | PkDate | DefaultDate | DefaultNumber | ComputedDate | ComputedNumber | ComputedString | DbNull;
-type DateResult = DbDate | DbNull;
+type DateParam = number | string | null | DbNumber | PkNumber | PkString | DefaultNumber | ComputedNumber | ComputedString | CompatibleDate | DbNull;
 
 type BooleanParam = boolean | DbBoolean | ComputedBoolean | DefaultBoolean;
 type BooleanResult = DbBoolean | DbNull;
@@ -828,8 +1007,8 @@ type JsonParam = string | Uint8Array | null | DbString | DbBlob | DbJson | DbNul
 type ExtractResult = DbString | DbNumber | DbBoolean | DbNull;
 type JsonResult = DbJson | DbNull;
 
-type DbTypes = number | string | boolean | Date | Uint8Array | null;
-type DefaultTypes = DefaultNumber | DefaultString | DefaultBoolean | DefaultDate | DefaultBlob;
+type DbTypes = number | string | boolean | AnyTemporal | Uint8Array | null;
+type DefaultTypes = DefaultNumber | DefaultString | DefaultBoolean | DefaultDateTypes | DefaultBlob;
 
 declare const sym1: unique symbol;
 type ForeignKeyAction = typeof sym1;
@@ -854,21 +1033,42 @@ type GetReturnType<T> =
   PkNumber extends T[keyof T] ? number :
   PkString extends T[keyof T] ? string :
   PkBlob extends T[keyof T] ? Uint8Array :
-  PkDate extends T[keyof T] ? Date :
+  PkDuration extends T[keyof T] ? Temporal.Duration :
+  PkInstant extends T[keyof T] ? Temporal.Instant :
+  PkPlainDate extends T[keyof T] ? Temporal.PlainDate :
+  PkPlainDateTime extends T[keyof T] ? Temporal.PlainDateTime :
+  PkPlainMonthDay extends T[keyof T] ? Temporal.PlainMonthDay :
+  PkPlainTime extends T[keyof T] ? Temporal.PlainTime :
+  PkPlainYearMonth extends T[keyof T] ? Temporal.PlainYearMonth :
+  PkZonedDateTime extends T[keyof T] ? Temporal.ZonedDateTime :
   number;
 
 type GetPrimaryKey<T> =
   PkNumber extends T[keyof T] ? DbNumber :
   PkString extends T[keyof T] ? DbString :
   PkBlob extends T[keyof T] ? DbBlob :
-  PkDate extends T[keyof T] ? DbDate :
+  PkDuration extends T[keyof T] ? DbDuration :
+  PkInstant extends T[keyof T] ? DbInstant :
+  PkPlainDate extends T[keyof T] ? DbPlainDate :
+  PkPlainDateTime extends T[keyof T] ? DbPlainDateTime :
+  PkPlainMonthDay extends T[keyof T] ? DbPlainMonthDay :
+  PkPlainTime extends T[keyof T] ? DbPlainTime :
+  PkPlainYearMonth extends T[keyof T] ? DbPlainYearMonth :
+  PkZonedDateTime extends T[keyof T] ? DbZonedDateTime :
   never;
 
 type PkToDbType<T> = 
   T extends PkNumber ? DbNumber :
   T extends PkString ? DbString :
   T extends PkBlob ? DbBlob :
-  T extends PkDate ? DbDate :
+  T extends PkDuration ? DbDuration :
+  T extends PkInstant ? DbInstant :
+  T extends PkPlainDate ? DbPlainDate :
+  T extends PkPlainDateTime ? DbPlainDateTime :
+  T extends PkPlainMonthDay ? DbPlainMonthDay :
+  T extends PkPlainTime ? DbPlainTime :
+  T extends PkPlainYearMonth ? DbPlainYearMonth :
+  T extends PkZonedDateTime ? DbZonedDateTime :
   T;
 
 type ClassFields<T extends new (...args: any[]) => any> = {
@@ -901,8 +1101,8 @@ type ExtractColumns<T> = {
       : ToDefaultType<T[K]>;
 };
 
-type PkType = PkNumber | PkString | PkDate | PkBlob;
-type ComputedType = ComputedNumber | ComputedString | ComputedDate | ComputedBoolean | ComputedJson | ComputedBlob;
+type PkType = PkNumber | PkString | PkDateTypes | PkBlob;
+type ComputedType = ComputedNumber | ComputedString | ComputedDateTypes | ComputedBoolean | ComputedJson | ComputedBlob;
 
 type OptionalKeys<T> = {
   [K in keyof T]:
@@ -964,7 +1164,7 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K];
 }
 
-type QueryCompareTypes = Date | number | boolean | null | string | Uint8Array | symbol;
+type QueryCompareTypes = AnyTemporal | number | boolean | null | string | Uint8Array | symbol;
 
 type SubqueryContext = 
   CompareMethods<QueryCompareTypes> &
@@ -1065,14 +1265,28 @@ interface TypedDb<P, C, N> {
 type ToComputed<T> =
   T extends DbString ? ComputedString :
   T extends DbBoolean ? ComputedBoolean :
-  T extends DbDate ? ComputedDate :
+  T extends DbDuration ? ComputedDuration :
+  T extends DbInstant ? ComputedInstant :
+  T extends DbPlainDate ? ComputedPlainDate :
+  T extends DbPlainDateTime ? ComputedPlainDateTime :
+  T extends DbPlainMonthDay ? ComputedPlainMonthDay :
+  T extends DbPlainTime ? ComputedPlainTime :
+  T extends DbPlainYearMonth ? ComputedPlainYearMonth :
+  T extends DbZonedDateTime ? ComputedZonedDateTime :
   T extends DbNull ? ComputedNull :
   T extends DbJson ? ComputedJson :
   T extends DbNumber ? ComputedNumber :
   T extends boolean ? ComputedBoolean :
   T extends number ? ComputedNumber :
-  T extends Date ? ComputedDate :
   T extends string ? ComputedString :
+  T extends Temporal.Duration ? ComputedDuration :
+  T extends Temporal.Instant ? ComputedInstant :
+  T extends Temporal.PlainDate ? ComputedPlainDate :
+  T extends Temporal.PlainDateTime ? ComputedPlainDateTime :
+  T extends Temporal.PlainMonthDay ? ComputedPlainMonthDay :
+  T extends Temporal.PlainTime ? ComputedPlainTime :
+  T extends Temporal.PlainYearMonth ? ComputedPlainYearMonth :
+  T extends Temporal.ZonedDateTime ? ComputedZonedDateTime :
   T extends Uint8Array ? ComputedBlob :
   T extends null ? ComputedNull :
   T;
@@ -1085,10 +1299,17 @@ interface Null {
   Text: DbString | DbNull;
   Blob: DbBlob | DbNull;
   Json: DbJson | DbNull;
-  Date: DbDate | DbNull;
   Bool: DbBoolean | DbNull;
+  Duration: DbDuration | DbNull;
+  Instant: DbInstant | DbNull;
+  PlainDate: DbPlainDate | DbNull;
+  PlainDateTime: DbPlainDateTime | DbNull;
+  PlainMonthDay: DbPlainMonthDay | DbNull;
+  PlainTime: DbPlainTime | DbNull;
+  PlainYearMonth: DbPlainYearMonth | DbNull;
+  ZonedDateTime: DbZonedDateTime | DbNull;
 
-  Now: DefaultDate | DbNull;
+  Now: NullNow;
   True: DefaultBoolean | DbNull;
   False: DefaultBoolean | DbNull;
 
@@ -1114,6 +1335,22 @@ interface Null {
   Default<T extends Primitive>(value: T): ToDefaultType<T> | DbNull;
 }
 
+interface Now {
+  Instant: DbInstant;
+  PlainDate: DbPlainDate;
+  PlainDateTime: DbPlainDateTime;
+  PlainTime: DbPlainTime;
+  ZonedDateTime: DbZonedDateTime;
+}
+
+interface NullNow {
+  Instant: DefaultInstant | DbNull;
+  PlainDate: DefaultPlainDate | DbNull;
+  PlainDateTime: DefaultPlainDateTime | DbNull;
+  PlainTime: DefaultPlainTime | DbNull;
+  ZonedDateTime: DefaultZonedDateTime | DbNull;
+}
+
 export class BaseTable {
   Int: DbNumber;
   IntPrimary: PkNumber;
@@ -1124,11 +1361,25 @@ export class BaseTable {
   Blob: DbBlob
   BlobPrimary: PkBlob;
   Json: DbJson;
-  Date: DbDate;
-  DatePrimary: PkDate;
+  Duration: DbDuration;
+  Instant: DbInstant;
+  PlainDate: DbPlainDate;
+  PlainDateTime: DbPlainDateTime;
+  PlainMonthDay: DbPlainMonthDay;
+  PlainTime: DbPlainTime;
+  PlainYearMonth: DbPlainYearMonth;
+  ZonedDateTime: DbZonedDateTime;
+  DurationPrimary: PkDuration;
+  InstantPrimary: PkInstant;
+  PlainDatePrimary: PkPlainDate;
+  PlainDateTimePrimary: PkPlainDateTime;
+  PlainMonthDayPrimary: PkPlainMonthDay;
+  PlainTimePrimary: PkPlainTime;
+  PlainYearMonthPrimary: PkPlainYearMonth;
+  ZonedDateTimePrimary: PkZonedDateTime;
   Bool: DbBoolean;
 
-  Now: DefaultDate;
+  Now: Now;
   True: DefaultBoolean;
   False: DefaultBoolean;
 
@@ -1170,12 +1421,7 @@ export class BaseTable {
   Abs(n: NumberParam): ToComputed<NumberResult>;
   Cast(value: any, to: 'real'): ToComputed<DbNumber>;
   Cast(value: any, to: 'integer'): ToComputed<DbNumber>;
-  Coalesce(a: StringResult, b: string): ToComputed<DbString>;
-  Coalesce(a: NumberResult, b: number): ToComputed<DbNumber>;
-  Coalesce(a: BooleanResult, b: boolean): ToComputed<DbBoolean>;
-  Coalesce(a: DateResult, b: Date): ToComputed<DbDate>;
-  Coalesce<T extends DbAny>(a: T, b: T, ...rest: T[]): ToComputed<T>;
-  Coalesce(a: any, b: any, ...rest: any[]): ToComputed<AnyResult>;
+  Coalesce<T extends DbAny | DbTypes | DbNull>(a: T, b: T, ...rest: T[]): ToComputed<T>;
   Concat(...args: any[]): ToComputed<DbString>;
   ConcatWs(...args: any[]): ToComputed<DbString>;
   Format(format: OnlyStrings, ...args: any[]): ToComputed<DbString>;
@@ -1213,22 +1459,22 @@ export class BaseTable {
   Upper(value: OnlyStrings): ToComputed<DbString>;
   Upper(value: StringParam): ToComputed<StringResult>;
   ToDate(): ToComputed<DbString>;
-  ToDate(time: OnlyDates): ToComputed<DbString>;
+  ToDate(time: CompatibleDate): ToComputed<DbString>;
   ToDate(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   Time(): ToComputed<DbString>;
-  Time(time: OnlyDates): ToComputed<DbString>;
+  Time(time: CompatibleDate): ToComputed<DbString>;
   Time(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   DateTime(): ToComputed<DbString>;
-  DateTime(time: OnlyDates): ToComputed<DbString>;
+  DateTime(time: CompatibleDate): ToComputed<DbString>;
   DateTime(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   JulianDay(): ToComputed<DbNumber>;
-  JulianDay(time: OnlyDates): ToComputed<DbNumber>;
+  JulianDay(time: CompatibleDate): ToComputed<DbNumber>;
   JulianDay(time: DateParam, ...modifers: StringParam[]): ToComputed<NumberResult>;
   UnixEpoch(): ToComputed<DbNumber>;
-  UnixEpoch(time: OnlyDates): ToComputed<DbNumber>;
+  UnixEpoch(time: CompatibleDate): ToComputed<DbNumber>;
   UnixEpoch(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   StrfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
-  TimeDiff(start: OnlyDates, end: OnlyDates): ToComputed<DbString>;
+  TimeDiff(start: CompatibleDate, end: CompatibleDate): ToComputed<DbString>;
   TimeDiff(start: DateParam, end: DateParam): ToComputed<StringResult>;
   Acos(value: NumberParam): ToComputed<NumberResult>;
   Acosh(value: NumberParam): ToComputed<NumberResult>;

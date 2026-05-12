@@ -1,9 +1,9 @@
 import { makeClient } from './proxy.js';
-import { toValues } from './utils.js';
+import { toValues, temporal, removeCapital } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { processQuery } from './symbols.js';
-import { process, removeCapital, toSql } from './tables.js';
+import { process, toSql } from './tables.js';
 import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -37,29 +37,32 @@ class Database {
     this.statements = new Map();
     this.virtualSet = new Set();
     this.closed = false;
+    const dateTypes = temporal.map(type => {
+      return {
+        name: removeCapital(type.name),
+        valueTest: (v) => v instanceof type,
+        dbToJs: (v) => type.from(v),
+        jsToDb: (v) => v.toString(),
+        dbType: 'text'
+      }
+    });
     this.registerTypes([
       {
         name: 'boolean',
         valueTest: (v) => typeof v === 'boolean',
         makeConstraint: (column) => `check (${column} in (0, 1))`,
-        dbToJs: (v) => v === null ? null : Boolean(v),
-        jsToDb: (v) => v === null ? null : v === true ? 1 : 0,
+        dbToJs: (v) => Boolean(v),
+        jsToDb: (v) => v === true ? 1 : 0,
         dbType: 'integer'
-      },
-      {
-        name: 'date',
-        valueTest: (v) => v instanceof Date,
-        dbToJs: (v) => v === null ? null : new Date(v),
-        jsToDb: (v) => v === null ? null : v.toISOString(),
-        dbType: 'text'
       },
       {
         name: 'json',
         valueTest: (v) => Object.getPrototypeOf(v) === Object.prototype || Array.isArray(v),
-        dbToJs: (v) => v === null ? null : JSON.parse(v),
-        jsToDb: (v) => v === null ? null : JSON.stringify(v),
+        dbToJs: (v) => JSON.parse(v),
+        jsToDb: (v) => JSON.stringify(v),
         dbType: 'blob'
-      }
+      },
+      ...dateTypes
     ]);
     if (path) {
       this.db = new DatabaseSync(path, options);
@@ -159,16 +162,17 @@ class Database {
 
   registerTypes(customTypes) {
     for (const customType of customTypes) {
-      const { name, ...options } = customType;
-      if (name.includes(',')) {
-        const names = name.split(',').map(n => n.trim());
-        for (const name of names) {
-          this.customTypes[name] = options;
+      const { name, ...rest } = customType;
+      const options = {};
+      for (const key of Object.keys(rest)) {
+        if (['dbToJs', 'jsToDb'].includes(key)) {
+          options[key] = (v) => v === null ? null : rest[key](v);
+        }
+        else {
+          options[key] = rest[key];
         }
       }
-      else {
-        this.customTypes[name] = options;
-      }
+      this.customTypes[name] = options;
     }
   }
 

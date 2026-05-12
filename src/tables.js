@@ -1,16 +1,20 @@
 import { compareMethods, computeMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
-import { nameToSql } from './utils.js';
+import { nameToSql, temporal, removeCapital } from './utils.js';
 
-const types = ['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool'];
+const types = [
+  'Int',
+  'Real',
+  'Text',
+  'Blob',
+  'Json',
+  'Bool',
+  ...temporal.map(t => t.name)
+];
 const modifiers = [
   ['', {}],
   ['Primary', { notNull: true, primaryKey: true }]
 ];
-
-const removeCapital = (name) => {
-  return name.at(0).toLowerCase() + name.substring(1);
-}
 
 const addCapital = (name) => {
   return name.at(0).toUpperCase() + name.substring(1);
@@ -35,11 +39,14 @@ const toColumn = (literal, instance) => {
   else if (type === 'boolean') {
     symbol = instance.Bool;
   }
-  else if (symbol instanceof Date) {
-    symbol = instance.Date;
-  }
   else {
-    throw Error(`invalid default value: ${literal}`);
+    const type = temporal.find(type => symbol instanceof type);
+    if (type) {
+      symbol = instance[type.name];
+    }
+    else {
+      throw Error(`invalid default value: ${literal}`);
+    }
   }
   const column = Table.requests.get(symbol);
   column.default = literal;
@@ -57,8 +64,9 @@ const toLiteral = (value) => {
   if (type === 'boolean') {
     return value === true ? 1 : 0;
   }
-  if (value instanceof Date) {
-    return value.toISOString();
+  const exists = temporal.some(type => value instanceof type);
+  if (exists) {
+    return value.toString();
   }
   return value;
 }
@@ -107,8 +115,7 @@ class BaseTable {
       this.Proxy = new Proxy(this, {
         get(target, prop, receiver) {
           const value = Reflect.get(target, prop, receiver);
-
-          if (['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool', 'Now', 'True', 'False'].includes(prop)) {
+          if ([...types, 'True', 'False'].includes(prop)) {
             const request = BaseTable.requests.get(value);
             request.notNull = false;
             return value;
@@ -167,7 +174,7 @@ class BaseTable {
     for (const type of types) {
       for (const modifier of modifiers) {
         const [word, props] = modifier;
-        let dbType = type.toLowerCase();
+        let dbType = removeCapital(type);
         if (dbType === 'bool') {
           dbType = 'boolean';
         }
@@ -203,14 +210,21 @@ class BaseTable {
   }
 
   get Now() {
-    const symbol = Symbol();
-    Table.requests.set(symbol, {
-      category: 'Column',
-      type: 'date',
-      notNull: true,
-      default: 'now'
+    const map = {
+      Instant: () => Temporal.Now.instant().toString(),
+      PlainDate: () => Temporal.Now.plainDateISO().toString(),
+      PlainDateTime: () => Temporal.Now.plainDateTimeISO().toString(),
+      ZonedDateTime: () => Temporal.Now.zonedDateTimeISO().toString()
+    };
+    return new Proxy(this, {
+      get(target, prop, receiver) {
+        const lambda = map[prop];
+        if (!lambda) {
+          throw Error('invalid date type');
+        }
+        return target.Function(target[prop], lambda);
+      }
     });
-    return symbol;
   }
 
   get True() {
@@ -565,7 +579,6 @@ const process = (Custom, key, classTable) => {
       if (request.expression) {
         const result = request.expression(symbol);
         if (!result || !result.where) {
-          console.log(result);
           throw Error('invalid index expression');
         }
         where = toWhere({
@@ -682,9 +695,9 @@ const process = (Custom, key, classTable) => {
 }
 
 const typeMap = {
-  date: 'text',
   boolean: 'integer',
-  json: 'blob'
+  json: 'blob',
+  ...Object.fromEntries(temporal.map(t => [removeCapital(t.name), 'text']))
 };
 
 const toString = (tokenizer) => {
@@ -786,12 +799,7 @@ const columnToSql = (column) => {
   const notNull = column.notNull ? ' not null' : '';
   let defaultClause = '';
   if (column.default !== undefined) {
-    if (column.type === 'date' && column.default === 'now') {
-      defaultClause = ` default (date() || 'T' || time() || '.000Z')`;
-    }
-    else {
-      defaultClause = ` default ${toLiteral(column.default)}`;
-    }
+    defaultClause = ` default ${toLiteral(column.default)}`;
   }
   return `${nameToSql(column.name)} ${dbType}${notNull}${defaultClause}`;
 }
@@ -891,6 +899,5 @@ export {
   toHash,
   process,
   indexToSql,
-  columnToSql,
-  removeCapital
+  columnToSql
 }

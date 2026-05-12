@@ -1,6 +1,8 @@
 import returnTypes from './types.js';
-import { jsonSelector, nameToSql } from './utils.js';
+import { jsonSelector, nameToSql, temporal, removeCapital } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
+
+const dateTypes = temporal.map(t => removeCapital(t.name));
 
 const addParam = (options) => {
   const {
@@ -28,11 +30,12 @@ const getParamType = (param) => {
   if (type === 'boolean') {
     return type;
   }
-  if (param instanceof Date) {
-    return 'date';
-  }
   if (param instanceof Uint8Array) {
     return 'blob';
+  }
+  const found = temporal.find(type => param instanceof type);
+  if (found) {
+    return removeCapital(found.name);
   }
   return 'json';
 }
@@ -47,8 +50,9 @@ const toLiteral = (value) => {
   if (type === 'boolean') {
     return value === true ? 1 : 0;
   }
-  if (value instanceof Date) {
-    return `'${value.toISOString()}'`;
+  const exists = temporal.some(type => value instanceof type);
+  if (exists) {
+    return `'${value.toString()}'`;
   }
   return value;
 }
@@ -607,7 +611,7 @@ const processMethod = (options) => {
       const unique = new Set(types);
       if (unique.size === 1) {
         const current = types.at(0);
-        if (['boolean', 'date'].includes(current)) {
+        if (current === 'boolean' || dateTypes.includes(current)) {
           type = current;
         }
       }
@@ -615,7 +619,7 @@ const processMethod = (options) => {
   }
   if (name === 'nullif') {
     const current = processed.map(p => p.type).at(0);
-    if (['boolean', 'date'].includes(current)) {
+    if (current === 'boolean' || dateTypes.includes(current)) {
       type = current;
     }
   }

@@ -1,4 +1,4 @@
-import { removeCapital } from './tables.js';
+import { removeCapital } from './utils.js';
 
 const compareOperators = new Map([
   ['not', '!='],

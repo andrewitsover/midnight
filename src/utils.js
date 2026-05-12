@@ -212,6 +212,21 @@ const nameToSql = (column, alias) => {
   return name;
 }
 
+const temporal = [
+  Temporal.Duration,
+  Temporal.Instant,
+  Temporal.PlainDate,
+  Temporal.PlainDateTime,
+  Temporal.PlainMonthDay,
+  Temporal.PlainTime,
+  Temporal.PlainYearMonth,
+  Temporal.ZonedDateTime
+];
+
+const removeCapital = (name) => {
+  return name.at(0).toLowerCase() + name.substring(1);
+}
+
 export {
   pick,
   omit,
@@ -220,5 +235,7 @@ export {
   nameToSql,
   jsonSelector,
   createPlaceholder,
-  expressionHandler
+  expressionHandler,
+  removeCapital,
+  temporal
 }
