@@ -3,8 +3,8 @@ type ExtractKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
 interface Keywords<T, K> {
   orderBy?: K | ((column: T, method: ComputeMethods) => void);
   desc?: boolean;
-  limit?: number;
-  offset?: number;
+  limit?: number | BigInt;
+  offset?: number | BigInt;
   distinct?: boolean;
   log?: boolean | ((info: LogInfo) => void);
 }
@@ -99,8 +99,8 @@ interface GroupQueryKeywords<W, K> {
   where?: W;
   orderBy?: K;
   desc?: boolean;
-  limit?: number;
-  offset?: number;
+  limit?: number | BigInt;
+  offset?: number | BigInt;
   log?: boolean | ((info: LogInfo) => void);
 }
 
@@ -134,16 +134,16 @@ interface GroupQueryObjectAlias<T, W, K> {
   distinct?: keyof T;
   orderBy?: K;
   desc?: boolean;
-  limit?: number;
-  offset?: number;
+  limit?: number | BigInt;
+  offset?: number | BigInt;
 }
 
 interface GroupArrayKeywords<W, K> {
   where?: W;
   orderBy?: K;
   desc?: boolean;
-  limit?: number;
-  offset?: number;
+  limit?: number | BigInt;
+  offset?: number | BigInt;
 }
 
 interface GroupArray<A extends string, W, K> extends GroupArrayKeywords<W, K> {
@@ -203,47 +203,34 @@ type IfEvenArgs<T> =
   [BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T];
 
 interface ComputeMethods {
-  abs(n: OnlyNumbers): DbNumber;
-  abs(n: NumberParam): NumberResult;
-  cast(value: any, to: 'real'): DbNumber;
-  cast(value: any, to: 'integer'): DbNumber;
+  abs<T extends NumericParam>(n: T): ToDbType<T>;
+  cast(value: any, to: 'real' | 'integer'): DbNumber;
   coalesce<T extends DbAny | DbTypes | DbNull>(a: T, b: T, ...rest: T[]): ToDbType<T>;
   concat(...args: any[]): DbString;
   concatWs(...args: any[]): DbString;
-  format(format: OnlyStrings, ...args: any[]): DbString;
-  format(format: StringParam, ...args: any[]): StringResult;
+  format<T extends StringParam>(format: T, ...args: any[]): ToDbType<T>;
   if<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToDbType<T>;
   if<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToDbType<T | null>;
   if(...args: any[]): AnyResult;
   instr(a: OnlyStrings, b: OnlyStrings): DbNumber;
   instr(a: StringBlobParam, b: StringBlobParam): NumberResult;
   length(value: any): NumberResult;
-  lower(value: OnlyStrings): DbString;
-  lower(value: StringParam): StringResult;
+  lower<T extends StringParam>(value: T): ToDbType<T>;
   ltrim(value: StringParam, remove?: StringParam): StringResult;
-  max(a: DbNumber, b: number): DbNumber;
-  max<T extends DbAny>(a: T, b: T, ...rest: T[]): T;
-  max(a: any, b: any, ...rest: any[]): AnyResult;
-  min(a: DbNumber, b: number): DbNumber;
-  min<T extends DbAny>(a: T, b: T, ...rest: T[]): T;
-  min(a: any, b: any, ...rest: any[]): AnyResult;
-  nullif<T extends DbAny>(a: T, b: any): T | DbNull;
-  nullif(a: any, b: any): AnyResult;
+  max<T>(a: T, b: T, ...rest: T[]): ToDbType<T>;
+  min<T>(a: T, b: T, ...rest: T[]): ToDbType<T>;
+  nullif<T>(a: T, b: any): ToDbType<T> | DbNull;
   octetLength(value: any): NumberResult;
-  replace(value: OnlyStrings, occurrences: OnlyStrings, substitute: OnlyStrings): DbString;
-  replace(value: StringParam, occurrences: StringParam, substitute: StringParam): StringResult;
-  round(value: OnlyNumbers, places?: NumberParam): DbNumber;
-  round(value: NumberParam, places?: NumberParam): NumberResult;
+  replace<T extends StringParam>(value: T, occurrences: T, substitute: T): ToDbType<T>;
+  round<T extends Numeric>(value: T, places?: NumericParam): ToDbType<T>;
   rtrim<T extends StringParam>(value: T, remove?: StringParam): T;
-  sign(value: OnlyNumbers): -1 | 0 | 1;
-  sign(value: any): NumberResult;
-  substring<T extends StringParam>(value: T, start: NumberParam, length?: NumberParam): T;
+  sign(value: Numeric): -1 | 0 | 1;
+  substring<T extends StringParam>(value: T, start: NumericParam, length?: NumericParam): T;
   trim<T extends StringParam>(value: T, remove?: StringParam): T;
   unhex(hex: StringParam, ignore?: StringParam): BlobResult;
   unicode(value: OnlyStrings): DbNumber;
   unicode(value: StringParam): NumberResult;
-  upper(value: OnlyStrings): DbString;
-  upper(value: StringParam): StringResult;
+  upper<T extends StringParam>(value: T): ToDbType<T>;
   date(): DbString;
   date(time: AnyDateType): DbString;
   date(time: DateParam, ...modifiers: StringParam[]): StringResult;
@@ -262,46 +249,38 @@ interface ComputeMethods {
   strfTime(format: StringParam, time: DateParam, ...modifiers: StringParam[]): StringResult;
   timeDiff(start: CompatibleDate, end: CompatibleDate): DbString;
   timeDiff(start: DateParam, end: DateParam): StringResult;
-  acos(value: NumberParam): NumberResult;
-  acosh(value: NumberParam): NumberResult;
-  asin(value: NumberParam): NumberResult;
-  asinh(value: NumberParam): NumberResult;
-  atan(value: NumberParam): NumberResult;
-  atan2(b: NumberParam, a: NumberParam): NumberResult;
-  atanh(value: NumberParam): NumberResult;
-  ceil(value: OnlyNumbers): DbNumber;
-  ceil(value: NumberParam): NumberResult;
-  cos(value: OnlyNumbers): DbNumber;
-  cos(value: NumberParam): NumberResult;
-  cosh(value: NumberParam): NumberResult;
-  degrees(value: NumberParam): NumberResult;
-  exp(value: NumberParam): NumberResult;
-  floor(value: OnlyNumbers): DbNumber;
-  floor(value: NumberParam): NumberResult;
-  ln(value: NumberParam): NumberResult;
-  log(base: NumberParam, value: NumberParam): NumberResult;
-  mod(value: NumberParam, divider: NumberParam): NumberResult;
+  acos(value: NumericParam): NumberResult;
+  acosh(value: NumericParam): NumberResult;
+  asin(value: NumericParam): NumberResult;
+  asinh(value: NumericParam): NumberResult;
+  atan(value: NumericParam): NumberResult;
+  atan2(b: NumericParam, a: NumericParam): NumberResult;
+  atanh(value: NumericParam): NumberResult;
+  ceil<T extends NumericParam>(value: T): ToDbType<T>;
+  cos<T extends NumericParam>(value: T): ToDbType<T>;
+  cosh(value: NumericParam): NumberResult;
+  degrees(value: NumericParam): NumberResult;
+  exp(value: NumericParam): NumberResult;
+  floor<T extends NumericParam>(value: T): ToDbType<T>;
+  ln(value: NumericParam): NumberResult;
+  log(base: NumericParam, value: NumericParam): NumberResult;
+  mod(value: NumericParam, divider: NumericParam): NumberResult;
   pi(): DbNumber;
-  power(value: NumberParam, exponent: NumberParam): NumberResult;
-  radians(value: NumberParam): NumberResult;
-  sin(value: OnlyNumbers): DbNumber;
-  sin(value: NumberParam): NumberResult;
-  sinh(value: NumberParam): NumberResult;
-  sqrt(value: NumberParam): NumberResult;
-  tan(value: NumberParam): NumberResult;
-  tanh(value: NumberParam): NumberResult;
-  trunc(value: OnlyNumbers): DbNumber;
-  trunc(value: NumberParam): NumberResult;
+  power(value: NumericParam, exponent: NumericParam): NumberResult;
+  radians(value: NumericParam): NumberResult;
+  sin(value: Numeric): DbNumber;
+  sin(value: NumericParam): NumberResult;
+  sinh(value: NumericParam): NumberResult;
+  sqrt(value: NumericParam): NumberResult;
+  tan(value: NumericParam): NumberResult;
+  tanh(value: NumericParam): NumberResult;
+  trunc<T extends NumericParam>(value: T): ToDbType<T>;
   json(param: JsonParam | any[]): StringResult;
   extract(json: JsonParam | any[], path: StringParam): ExtractResult;
-  plus(...args: OnlyNumbers[]): DbNumber;
-  plus(...args: NumberParam[]): NumberResult;
-  minus(...args: OnlyNumbers[]): DbNumber;
-  minus(...args: NumberParam[]): NumberResult;
-  divide(...args: OnlyNumbers[]): DbNumber;
-  divide(...args: NumberParam[]): NumberResult;
-  multiply(...args: OnlyNumbers[]): DbNumber;
-  multiply(...args: NumberParam[]): NumberResult;
+  plus<T extends NumericParam>(...args: T[]): ToDbType<T>;
+  minus<T extends NumericParam>(...args: T[]): ToDbType<T>;
+  divide<T extends NumericParam>(...args: T[]): ToDbType<T>;
+  multiply<T extends NumericParam>(...args: T[]): ToDbType<T>;
   object<T extends { [key: string]: AllowedJson }>(select: T): ToJson<T>;
   arrayLength(param: JsonParam | any[]): NumberResult;
   highlight(column: DbString, before: string, after: string): DbString;
@@ -323,10 +302,10 @@ interface WindowOptions {
 }
 
 type ToJson<T> =
-  T extends AnyDateType ? DbString :
-  T extends (infer U)[] ? U extends AnyDateType ? DbString[] : U[] :
+  T extends AnyDateType | AnyBigIntType ? DbString :
+  T extends (infer U)[] ? U extends AnyDateType | AnyBigIntType ? DbString[] : U[] :
   T extends object ? { 
-    [K in keyof T]: T[K] extends AnyDateType 
+    [K in keyof T]: T[K] extends AnyDateType | AnyBigIntType
       ? DbString : T[K] 
   } : T;
 
@@ -334,6 +313,7 @@ type ToDbType<T> =
   T extends null ? DbNull :
   T extends infer U ? (
     U extends number ? DbNumber :
+    U extends BigInt ? DbBigInt :
     U extends string ? DbString :
     U extends Temporal.Duration ? DbDuration :
     U extends Temporal.Instant ? DbInstant :
@@ -353,6 +333,7 @@ type ToDefaultType<T> =
   T extends null ? DbNull :
   T extends infer U ? (
     U extends number ? DefaultNumber :
+    U extends BigInt ? DefaultBigInt :
     U extends string ? DefaultString :
     U extends Temporal.Duration ? DefaultDuration :
     U extends Temporal.Instant ? DefaultInstant :
@@ -373,22 +354,16 @@ type ToDbInterface<T> = {
 };
 
 type ToJsType<T> =
-  T extends DbNull ? null :
-  T extends ComputedNull ? null :
+  T extends AnyNullType ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends new (...args: any[]) => Table ? GetReturnType<T> :
   T extends object
     ? {
         [K in keyof T]: ToJsType<T[K]>
       }
-  : T extends DbNumber ? number :
-    T extends PkNumber ? number :
-    T extends ComputedNumber ? number :
-    T extends DefaultNumber ? number :
-    T extends DbString ? string :
-    T extends PkString ? string :
-    T extends ComputedString ? string :
-    T extends DefaultString ? string :
+  : T extends AnyNumberType ? number :
+    T extends AnyBigIntType ? BigInt :
+    T extends AnyStringType ? string :
     T extends AnyDurationType ? Temporal.Duration :
     T extends AnyInstantType ? Temporal.Instant :
     T extends AnyPlainDateType ? Temporal.PlainDate :
@@ -397,18 +372,12 @@ type ToJsType<T> =
     T extends AnyPlainTimeType ? Temporal.PlainTime :
     T extends AnyPlainYearMonthType ? Temporal.PlainYearMonth :
     T extends AnyZonedDateTimeType ? Temporal.ZonedDateTime :
-    T extends DbBoolean ? boolean :
-    T extends ComputedBoolean ? boolean :
-    T extends DefaultBoolean ? boolean :
-    T extends DbJson ? Json :
-    T extends ComputedJson ? Json :
-    T extends DefaultJson ? Json :
-    T extends DbBlob ? Uint8Array :
-    T extends PkBlob ? Uint8Array :
-    T extends ComputedBlob ? Uint8Array :
-    T extends DefaultBlob ? Uint8Array :
+    T extends AnyBooleanType ? boolean :
+    T extends AnyJsonType ? Json :
+    T extends AnyBlobType ? Uint8Array :
     T extends string ? string :
     T extends number ? number :
+    T extends BigInt ? BigInt :
     T extends boolean ? boolean :
     T extends Temporal.Duration ? Temporal.Duration :
     T extends Temporal.Instant ? Temporal.Instant :
@@ -422,7 +391,7 @@ type ToJsType<T> =
 
 interface LagOptions<T> {
   expression: T;
-  offset?: number | DbNumber;
+  offset?: number | BigInt | AnyNumberType | AnyBigIntType;
   otherwise?: T;
 }
 
@@ -711,6 +680,21 @@ declare const intDefault2: unique symbol;
 
 type DefaultNumber = typeof intDefault1 | typeof intDefault2;
 
+declare const bigIntPk1: unique symbol;
+declare const bigIntPk2: unique symbol;
+
+type PkBigInt = typeof bigIntPk1 | typeof bigIntPk2;
+
+declare const bigIntComp1: unique symbol;
+declare const bigIntComp2: unique symbol;
+
+type ComputedBigInt = typeof bigIntComp1 | typeof bigIntComp2;
+
+declare const bigIntDefault1: unique symbol;
+declare const bigIntDefault2: unique symbol;
+
+type DefaultBigInt = typeof bigIntDefault1 | typeof bigIntDefault2;
+
 declare const stringPk1: unique symbol;
 declare const stringPk2: unique symbol;
 
@@ -770,6 +754,11 @@ declare const dbNumber1: unique symbol;
 declare const dbNumber2: unique symbol;
 
 type DbNumber = typeof dbNumber1 | typeof dbNumber2;
+
+declare const dbBigInt1: unique symbol;
+declare const dbBigInt2: unique symbol;
+
+type DbBigInt = typeof dbBigInt1 | typeof dbBigInt2;
 
 declare const dbString1: unique symbol;
 declare const dbString2: unique symbol;
@@ -977,38 +966,46 @@ declare const dbNull2: unique symbol;
 
 type DbNull = typeof dbNull1 | typeof dbNull2;
 
-type DbAny = DefaultBoolean | DefaultBlob | AnyDateType | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedBlob | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkString | PkBlob | DbNumber | DbString | DbBlob | DbJson | DbBoolean;
-type AnyParam = DbAny | DbNull | ComputedNull;
+type AnyNumberType = DbNumber | DefaultNumber | PkNumber | ComputedNumber;
+type AnyBigIntType = DbBigInt | DefaultBigInt | PkBigInt | ComputedBigInt;
+type AnyBooleanType = DbBoolean | DefaultBoolean | ComputedBoolean;
+type AnyStringType = DbString | DefaultString | PkString | ComputedString;
+type AnyBlobType = DbBlob | DefaultBlob | PkBlob | ComputedBlob;
+type AnyJsonType = DbJson | DefaultJson | ComputedJson;
+type AnyNullType = DbNull | ComputedNull;
 
-type AllowedJson = DefaultBoolean | AnyDateType | DefaultJson | DefaultNumber | DefaultString | ComputedBoolean | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkString | DbNumber | DbString | DbJson | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
+type DbAny = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType;
+type AnyParam = DbAny | AnyNullType;
+
+type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
 type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
-type OnlyNumbers = number | DbNumber | PkNumber | ComputedNumber | DefaultNumber;
-type NumberParam = number | null | DefaultNumber | ComputedNumber | PkNumber | DbNumber | DbNull | ComputedNull;
+type Numeric = number | BigInt | AnyNumberType | AnyBigIntType;
+type NumericParam = number | BigInt | AnyNumberType | null | AnyNullType;
 type NumberResult = DbNumber | DbNull;
 
-type OnlyStrings = string | DbString | PkString | ComputedString | DefaultString;
-type StringParam = string | null | PkString | DefaultString | ComputedString | DbString | DbNull | ComputedNull;
+type OnlyStrings = string | AnyStringType;
+type StringParam = string | AnyStringType | null | AnyNullType;
 type StringResult = DbString | DbNull;
 
-type NumberBlobParam = number | Uint8Array | null | DbNumber | PkNumber | DefaultNumber | ComputedNumber | PkBlob | DefaultBlob | ComputedBlob | DbBlob | DbNull | ComputedNull;
-type StringBlobParam = string | Uint8Array | null | DbString | PkString | DefaultString | ComputedString | DbBlob | DbNull | ComputedNull;
+type NumberBlobParam = number | Uint8Array | null | AnyNumberType | AnyBlobType | AnyNullType;
+type StringBlobParam = string | Uint8Array | null | AnyStringType | AnyBlobType | AnyNullType;
 
-type AnyResult = DbString | DbNumber | DateTypes | DbBoolean | DbJson | DbBlob | DbNull;
+type AnyResult = DbString | DbNumber | DbBigInt | DateTypes | DbBoolean | DbJson | DbBlob | DbNull;
 
 type BlobResult = DbBlob | DbNull;
 
-type DateParam = number | string | null | DbNumber | DbString | PkNumber | PkString | DefaultNumber | ComputedNumber | ComputedString | CompatibleDate | DbNull;
+type DateParam = number | string | null | AnyStringType | AnyNumberType | CompatibleDate | AnyNullType;
 
-type BooleanParam = boolean | DbBoolean | ComputedBoolean | DefaultBoolean;
+type BooleanParam = boolean | AnyBooleanType;
 type BooleanResult = DbBoolean | DbNull;
 
-type JsonParam = string | Uint8Array | null | DbString | DbBlob | DbJson | DbNull;
+type JsonParam = string | Uint8Array | null | DbString | DbBlob | DbJson | AnyNullType;
 type ExtractResult = DbString | DbNumber | DbBoolean | DbNull;
 type JsonResult = DbJson | DbNull;
 
-type DbTypes = number | string | boolean | AnyTemporal | Uint8Array | null;
-type DefaultTypes = DefaultNumber | DefaultString | DefaultBoolean | DefaultDateTypes | DefaultBlob;
+type DbTypes = number | BigInt | string | boolean | AnyTemporal | Uint8Array | null;
+type DefaultTypes = DefaultNumber | DefaultBigInt | DefaultString | DefaultBoolean | DefaultDateTypes | DefaultBlob;
 
 declare const sym1: unique symbol;
 type ForeignKeyAction = typeof sym1;
@@ -1029,6 +1026,12 @@ declare const sym8: unique symbol;
 declare const sym9: unique symbol;
 type DbCheck = typeof sym8 | typeof sym9;
 
+type ToNumericResult<T> =
+  T extends BigInt | AnyBigIntType ? ComputedBigInt :
+  T extends number | AnyNumberType ? ComputedNumber :
+  T extends null | AnyNullType ? ComputedNull :
+  never;
+
 type GetReturnType<T> =
   PkNumber extends T[keyof T] ? number :
   PkString extends T[keyof T] ? string :
@@ -1045,6 +1048,7 @@ type GetReturnType<T> =
 
 type GetPrimaryKey<T> =
   PkNumber extends T[keyof T] ? DbNumber :
+  PkBigInt extends T[keyof T] ? DbBigInt :
   PkString extends T[keyof T] ? DbString :
   PkBlob extends T[keyof T] ? DbBlob :
   PkDuration extends T[keyof T] ? DbDuration :
@@ -1059,6 +1063,7 @@ type GetPrimaryKey<T> =
 
 type PkToDbType<T> = 
   T extends PkNumber ? DbNumber :
+  T extends PkBigInt ? DbBigInt :
   T extends PkString ? DbString :
   T extends PkBlob ? DbBlob :
   T extends PkDuration ? DbDuration :
@@ -1101,8 +1106,8 @@ type ExtractColumns<T> = {
       : ToDefaultType<T[K]>;
 };
 
-type PkType = PkNumber | PkString | PkDateTypes | PkBlob;
-type ComputedType = ComputedNumber | ComputedString | ComputedDateTypes | ComputedBoolean | ComputedJson | ComputedBlob;
+type PkType = PkNumber | PkBigInt | PkString | PkDateTypes | PkBlob;
+type ComputedType = ComputedNumber | ComputedBigInt | ComputedString | ComputedDateTypes | ComputedBoolean | ComputedJson | ComputedBlob;
 
 type OptionalKeys<T> = {
   [K in keyof T]:
@@ -1209,10 +1214,10 @@ interface QueryReturn {
   groupBy?: symbol | symbol[];
   having?: SymbolWhere;
   orderBy?: symbol | symbol[];
-  desc?: boolean | DbBoolean | ComputedBoolean;
-  offset?: number | ComputedNumber | DbNumber | PkNumber;
-  limit?: number | ComputedNumber | DbNumber | PkNumber;
-  bm25?: { [key: symbol]: number | ComputedNumber | DbNumber | PkNumber };
+  desc?: boolean | AnyBooleanType;
+  offset?: number | BigInt | AnyNumberType | AnyBigIntType;
+  limit?: number | BigInt | AnyNumberType | AnyBigIntType;
+  bm25?: { [key: symbol]: number | BigInt | AnyNumberType | AnyBigIntType };
   rank?: boolean | DbBoolean | ComputedBoolean;
   log?: boolean | ((info: LogInfo) => void);
 }
@@ -1263,8 +1268,8 @@ interface TypedDb<P, C> {
 }
 
 type ToComputed<T> =
-  T extends DbString ? ComputedString :
-  T extends DbBoolean ? ComputedBoolean :
+  T extends AnyStringType ? ComputedString :
+  T extends AnyBooleanType ? ComputedBoolean :
   T extends DbDuration ? ComputedDuration :
   T extends DbInstant ? ComputedInstant :
   T extends DbPlainDate ? ComputedPlainDate :
@@ -1273,11 +1278,13 @@ type ToComputed<T> =
   T extends DbPlainTime ? ComputedPlainTime :
   T extends DbPlainYearMonth ? ComputedPlainYearMonth :
   T extends DbZonedDateTime ? ComputedZonedDateTime :
-  T extends DbNull ? ComputedNull :
-  T extends DbJson ? ComputedJson :
-  T extends DbNumber ? ComputedNumber :
+  T extends AnyNullType ? ComputedNull :
+  T extends AnyJsonType ? ComputedJson :
+  T extends AnyNumberType ? ComputedNumber :
+  T extends AnyBigIntType ? ComputedBigInt :
   T extends boolean ? ComputedBoolean :
   T extends number ? ComputedNumber :
+  T extends BigInt ? ComputedBigInt :
   T extends string ? ComputedString :
   T extends Temporal.Duration ? ComputedDuration :
   T extends Temporal.Instant ? ComputedInstant :
@@ -1295,6 +1302,7 @@ type ForeignActions = 'no action' | 'restrict' | 'set null' | 'set default' | 'c
 
 interface Null {
   Int: DbNumber | DbNull;
+  BigInt: DbBigInt | DbNull;
   Real: DbNumber | DbNull;
   Text: DbString | DbNull;
   Blob: DbBlob | DbNull;
@@ -1354,6 +1362,8 @@ interface NullNow {
 export class BaseTable {
   Int: DbNumber;
   IntPrimary: PkNumber;
+  BigInt: DbBigInt;
+  BigIntPrimary: PkBigInt;
   Real: DbNumber;
   RealPrimary: PkNumber;
   Text: DbString;
@@ -1417,125 +1427,107 @@ export class BaseTable {
   Null: Null;
   Default<T extends Primitive>(value: T): ToDefaultType<T>;
 
-  Abs(n: OnlyNumbers): ToComputed<DbNumber>;
-  Abs(n: NumberParam): ToComputed<NumberResult>;
-  Cast(value: any, to: 'real'): ToComputed<DbNumber>;
-  Cast(value: any, to: 'integer'): ToComputed<DbNumber>;
+  Abs<T extends Numeric>(n: T): ToNumericResult<T>;
+  Cast(value: any, to: 'real' | 'integer'): ComputedNumber;
   Coalesce<T extends DbAny | DbTypes | DbNull>(a: T, b: T, ...rest: T[]): ToComputed<T>;
-  Concat(...args: any[]): ToComputed<DbString>;
-  ConcatWs(...args: any[]): ToComputed<DbString>;
-  Format(format: OnlyStrings, ...args: any[]): ToComputed<DbString>;
-  Format(format: StringParam, ...args: any[]): ToComputed<StringResult>;
+  Concat(...args: any[]): ComputedString;
+  ConcatWs(...args: any[]): ComputedString;
+  Format<T extends StringParam>(format: T, ...args: any[]): ToComputed<T>;
   If<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToComputed<ToDbType<T>>;
   If<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToComputed<ToDbType<T | null>>;
   If(...args: any[]): ToComputed<AnyResult>;
-  Instr(a: OnlyStrings, b: OnlyStrings): ToComputed<DbNumber>;
+  Instr(a: OnlyStrings, b: OnlyStrings): ComputedNumber;
   Instr(a: StringBlobParam, b: StringBlobParam): ToComputed<NumberResult>;
   Length(value: any): ToComputed<NumberResult>;
-  Lower(value: OnlyStrings): ToComputed<DbString>;
-  Lower(value: StringParam): ToComputed<StringResult>;
+  Lower(value: OnlyStrings): ComputedString;
+  Lower(value: StringParam): ComputedString;
   Ltrim(value: StringParam, remove?: StringParam): ToComputed<StringResult>;
-  Max(a: DbNumber, b: number): ToComputed<DbNumber>;
-  Max<T extends DbAny>(a: T, b: T, ...rest: T[]): ToComputed<T>;
-  Max(a: any, b: any, ...rest: any[]): ToComputed<AnyResult>;
-  Min(a: DbNumber, b: number): ToComputed<DbNumber>;
-  Min<T extends DbAny>(a: T, b: T, ...rest: T[]): ToComputed<T>;
-  Min(a: any, b: any, ...rest: any[]): ToComputed<AnyResult>;
+  Max<T>(a: T, b: T, ...rest: T[]): ToComputed<T>;
+  Min<T>(a: T, b: T, ...rest: T[]): ToComputed<T>;
   Nullif<T extends DbAny>(a: T, b: any): ToComputed<T | DbNull>;
-  Nullif(a: any, b: any): ToComputed<AnyResult>;
   OctetLength(value: any): ToComputed<NumberResult>;
-  Replace(value: OnlyStrings, occurrences: OnlyStrings, substitute: OnlyStrings): ToComputed<DbString>;
-  Replace(value: StringParam, occurrences: StringParam, substitute: StringParam): ToComputed<StringResult>;
-  Round(value: OnlyNumbers, places?: NumberParam): ToComputed<DbNumber>;
-  Round(value: NumberParam, places?: NumberParam): ToComputed<NumberResult>;
+  Replace<T extends StringParam>(value: T, occurrences: T, substitute: T): ToComputed<T>;
+  Round<T extends NumericParam>(value: T, places?: T): ToComputed<T>;
   Rtrim<T extends StringParam>(value: T, remove?: StringParam): ToComputed<T>;
-  Sign(value: OnlyNumbers): ToComputed<-1 | 0 | 1>;
+  Sign(value: Numeric): ToComputed<-1 | 0 | 1>;
   Sign(value: any): ToComputed<NumberResult>;
-  Substring<T extends StringParam>(value: T, start: NumberParam, length?: NumberParam): ToComputed<T>;
+  Substring<T extends StringParam>(value: T, start: NumericParam, length?: NumericParam): ToComputed<T>;
   Trim<T extends StringParam>(value: T, remove?: StringParam): ToComputed<T>;
   Unhex(hex: StringParam, ignore?: StringParam): ToComputed<BlobResult>;
   Unicode(value: OnlyStrings): ToComputed<DbNumber>;
   Unicode(value: StringParam): ToComputed<NumberResult>;
   Upper(value: OnlyStrings): ToComputed<DbString>;
   Upper(value: StringParam): ToComputed<StringResult>;
-  ToDate(): ToComputed<DbString>;
-  ToDate(time: CompatibleDate): ToComputed<DbString>;
+  ToDate(): ComputedString;
+  ToDate(time: CompatibleDate): ComputedString;
   ToDate(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
-  Time(): ToComputed<DbString>;
-  Time(time: CompatibleDate): ToComputed<DbString>;
+  Time(): ComputedString;
+  Time(time: CompatibleDate): ComputedString;
   Time(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
-  DateTime(): ToComputed<DbString>;
-  DateTime(time: CompatibleDate): ToComputed<DbString>;
+  DateTime(): ComputedString;
+  DateTime(time: CompatibleDate): ComputedString;
   DateTime(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
-  JulianDay(): ToComputed<DbNumber>;
-  JulianDay(time: CompatibleDate): ToComputed<DbNumber>;
+  JulianDay(): ComputedNumber;
+  JulianDay(time: CompatibleDate): ComputedNumber;
   JulianDay(time: DateParam, ...modifiers: StringParam[]): ToComputed<NumberResult>;
-  UnixEpoch(): ToComputed<DbNumber>;
-  UnixEpoch(time: CompatibleDate): ToComputed<DbNumber>;
+  UnixEpoch(): ComputedNumber;
+  UnixEpoch(time: CompatibleDate): ComputedNumber;
   UnixEpoch(time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
   StrfTime(format: StringParam, time: DateParam, ...modifiers: StringParam[]): ToComputed<StringResult>;
-  TimeDiff(start: CompatibleDate, end: CompatibleDate): ToComputed<DbString>;
+  TimeDiff(start: CompatibleDate, end: CompatibleDate): ComputedString;
   TimeDiff(start: DateParam, end: DateParam): ToComputed<StringResult>;
-  Acos(value: NumberParam): ToComputed<NumberResult>;
-  Acosh(value: NumberParam): ToComputed<NumberResult>;
-  Asin(value: NumberParam): ToComputed<NumberResult>;
-  Asinh(value: NumberParam): ToComputed<NumberResult>;
-  Atan(value: NumberParam): ToComputed<NumberResult>;
-  Atan2(b: NumberParam, a: NumberParam): ToComputed<NumberResult>;
-  Atanh(value: NumberParam): ToComputed<NumberResult>;
-  Ceil(value: OnlyNumbers): ToComputed<DbNumber>;
-  Ceil(value: NumberParam): ToComputed<NumberResult>;
-  Cos(value: OnlyNumbers): ToComputed<DbNumber>;
-  Cos(value: NumberParam): ToComputed<NumberResult>;
-  Cosh(value: NumberParam): ToComputed<NumberResult>;
-  Degrees(value: NumberParam): ToComputed<NumberResult>;
-  Exp(value: NumberParam): ToComputed<NumberResult>;
-  Floor(value: OnlyNumbers): ToComputed<DbNumber>;
-  Floor(value: NumberParam): ToComputed<NumberResult>;
-  Ln(value: NumberParam): ToComputed<NumberResult>;
-  Log(base: NumberParam, value: NumberParam): ToComputed<NumberResult>;
-  Mod(value: NumberParam, divider: NumberParam): ToComputed<NumberResult>;
+  Acos(value: NumericParam): ToComputed<NumberResult>;
+  Acosh(value: NumericParam): ToComputed<NumberResult>;
+  Asin(value: NumericParam): ToComputed<NumberResult>;
+  Asinh(value: NumericParam): ToComputed<NumberResult>;
+  Atan(value: NumericParam): ToComputed<NumberResult>;
+  Atan2(b: NumericParam, a: NumericParam): ToComputed<NumberResult>;
+  Atanh(value: NumericParam): ToComputed<NumberResult>;
+  Ceil<T extends NumericParam>(value: T): ToComputed<T>;
+  Cos<T extends NumericParam>(value: T): ToComputed<T>;
+  Cosh(value: NumericParam): ToComputed<NumberResult>;
+  Degrees(value: NumericParam): ToComputed<NumberResult>;
+  Exp(value: NumericParam): ToComputed<NumberResult>;
+  Floor<T extends NumericParam>(value: T): ToComputed<T>;
+  Ln(value: NumericParam): ToComputed<NumberResult>;
+  Log(base: NumericParam, value: NumericParam): ToComputed<NumberResult>;
+  Mod(value: NumericParam, divider: NumericParam): ToComputed<NumberResult>;
   Pi(): ToComputed<DbNumber>;
-  Power(value: NumberParam, exponent: NumberParam): ToComputed<NumberResult>;
-  Radians(value: NumberParam): ToComputed<NumberResult>;
-  Sin(value: OnlyNumbers): ToComputed<DbNumber>;
-  Sin(value: NumberParam): ToComputed<NumberResult>;
-  Sinh(value: NumberParam): ToComputed<NumberResult>;
-  Sqrt(value: NumberParam): ToComputed<NumberResult>;
-  Tan(value: NumberParam): ToComputed<NumberResult>;
-  Tanh(value: NumberParam): ToComputed<NumberResult>;
-  Trunc(value: OnlyNumbers): ToComputed<DbNumber>;
-  Trunc(value: NumberParam): ToComputed<NumberResult>;
+  Power(value: NumericParam, exponent: NumericParam): ToComputed<NumberResult>;
+  Radians(value: NumericParam): ToComputed<NumberResult>;
+  Sin(value: Numeric): ToComputed<DbNumber>;
+  Sin(value: NumericParam): ToComputed<NumberResult>;
+  Sinh(value: NumericParam): ToComputed<NumberResult>;
+  Sqrt(value: NumericParam): ToComputed<NumberResult>;
+  Tan(value: NumericParam): ToComputed<NumberResult>;
+  Tanh(value: NumericParam): ToComputed<NumberResult>;
+  Trunc<T extends NumericParam>(value: T): ToComputed<T>;
   ToJson(param: JsonParam | any[]): ToComputed<StringResult>;
   Extract(json: JsonParam | any[], path: StringParam): ToComputed<ExtractResult>;
   Object<T extends { [key: string]: AllowedJson }>(select: T): ToComputed<ToJson<T>>;
   ArrayLength(param: JsonParam | any[]): ToComputed<NumberResult>;
 
-  Plus(...args: OnlyNumbers[]): ToComputed<DbNumber>;
-  Plus(...args: NumberParam[]): ToComputed<NumberResult>;
-  Minus(...args: OnlyNumbers[]): ToComputed<DbNumber>;
-  Minus(...args: NumberParam[]): ToComputed<NumberResult>;
-  Divide(...args: OnlyNumbers[]): ToComputed<DbNumber>;
-  Divide(...args: NumberParam[]): ToComputed<NumberResult>;
-  Multiply(...args: OnlyNumbers[]): ToComputed<DbNumber>;
-  Multiply(...args: NumberParam[]): ToComputed<NumberResult>;
+  Plus<T extends NumericParam>(...args: T[]): ToComputed<T>;
+  Minus<T extends NumericParam>(...args: T[]): ToComputed<T>;
+  Divide<T extends NumericParam>(...args: T[]): ToComputed<T>;
+  Multiply<T extends NumericParam>(...args: T[]): ToComputed<T>;
 
-  Not(value: symbol | QueryCompareTypes | QueryCompareTypes[]): ToComputed<DbBoolean>;
-  Not(column: symbol, value: QueryCompareTypes | QueryCompareTypes[]): ToComputed<DbBoolean>;
-  Gt(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
-	Gt(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
-  Lt(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
-	Lt(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
-  Lte(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
-	Lte(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
-  Like(pattern: DbString | ComputedString | string): ToComputed<DbBoolean>;
-	Like(column: symbol, pattern: QueryCompareTypes): ToComputed<DbBoolean>;
-  Match(pattern: DbString | ComputedString | string): ToComputed<DbBoolean>;
-	Match(column: symbol, pattern: QueryCompareTypes): ToComputed<DbBoolean>;
-  Glob(pattern: DbString | ComputedString | string): ToComputed<DbBoolean>;
-	Glob(column: symbol, pattern: QueryCompareTypes): ToComputed<DbBoolean>;
-  Eq(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
-	Eq(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
+  Not(value: symbol | QueryCompareTypes | QueryCompareTypes[]): ComputedBoolean;
+  Not(column: symbol, value: QueryCompareTypes | QueryCompareTypes[]): ComputedBoolean;
+  Gt(value: symbol | QueryCompareTypes): ComputedBoolean;
+	Gt(column: symbol, value: QueryCompareTypes): ComputedBoolean;
+  Lt(value: symbol | QueryCompareTypes): ComputedBoolean;
+	Lt(column: symbol, value: QueryCompareTypes): ComputedBoolean;
+  Lte(value: symbol | QueryCompareTypes): ComputedBoolean;
+	Lte(column: symbol, value: QueryCompareTypes): ComputedBoolean;
+  Like(pattern: DbString | ComputedString | string): ComputedBoolean;
+	Like(column: symbol, pattern: QueryCompareTypes): ComputedBoolean;
+  Match(pattern: DbString | ComputedString | string): ComputedBoolean;
+	Match(column: symbol, pattern: QueryCompareTypes): ComputedBoolean;
+  Glob(pattern: DbString | ComputedString | string): ComputedBoolean;
+	Glob(column: symbol, pattern: QueryCompareTypes): ComputedBoolean;
+  Eq(value: symbol | QueryCompareTypes): ComputedBoolean;
+	Eq(column: symbol, value: QueryCompareTypes): ComputedBoolean;
 }
 
 export class Table extends BaseTable {

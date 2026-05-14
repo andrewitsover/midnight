@@ -291,6 +291,7 @@ const processQuery = (db, expression, firstResult) => {
   const original = {};
   for (const [key, value] of Object.entries(select)) {
     let parser;
+    let type;
     const request = requests.get(value);
     if (request.category !== 'Column') {
       const left = request.name === 'group' && maybeSymbols.has(value);
@@ -316,6 +317,14 @@ const processQuery = (db, expression, firstResult) => {
     }
     if (parser) {
       parsers[key] = parser;
+    }
+  }
+  const bigInt = Object.values(columnTypes).some(t => t === 'bigInt');
+  if (bigInt) {
+    for (const [key, value] of Object.entries(columnTypes)) {
+      if (value === 'integer') {
+        parsers[key] = (v) => v === null ? null : Number(v);
+      }
     }
   }
   const distinct = result.distinct ? 'distinct ' : '';
@@ -703,6 +712,7 @@ const processQuery = (db, expression, firstResult) => {
     columns: columnTypes,
     log: result.log,
     original,
+    bigInt,
     post
   }
 }

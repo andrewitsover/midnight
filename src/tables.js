@@ -4,6 +4,7 @@ import { nameToSql, temporal, removeCapital } from './utils.js';
 
 const types = [
   'Int',
+  'BigInt',
   'Real',
   'Text',
   'Blob',
@@ -697,6 +698,7 @@ const process = (Custom, key, classTable) => {
 const typeMap = {
   boolean: 'integer',
   json: 'blob',
+  bigInt: 'integer',
   ...Object.fromEntries(temporal.map(t => [removeCapital(t.name), 'text']))
 };
 

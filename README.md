@@ -376,7 +376,9 @@ See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for
 
 ## Creating tables
 
-In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, and ```Json``` is a JSONB blob. 
+In addition to the built-in SQLite types of ```Int```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Bool``` is stored in the database as a 1 or a 0, and ```Json``` is a JSONB blob. 
+
+```BigInt``` can be used instead of ```Int``` for reading and writing large integers. When a ```BigInt``` is used inside a JSON function such as ```group```, it is converted to text as JSON does not support ```BigInt```.
 
 All of the Temporal date types are also available and stored as strings internally. This includes ```Duration```, ```Instant```, ```PlainDate```, ```PlainDateTime```, ```PlainMonthDay```, ```PlainTime```, ```PlainYearMonth```, and ```ZonedDateTime```.
 

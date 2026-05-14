@@ -198,6 +198,9 @@ const jsonSelector = (type, sql) => {
   else if (type === 'json') {
     return `json(${sql})`;
   }
+  else if (type === 'bigInt') {
+    return `cast(${sql} as text)`;
+  }
   return sql;
 }
 

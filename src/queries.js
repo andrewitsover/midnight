@@ -744,11 +744,16 @@ const aggregate = (config) => {
   if (whereClause) {
     sql += ` where ${whereClause}`;
   }
+  let bigInt;
+  if (method !== 'count') {
+    bigInt = db.columns[table][distinct || column];
+  }
   const options = {
     query: sql,
     params: db.adjust(params),
     tx,
-    adjusted: true
+    adjusted: true,
+    bigInt
   };
   const rows = withLog(db, options, log);
   if (rows.length > 0) {
@@ -1164,11 +1169,25 @@ const all = (config) => {
   if (first) {
     sql += ' limit 1';
   }
+  let names;
+  if (columns) {
+    if (!Array.isArray(columns)) {
+      names = [columns];
+    }
+    else {
+      names = columns;
+    }
+  }
+  else {
+    names = Object.keys(db.columns[table]);
+  }
+  const bigInt = names.some(n => db.columns[table][n] === 'bigInt');
   const options = {
     query: sql,
     params: db.adjust(params),
     tx,
-    adjusted: true
+    adjusted: true,
+    bigInt
   };
   const rows = withLog(db, options, log);
   if (rows.length === 0) {
@@ -1179,20 +1198,21 @@ const all = (config) => {
   }
   const sample = rows[0];
   const keys = Object.keys(sample);
-  let parsers;
-  if (subquery) {
-    parsers = keys
-      .map(key => {
-        const type = subquery.columns[key];
-        const converter = db.getDbToJsConverter(type);
-        return [key, converter];
-      })
-      .filter(item => item[1] !== null);
-  }
-  else {
-    parsers = keys
-      .map(key => [key, db.getDbToJsConverter(db.columns[table][key])])
-      .filter(item => item[1] !== null);
+  const parsers = [];
+  const columnTypes = subquery ? subquery.columns : db.columns[table];
+  const intParser = (v) => v === null ? null : Number(v);
+  for (const key of keys) {
+    const type = columnTypes[key];
+    let parser;
+    if (bigInt && type === 'integer') {
+      parser = intParser;
+    }
+    else {
+      parser = db.getDbToJsConverter(type);
+    }
+    if (parser) {
+      parsers.push([key, parser]);
+    }
   }
   if (parsers.length > 0) {
     for (let i = 0; i < rows.length; i++) {

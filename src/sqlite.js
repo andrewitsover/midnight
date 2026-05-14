@@ -62,6 +62,10 @@ class Database {
         jsToDb: (v) => JSON.stringify(v),
         dbType: 'blob'
       },
+      {
+        name: 'bigInt',
+        dbType: 'integer'
+      },
       ...dateTypes
     ]);
     if (path) {
@@ -111,11 +115,12 @@ class Database {
   }
 
   query(expression, first) {
-    const { sql, params, log, post } = processQuery(this, expression, first);
+    const { sql, params, log, bigInt, post } = processQuery(this, expression, first);
     const options = {
       query: sql,
       params: this.adjust(params),
-      adjusted: true
+      adjusted: true,
+      bigInt
     };
     let rows;
     if (log) {
@@ -217,51 +222,6 @@ class Database {
     return adjusted;
   }
 
-  process(result, options) {
-    if (!options) {
-      return result;
-    }
-    if (result.length === 0) {
-      if (options.result === 'object' || options.result === 'value') {
-        return undefined;
-      }
-      return result;
-    }
-    let mapper;
-    if (options.result === 'object' || options.result === 'value') {
-      mapper = mapOne;
-    }
-    else {
-      mapper = mapMany;
-    }
-    if (options.result === 'value' || options.result === 'values') {
-      if (options.parse) {
-        const parsed = parse(result, options.types);
-        const values = toValues(parsed);
-        if (options.result === 'value') {
-          return values[0];
-        }
-        return values;
-      }
-      const values = toValues(result);
-      if (options.result === 'value') {
-        return values[0];
-      }
-      return values;
-    }
-    if (options.parse && !options.map) {
-      const parsed = parse(result, options.types);
-      if (options.result === 'object') {
-        return parsed[0];
-      }
-      return parsed;
-    }
-    if (options.map) {
-      return mapper(this, result, options.columns, options.types);
-    }
-    return result;
-  }
-
   migrate(sql) {
     this.begin();
     try {
@@ -306,7 +266,7 @@ class Database {
     inserted();
   }
 
-  cache(query) {
+  cache(query, bigInt) {
     if (typeof query !== 'string') {
       return query;
     }
@@ -317,6 +277,9 @@ class Database {
     let statement;
     try {
       statement = this.db.prepare(query);
+      if (bigInt) {
+        statement.setReadBigInts(true);
+      }
     }
     catch (e) {
       const message = `${e}\nQuery: ${query}`;
@@ -340,16 +303,15 @@ class Database {
   }
 
   all(props) {
-    let { query, params, options, adjusted } = props;
+    let { query, params, adjusted, bigInt } = props;
     if (params === null) {
       params = undefined;
     }
     if (!adjusted) {
       params = this.adjust(params);
     }
-    const statement = this.cache(query);
-    const rows = isEmpty(params) ? statement.all() : statement.all(params);
-    return this.process(rows, options);
+    const statement = this.cache(query, bigInt);
+    return isEmpty(params) ? statement.all() : statement.all(params);
   }
 
   exec(sql) {
