@@ -299,9 +299,9 @@ const insertMany = (args) => {
       }
     }
     verify(columns);
-    const hasBlob = db.tables[table]
-      .filter(c => columns.includes(c.name))
-      .some(c => c.type === 'blob');
+    const types = db.tables[table]
+      .filter(c => columns.includes(c.name));
+    const hasBlob = types.some(c => c.type === 'blob');
     if (hasBlob) {
       return batchInserts({
         tx,
@@ -310,17 +310,31 @@ const insertMany = (args) => {
         items
       });
     }
+    const bigInt = types.some(c => c.type === 'bigInt');
     let sql = `insert into ${table}(${columns.join(', ')}) select `;
     const select = columns.map(column => {
       if (columnTypes[column] === 'json') {
         return `jsonb(json_each.value ->> '${column}')`;
       }
+      if (columnTypes[column] === 'bigInt') {
+        return `cast(json_each.value ->> '${column}' as integer)`;
+      }
       return `json_each.value ->> '${column}'`;
     }).join(', ');
     sql += select;
     sql += ' from json_each($items)';
+    let adjusted;
+    if (bigInt) {
+      const replacer = (key, value) => {
+        return typeof value === 'bigint' ? value.toString() : value;
+      };
+      adjusted = JSON.stringify(items, replacer);
+    }
+    else {
+      adjusted = JSON.stringify(items);
+    }
     const params = {
-      items: JSON.stringify(items)
+      items: adjusted
     };
     const options = {
       query: sql,
