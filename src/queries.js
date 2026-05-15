@@ -118,15 +118,35 @@ const makeInsertSql = (args) => {
   return `insert into ${table}(${columns.map(c => nameToSql(c)).join(', ')}) values(${placeholders.join(', ')})`;
 }
 
-const processInsert = (db, sql, params, primaryKey, tx, log) => {
+const processInsert = (args) => {
+  const { db, table, sql, params, returning, tx, log } = args;
+  const primaryKey = db.getPrimaryKey(table);
+  const types = db.columns[table];
+  let query = sql;
+  let result;
+  if (returning) {
+    result = getParser(db, types);
+    query += ' returning *';
+  }
+  else {
+    result = getParser(db, types, [primaryKey]);
+    query += ` returning ${primaryKey}`;
+  }
   const options = {
-    query: sql,
+    query,
     params,
     tx,
-    adjusted: true
+    adjusted: true,
+    bigInt: result.bigInt
   };
-  const rows = withLog(db, options, log);
-  return rows[0][primaryKey];
+  const row = withLog(db, options, log).at(0);
+  if (result.parse) {
+    result.parse(row);
+  }
+  if (returning) {
+    return row;
+  }
+  return row[primaryKey];
 }
 
 const verify = (columns) => {
@@ -143,6 +163,7 @@ const upsert = (args) => {
     db,
     table,
     options,
+    returning,
     tx
   } = args;
   const getPlaceholder = createPlaceholder();
@@ -180,9 +201,15 @@ const upsert = (args) => {
   else {
     sql += ' on conflict do nothing';
   }
-  const primaryKey = db.getPrimaryKey(table);
-  sql += ` returning ${primaryKey}`;
-  return processInsert(db, sql, params, primaryKey, tx, log);
+  return processInsert({
+    db,
+    sql,
+    table,
+    params,
+    returning,
+    tx,
+    log
+  });
 }
 
 const insert = (args) => {
@@ -190,6 +217,7 @@ const insert = (args) => {
     db,
     table,
     values,
+    returning,
     tx
   } = args;
   const getPlaceholder = createPlaceholder();
@@ -210,9 +238,14 @@ const insert = (args) => {
     params,
     getPlaceholder
   });
-  const primaryKey = db.getPrimaryKey(table);
-  const query = `${sql} returning ${primaryKey}`;
-  return processInsert(db, query, params, primaryKey, tx);
+  return processInsert({
+    db,
+    sql,
+    table,
+    params,
+    returning,
+    tx
+  });
 }
 
 const batchInserts = (args) => {
@@ -220,40 +253,59 @@ const batchInserts = (args) => {
     tx,
     db,
     table,
-    items
+    items,
+    bigInt,
+    returning
   } = args;
   const getPlaceholder = createPlaceholder();
   const inserts = [];
+  const returned = [];
   for (const item of items) {
     const params = {};
     const adjusted = adjust(db, table, item);
-    const sql = makeInsertSql({
+    let sql = makeInsertSql({
       db,
       table,
       query: adjusted,
       params,
       getPlaceholder
     });
+    if (returning) {
+      sql += ' returning *';
+    }
     inserts.push({
       query: sql,
       params,
       tx,
-      adjusted: true
+      adjusted: true,
+      bigInt
     });
   }
+  const method = returning ? 'all' : 'run';
+  const insert = () => {
+    for (const insert of inserts) {
+      const result = db[method](insert);
+      if (returning) {
+        returned.push(result);
+      }
+    }
+  }
   if (db.inTransaction) {
-    inserts.forEach(insert => db.run(insert));
+    insert();
   }
   else {
     try {
       db.begin();
-      inserts.forEach(insert => db.run(insert));
+      insert();
       db.commit();
     }
     catch (e) {
       db.rollback();
       throw e;
     }
+  }
+  if (returning) {
+    return returned;
   }
 }
 
@@ -277,6 +329,7 @@ const insertMany = (args) => {
     db,
     table,
     items,
+    returning,
     tx
   } = args;
   if (items.length === 0) {
@@ -284,6 +337,7 @@ const insertMany = (args) => {
   }
   const columnTypes = db.columns[table];
   const result = shapes(items);
+  const returned = [];
   for (const items of result) {
     const first = items.at(0);
     const columns = Object.keys(first);
@@ -302,15 +356,26 @@ const insertMany = (args) => {
     const types = db.tables[table]
       .filter(c => columns.includes(c.name));
     const hasBlob = types.some(c => c.type === 'blob');
+    const { parse, bigInt } = getParser(db, columnTypes);
     if (hasBlob) {
-      return batchInserts({
+      const rows = batchInserts({
         tx,
         db,
         table,
-        items
+        items,
+        bigInt,
+        returning
       });
+      if (returning) {
+        if (parse) {
+          for (const row of rows) {
+            parse(row);
+          }
+        }
+        returned.push(...rows);
+      }
+      continue;
     }
-    const bigInt = types.some(c => c.type === 'bigInt');
     let sql = `insert into ${table}(${columns.join(', ')}) select `;
     const select = columns.map(column => {
       if (columnTypes[column] === 'json') {
@@ -336,13 +401,29 @@ const insertMany = (args) => {
     const params = {
       items: adjusted
     };
+    if (returning) {
+      sql += ' returning *';
+    }
     const options = {
       query: sql,
       params,
-      tx
+      tx,
+      bigInt
     };
-    db.run(options);
+    if (!returning) {
+      db.run(options);
+    }
+    else {
+      const rows = db.all(options);
+      if (parse) {
+        for (const row of rows) {
+          parse(row);
+        }
+      }
+      returned.push(...rows);
+    }
   }
+  return returned;
 }
 
 const toWhere = (options) => {
@@ -586,139 +667,6 @@ const makeJsonArray = (types, columns) => {
   sql += mapped.join(', ');
   sql += `))`;
   return sql;
-}
-
-const group = (config) => {
-  const {
-    db,
-    table,
-    method,
-    query,
-    tx,
-    subquery
-  } = config;
-  const getPlaceholder = createPlaceholder();
-  const { select, column, distinct, where, log, ...keywords } = query;
-  const alias = Object.keys(select || column || distinct).at(0);
-  verify(alias);
-  let having;
-  let adjustedWhere = where;
-  const whereKeys = where ? Object.keys(where) : [];
-  if (whereKeys.includes(method)) {
-    having = {
-      [method]: where[method]
-    };
-    adjustedWhere = {};
-    for (const [key, value] of Object.entries(where)) {
-      if (key === method) {
-        continue;
-      }
-      adjustedWhere[key] = value;
-    }
-    if (whereKeys.length === 1) {
-      adjustedWhere = null;
-    }
-  }
-  const hasKeywords = Object.keys(keywords).length > 0;
-  const by = Array.isArray(config.by) ? config.by : [config.by];
-  const params = {};
-  const computed = subquery ? null : db.computed[table][alias];
-  if (computed) {
-    throw Error(`the alias cannot have the same name as a computed field.`);
-  }
-  const columnTypes = db.columns[table];
-  const byClause = by.map(c => nameToSql(c)).join(', ');
-  const tableClause = subquery ? `(${subquery.sql})` : table;
-  let sql = `select ${byClause}, `;
-  if (method !== 'array') {
-    const options = column || distinct;
-    const field = nameToSql(options[alias]);
-    let body = '';
-    if (distinct) {
-      body += 'distinct ';
-    }
-    if (field === true) {
-      body += '*';
-    }
-    else {
-      body += field;
-    }
-    const actualMethod = method === 'sum' ? 'total' : method;
-    sql += `${actualMethod}(${body}) as ${method} from ${tableClause}`;
-  }
-  else {
-    const fields = select[alias];
-    if (fields === true) {
-      const columns = Object.keys(db.columns[table]);
-      sql += makeJsonArray(columnTypes, columns);
-    }
-    else {
-      sql += `json_group_array(${nameToSql(fields)})`;
-    }
-    sql += ` as ${method} from ${tableClause}`;
-  }
-  if (adjustedWhere) {
-    const clause = toWhere({
-      table,
-      query: adjustedWhere,
-      params,
-      getPlaceholder
-    });
-    if (clause) {
-      sql += ` where ${clause}`;
-    }
-  }
-  sql += ` group by ${byClause}`;
-  if (having) {
-    const clauses = toWhere({
-      query: having,
-      params,
-      getPlaceholder
-    });
-    if (clauses) {
-      sql += ` having ${clauses}`;
-    }
-  }
-  if (hasKeywords) {
-    sql += toKeywords({
-      keywords,
-      params,
-      getPlaceholder
-    });
-  }
-  const withTable = 'flyweight_alias';
-  sql = `with ${withTable} as (${sql}) select ${by.map(c => nameToSql(c)).join(', ')}, ${method} as ${alias} from ${withTable}`;
-  const options = {
-    query: sql,
-    params: db.adjust(params),
-    tx,
-    adjusted: true
-  };
-  const rows = withLog(db, options, log);
-  if (rows.length === 0) {
-    return rows;
-  }
-  let byParser;
-  if (subquery) {
-    byParser = db.getDbToJsConverter(subquery.columns[by]);
-  }
-  else {
-    byParser = db.getDbToJsConverter(db.columns[table][by]);
-  }
-  const selectColumn = select ? Object.keys(select).at(0) : null;
-  if (!byParser && !selectColumn) {
-    return rows;
-  }
-  const parser = db.getDbToJsConverter('json');
-  for (let i = 0; i < rows.length; i++) {
-    if (byParser) {
-      rows[i][by] = byParser(rows[i][by]);
-    }
-    if (selectColumn) {
-      rows[i][selectColumn] = parser(rows[i][selectColumn]);
-    }
-  }
-  return rows;
 }
 
 const aggregate = (config) => {
@@ -1110,6 +1058,37 @@ const match = (config) => {
   return rows;
 }
 
+const getParser = (db, types, columns) => {
+  const keys = columns ? columns : Object.keys(types);
+  const bigInt = keys.some(key => types[key] === 'bigInt');
+  const intParser = (v) => v === null ? null : Number(v);
+  const parsers = [];
+  for (const key of keys) {
+    const type = types[key];
+    if (bigInt && type === 'integer') {
+      parsers.push([key, intParser]);
+    }
+    else {
+      const parser = db.getDbToJsConverter(type);
+      if (parser) {
+        parsers.push([key, parser]);
+      }
+    }
+  }
+  let parse;
+  if (parsers.length > 0) {
+    parse = (row) => {
+      for (const [key, parser] of parsers) {
+        row[key] = parser(row[key]);
+      }
+    }
+  }
+  return {
+    parse,
+    bigInt
+  }
+}
+
 const all = (config) => {
   const {
     db,
@@ -1183,19 +1162,20 @@ const all = (config) => {
   if (first) {
     sql += ' limit 1';
   }
-  let names;
+  let keys;
   if (columns) {
     if (!Array.isArray(columns)) {
-      names = [columns];
+      keys = [columns];
     }
     else {
-      names = columns;
+      keys = columns;
     }
   }
   else {
-    names = Object.keys(db.columns[table]);
+    keys = Object.keys(db.columns[table]);
   }
-  const bigInt = names.some(n => db.columns[table][n] === 'bigInt');
+  const columnTypes = subquery ? subquery.columns : db.columns[table];
+  const { parse, bigInt } = getParser(db, columnTypes, keys);
   const options = {
     query: sql,
     params: db.adjust(params),
@@ -1210,30 +1190,9 @@ const all = (config) => {
     }
     return rows;
   }
-  const sample = rows[0];
-  const keys = Object.keys(sample);
-  const parsers = [];
-  const columnTypes = subquery ? subquery.columns : db.columns[table];
-  const intParser = (v) => v === null ? null : Number(v);
-  for (const key of keys) {
-    const type = columnTypes[key];
-    let parser;
-    if (bigInt && type === 'integer') {
-      parser = intParser;
-    }
-    else {
-      parser = db.getDbToJsConverter(type);
-    }
-    if (parser) {
-      parsers.push([key, parser]);
-    }
-  }
-  if (parsers.length > 0) {
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      for (const [key, parser] of parsers) {
-        row[key] = parser(row[key]);
-      }
+  if (parse) {
+    for (const row of rows) {
+      parse(row);
     }
   }
   if (returnValue) {
@@ -1294,7 +1253,6 @@ export {
   update,
   upsert,
   exists,
-  group,
   aggregate,
   match,
   all,

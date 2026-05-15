@@ -124,11 +124,11 @@ It is a good idea to set any SQLite database that you have created to ```pragma 
 
 ## The API
 
-Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```delete``` methods available to it.
+Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, ```returnInsert```, ```returnInsertMany```, ```returnUpsert```, and ```delete``` methods available to it.
 
 ### Insert
 
-```insert``` inserts a row into the database. For batch inserts you can use ```insertMany```, which takes an array of objects.
+```insert``` inserts a row into the database. For batch inserts you can use ```insertMany```, which takes an array of objects. ```returnInsert``` and ```returnInsertMany``` return all of the inserted objects.
 
 ```js
 const id = db.moons.insert({
@@ -165,7 +165,7 @@ All of the built-in SQLite functions are available, in addition to the mathemati
 
 ### Upsert
 
-```upsert``` will update the row if the target's uniqueness contraint is violated by the insert. If ```target``` or ```set``` are not provided, the upsert will do nothing when there is a conflict. ```upsert``` returns the primary key of the inserted or updated row.
+```upsert``` will update the row if the target's uniqueness contraint is violated by the insert. If ```target``` or ```set``` are not provided, the upsert will do nothing when there is a conflict. ```upsert``` returns the primary key of the inserted or updated row. ```returnUpsert``` returns the entire row.
 
 ```js
 const id = db.forests.upsert({

@@ -28,9 +28,12 @@ const methodNames = new Set([
 
 const basic = {
   insert: (args) => (values) => insert({ values, ...args }),
+  returnInsert: (args) => (values) => insert({ values, ...args, returning: true }),
   insertMany: (args) => (items) => insertMany({ items, ...args }),
+  returnInsertMany: (args) => (items) => insertMany({ items, ...args, returning: true }),
   update: (args) => (options) => update({ options, ...args }),
   upsert: (args) => (options) => upsert({ options, ...args }),
+  returnUpsert: (args) => (options) => upsert({ options, ...args, returning: true }),
   exists: (args) => (query, config) => exists({ query, ...config, ...args }),
   count: (args) => (query, config) => aggregate({ query, method: 'count', ...config, ...args }),
   avg: (args) => (query, config) => aggregate({ query, method: 'avg', ...config, ...args }),

@@ -512,9 +512,12 @@ interface VirtualQueries<T, E, W> {
 
 interface WriteQueries<T, I, W, R> {
   insert(params: I): R;
+  returnInsert(params: I) : T;
   insertMany(params: Array<I>): void;
+  returnInsertMany(params: Array<I>): T[];
   update(options: UpdateQuery<W, I>): number;
   upsert<K extends keyof T>(options: UpsertQuery<I, K>): R;
+  returnUpsert<K extends keyof T>(options: UpsertQuery<I, K>): T;
   delete(params?: W): number;
 }
 
