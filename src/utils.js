@@ -210,19 +210,19 @@ const dateTypes = temporal.map(t => removeCapital(t.name));
 
 const jsonSelector = (type, sql) => {
   if (type === 'boolean') {
-    return `(case when ${sql} = 1 then json('true') when ${sql} = 0 then json('false') end)`;
+    return `(case when ${sql} is null then ${sql} else (case when ${sql} = 1 then json('true') when ${sql} = 0 then json('false') end) end)`;
   }
   else if (type === 'json') {
-    return `json(${sql})`;
+    return `(case when ${sql} is null then ${sql} else json(${sql}) end)`;
   }
   else if (type === 'bigInt') {
-    return `json_object('$bigInt', cast(${sql} as text))`;
+    return `(case when ${sql} is null then null else json_object('$bigInt', cast(${sql} as text)) end)`;
   }
   else if (type === 'blob') {
-    return `json_object('$blob', hex(${sql}))`;
+    return `(case when ${sql} is null then null else json_object('$blob', hex(${sql})) end)`;
   }
   else if (dateTypes.includes(type)) {
-    return `json_object('$${type}', ${sql})`;
+    return `(case when ${sql} is null then null else json_object('$${type}', ${sql}) end)`;
   }
   return sql;
 }
