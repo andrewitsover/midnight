@@ -116,6 +116,17 @@ const clouds = db.clouds.many();
 console.log(clouds);
 ```
 
+For ```Temporal``` support in a JavaScript project, add a ```jsconfig.json``` file in the root folder of the project with the following options:
+
+```json
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "checkJs": false
+  }
+}
+```
+
 To run it, you can use ```node main.js``` from the project root directory.
 
 It is a good idea to set any SQLite database that you have created to ```pragma journal_mode=WAL```. You can do this yourself after the database has been created. See [here](https://sqlite.org/wal.html) for more details.
