@@ -216,13 +216,13 @@ const jsonSelector = (type, sql) => {
     return `(case when ${sql} is null then ${sql} else json(${sql}) end)`;
   }
   else if (type === 'bigInt') {
-    return `(case when ${sql} is null then null else json_object('$bigInt', cast(${sql} as text)) end)`;
+    return `(case when ${sql} is null then ${sql} else json_object('$bigInt', cast(${sql} as text)) end)`;
   }
   else if (type === 'blob') {
-    return `(case when ${sql} is null then null else json_object('$blob', hex(${sql})) end)`;
+    return `(case when ${sql} is null then ${sql} else json_object('$blob', hex(${sql})) end)`;
   }
   else if (dateTypes.includes(type)) {
-    return `(case when ${sql} is null then null else json_object('$${type}', ${sql}) end)`;
+    return `(case when ${sql} is null then ${sql} else json_object('$${type}', ${sql}) end)`;
   }
   return sql;
 }
