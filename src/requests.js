@@ -12,8 +12,12 @@ const addParam = (options) => {
     getPlaceholder
   } = options;
   const placeholder = getPlaceholder();
-  params[placeholder] = db.jsToDb(value);
-  return `$${placeholder}`;
+  const result = db.jsToDb(value);
+  params[placeholder] = result.value;
+  return {
+    type: result.type,
+    sql: `$${placeholder}`
+  }
 }
 
 const getParamType = (param) => {
@@ -100,12 +104,13 @@ const processArg = (options) => {
   }
   let sql;
   if (params !== undefined) {
-    sql = addParam({
+    const result = addParam({
       db,
       params,
       value: arg,
       getPlaceholder
     });
+    sql = result.sql;
   }
   else {
     sql = toLiteral(arg);
@@ -127,6 +132,7 @@ const getObjectBody = (options) => {
     root
   } = options;
   const items = [];
+  const types = [];
   for (const [key, value] of Object.entries(select)) {
     items.push(`'${key}'`);
     if (typeof value === 'symbol') {
@@ -138,19 +144,24 @@ const getObjectBody = (options) => {
         getPlaceholder,
         root
       });
+      types.push(valueArg.type);
       items.push(valueArg.sql);
     }
     else {
-      const statement = addParam({
+      const result = addParam({
         db,
         params,
         value,
         getPlaceholder
       });
-      items.push(statement);
+      types.push(result.type);
+      items.push(result.sql);
     }
   }
-  return items.join(', ');
+  return {
+    sql: items.join(', '),
+    types
+  }
 }
 
 const processWindow = (options) => {
@@ -339,6 +350,7 @@ const processMethod = (options) => {
   }
   if (['json_group_array', 'json_group_object', 'json_object'].includes(name)) {
     const isWindow = method.name === 'windowGroup';
+    let otherTypes;
     if (name === 'json_group_array') {
       let sql;
       let valueArg;
@@ -357,7 +369,7 @@ const processMethod = (options) => {
         }
       }
       if (valueArg) {
-        const body = processArg({
+        const result = processArg({
           db,
           arg: valueArg,
           params,
@@ -366,17 +378,19 @@ const processMethod = (options) => {
           getPlaceholder,
           root
         });
-        sql = `${name}(${body.sql})`;
+        otherTypes = [result.type];
+        sql = `${name}(${result.sql})`;
       }
       else {
-        const body = getObjectBody({
+        const result = getObjectBody({
           db,
           select: selectArg,
           params,
           requests,
           root
         });
-        sql = `${name}(json_object(${body}))`;
+        otherTypes = result.types;
+        sql = `${name}(json_object(${result.sql}))`;
       }
       if (isWindow) {
         const clause = processWindow({
@@ -402,7 +416,8 @@ const processMethod = (options) => {
       }
       return {
         sql: sql.trim(),
-        type
+        type,
+        otherTypes
       };
     }
     else if (name === 'json_group_object') {
@@ -432,6 +447,7 @@ const processMethod = (options) => {
         getPlaceholder,
         root
       });
+      otherTypes = [keyArg.type, valueArg.type];
       let windowClause = '';
       if (isWindow) {
         windowClause = processWindow({
@@ -446,11 +462,12 @@ const processMethod = (options) => {
       const sql = `${name}(${keyArg.sql}, ${valueArg.sql})${windowClause}`;
       return {
         sql,
-        type
+        type,
+        otherTypes
       };
     }
     else {
-      const body = getObjectBody({
+      const result = getObjectBody({
         db,
         select: arg,
         params,
@@ -458,10 +475,12 @@ const processMethod = (options) => {
         getPlaceholder,
         root
       });
-      const sql = `${name}(${body})`;
+      otherTypes = result.types;
+      const sql = `${name}(${result.sql})`;
       return {
         sql,
-        type
+        type,
+        otherTypes
       };
     }
   }
@@ -710,17 +729,17 @@ const toWhere = (options) => {
     }
     else {
       if (params) {
-        const statement = addParam({
+        const result = addParam({
           db,
           params,
           value,
           getPlaceholder
         });
         if (Array.isArray(value)) {
-          statements.push(`${selector} in (select json_each.value from json_each(${statement}))`);
+          statements.push(`${selector} in (select json_each.value from json_each(${result.sql}))`);
         }
         else {
-          statements.push(`${selector} = ${statement}`);
+          statements.push(`${selector} = ${result.sql}`);
         }
       }
       else {

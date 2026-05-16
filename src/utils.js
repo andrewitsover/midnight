@@ -191,30 +191,6 @@ const addAlias = (clause, alias) => {
   return result;
 }
 
-const jsonSelector = (type, sql) => {
-  if (type === 'boolean') {
-    return `(case when ${sql} = 1 then json('true') when ${sql} = 0 then json('false') end)`;
-  }
-  else if (type === 'json') {
-    return `json(${sql})`;
-  }
-  else if (type === 'bigInt') {
-    return `cast(${sql} as text)`;
-  }
-  return sql;
-}
-
-const nameToSql = (column, alias) => {
-  let name = column;
-  if (reserved.has(column)) {
-    name = `[${name}]`;
-  }
-  if (alias) {
-    return `${alias}.${name}`;
-  }
-  return name;
-}
-
 const temporal = [
   Temporal.Duration,
   Temporal.Instant,
@@ -228,6 +204,38 @@ const temporal = [
 
 const removeCapital = (name) => {
   return name.at(0).toLowerCase() + name.substring(1);
+}
+
+const dateTypes = temporal.map(t => removeCapital(t.name));
+
+const jsonSelector = (type, sql) => {
+  if (type === 'boolean') {
+    return `(case when ${sql} = 1 then json('true') when ${sql} = 0 then json('false') end)`;
+  }
+  else if (type === 'json') {
+    return `json(${sql})`;
+  }
+  else if (type === 'bigInt') {
+    return `json_object('$bigInt', cast(${sql} as text))`;
+  }
+  else if (type === 'blob') {
+    return `json_object('$blob', hex(${sql}))`;
+  }
+  else if (dateTypes.includes(type)) {
+    return `json_object('$${type}', ${sql})`;
+  }
+  return sql;
+}
+
+const nameToSql = (column, alias) => {
+  let name = column;
+  if (reserved.has(column)) {
+    name = `[${name}]`;
+  }
+  if (alias) {
+    return `${alias}.${name}`;
+  }
+  return name;
 }
 
 export {

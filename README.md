@@ -71,7 +71,7 @@ This syntax allows you to perform queries that usually aren't possible in ORMs.
 
 ### Prerequists
 
-Make sure you have installed [Node.js](https://nodejs.org/en) version 22.13.1 or higher.
+Make sure you have installed [Node.js](https://nodejs.org/en) version 26.1.0 or higher.
 
 ### Creating a project
 
@@ -117,8 +117,6 @@ console.log(clouds);
 ```
 
 To run it, you can use ```node main.js``` from the project root directory.
-
-See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for a more complete setup.
 
 It is a good idea to set any SQLite database that you have created to ```pragma journal_mode=WAL```. You can do this yourself after the database has been created. See [here](https://sqlite.org/wal.html) for more details.
 
@@ -378,7 +376,7 @@ See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for
 
 In addition to the built-in SQLite types of ```Int```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Bool``` is stored in the database as a 1 or a 0, and ```Json``` is a JSONB blob. 
 
-```BigInt``` can be used instead of ```Int``` for reading and writing large integers. When a ```BigInt``` is used inside a JSON function such as ```group```, it is converted to text as JSON does not support ```BigInt```.
+```BigInt``` can be used instead of ```Int``` for reading and writing large integers.
 
 All of the Temporal date types are also available and stored as strings internally. This includes ```Duration```, ```Instant```, ```PlainDate```, ```PlainDateTime```, ```PlainMonthDay```, ```PlainTime```, ```PlainYearMonth```, and ```ZonedDateTime```.
 

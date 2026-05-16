@@ -655,20 +655,6 @@ const exists = (config) => {
   return undefined;
 }
 
-const makeJsonArray = (types, columns) => {
-  let sql = `json_group_array(json_object(`;
-  const mapped = columns.map(column => {
-    let selector = column;
-    if (types) {
-      selector = jsonSelector(types[column], column);
-    }
-    return `'${column}', ${selector}`;
-  });
-  sql += mapped.join(', ');
-  sql += `))`;
-  return sql;
-}
-
 const aggregate = (config) => {
   const {
     db,

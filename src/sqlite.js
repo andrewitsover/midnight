@@ -195,20 +195,45 @@ class Database {
   }
 
   jsToDb(value) {
-    if (value === undefined) {
-      return null;
+    if (value === undefined || value === null) {
+      return { value: null };
     }
-    if (value === null || typeof value === 'string' || typeof value === 'number' || value instanceof Uint8Array) {
-      return value;
+    const type = typeof value;
+    if (type === 'string') {
+      return {
+        type: 'text',
+        value
+      }
+    }
+    if (type === 'number') {
+      return {
+        type: 'integer',
+        value
+      }
+    }
+    if (type === 'bigint') {
+      return {
+        type: 'bigint',
+        value
+      }
+    }
+    if (value instanceof Uint8Array) {
+      return {
+        type: 'blob',
+        value
+      }
     }
     else {
       for (const customType of Object.values(this.customTypes)) {
         if (customType.valueTest && customType.valueTest(value)) {
-          return customType.jsToDb(value);
+          return {
+            type: customType.name,
+            value: customType.jsToDb(value)
+          }
         }
       }
     }
-    return value;
+    return { value };
   }
 
   adjust(params) {
@@ -217,7 +242,8 @@ class Database {
     }
     const adjusted = {};
     for (const [key, value] of Object.entries(params)) {
-      adjusted[key] = this.jsToDb(value);
+      const result = this.jsToDb(value);
+      adjusted[key] = result.value;
     }
     return adjusted;
   }

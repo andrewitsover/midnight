@@ -1,6 +1,36 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
-import { addAlias, nameToSql, createPlaceholder } from './utils.js';
+import { addAlias, nameToSql, createPlaceholder, temporal, removeCapital } from './utils.js';
+
+const dateParsers = temporal.map(type => {
+  const key = removeCapital(type.name);
+  const parser = (t) => type.from(t);
+  return [key, parser];
+})
+
+const textParsers = {
+  bigInt: (t) => BigInt(t),
+  blob: (t) => Uint8Array.fromHex(t),
+  ...Object.fromEntries(dateParsers)
+}
+
+const reviver = (key, value) => {
+  if (value !== null && typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 1) {
+      const key = keys.at(0);
+      if (key.startsWith('$') && key.length > 1) {
+        const type = key.substring(1);
+        const text = value[key];
+        const parse = textParsers[type];
+        if (parse) {
+          return parse(text);
+        }
+      }
+    }
+  }
+  return value;
+}
 
 const makeProxy = (options) => {
   const {
@@ -307,7 +337,18 @@ const processQuery = (db, expression, firstResult) => {
       request.type = valueArg.type;
       columnTypes[key] = valueArg.type;
       statements.push(`${valueArg.sql} as ${nameToSql(key)}`);
-      parser = db.getDbToJsConverter(valueArg.type);
+      let revive = false;
+      if (valueArg.otherTypes) {
+        revive = valueArg
+          .otherTypes
+          .some(t => t && !['text', 'integer', 'real', 'boolean'].includes(t));
+      }
+      if (revive && valueArg.type === 'json') {
+        parser = (v) => v === null ? null : JSON.parse(v, reviver);
+      }
+      else {
+        parser = db.getDbToJsConverter(valueArg.type);
+      }
     }
     else {
       statements.push(`${request.selector} as ${nameToSql(key)}`);

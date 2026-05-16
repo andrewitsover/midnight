@@ -281,7 +281,7 @@ interface ComputeMethods {
   minus<T extends NumericParam>(...args: T[]): ToDbType<T>;
   divide<T extends NumericParam>(...args: T[]): ToDbType<T>;
   multiply<T extends NumericParam>(...args: T[]): ToDbType<T>;
-  object<T extends { [key: string]: AllowedJson }>(select: T): ToJson<T>;
+  object<T extends { [key: string]: AllowedJson }>(select: T): T;
   arrayLength(param: JsonParam | any[]): NumberResult;
   highlight(column: DbString, before: string, after: string): DbString;
 }
@@ -423,12 +423,12 @@ interface SymbolMethods {
   firstValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   lastValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   nthValue<T extends DbAny>(options: WindowOptions & { expression: T, row: number | DbNumber }): T;
-  group<T extends AllowedJson>(select: T): ToJson<T>[];
-  group<T>(select: ToDbInterface<T>): ToJson<T>[];
-  group<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
-  windowGroup<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
-  windowGroup<T>(options: WindowOptions & { select: ToDbInterface<T> }): ToJson<T>[];
-  windowGroup<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
+  group<T extends AllowedJson>(select: T): T[];
+  group<T>(select: ToDbInterface<T>): T[];
+  group<T extends AllowedJson>(key: DbString, value: T): Record<string, T>;
+  windowGroup<T extends AllowedJson>(options: WindowOptions & { select: T }): T[];
+  windowGroup<T>(options: WindowOptions & { select: ToDbInterface<T> }): T[];
+  windowGroup<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, T>;
 }
 
 interface Compute<T> {
@@ -980,7 +980,7 @@ type AnyNullType = DbNull | ComputedNull;
 type DbAny = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType;
 type AnyParam = DbAny | AnyNullType;
 
-type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
+type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
 type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
 type Numeric = number | BigInt | AnyNumberType | AnyBigIntType;
