@@ -1,6 +1,22 @@
 import { compareMethods, computeMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
 import { nameToSql, temporal, removeCapital } from './utils.js';
+import { createHash } from 'node:crypto';
+
+const toHash = (table, sql) => {
+  table = table.replaceAll(/([a-z])([A-Z])/gm, '$1_$2').toLowerCase();
+  if (typeof sql === 'object') {
+    sql = Object
+      .values(sql)
+      .filter(v => v !== undefined)
+      .join('_');
+  }
+  const hash = createHash('sha256')
+    .update(sql)
+    .digest('hex')
+    .slice(0, 8);
+  return `${table}_${hash}`;
+}
 
 const types = [
   'Int',
@@ -508,7 +524,11 @@ const process = (Custom, key, classTable) => {
         throw Error('invalid check constraint');
       }
     }
-    table.checks.push(statements.join(' and '));
+    const joined = statements.join(' and ');
+    table.checks.push({
+      name: toHash(table.name, joined),
+      sql: joined
+    });
   }
   const getColumn = (key, value) => {
     if (value === undefined) {
@@ -680,7 +700,10 @@ const process = (Custom, key, classTable) => {
           where: request.checks,
           requests: Table.requests
         });
-        table.checks.push(where);
+        table.checks.push({
+          name: toHash(table.name, where),
+          sql: where
+        });
       }
       else {
         const column = getColumn(null, request.column);
@@ -806,33 +829,9 @@ const columnToSql = (column) => {
   return `${nameToSql(column.name)} ${dbType}${notNull}${defaultClause}`;
 }
 
-const toHash = (index) => {
-  const replacers = [
-    [/([a-z])([A-Z])/gm, '$1_$2'],
-    [/\s+/gm, '_'],
-    ['<=', 'lte'],
-    ['>=', 'gte'],
-    ['=', 'eq'],
-    ['>', 'gt'],
-    ['<', 'lte'],
-    [/[^a-z_0-9]/gmi, '']
-  ];
-  let hash = Object
-    .values(index)
-    .filter(v => v !== undefined)
-    .join('_');
-  for (const replacer of replacers) {
-    const [from, to] = replacer;
-    hash = hash.replaceAll(from, to);
-  }
-  return hash.toLowerCase();
-}
-
 const indexToSql = (table, index) => {
   const { type, on, where } = index;
-  const hash = toHash(index);
-  const adjusted = table.replaceAll(/([a-z])([A-Z])/gm, '$1_$2');
-  const indexName = `${adjusted}_${hash}`;
+  const indexName = toHash(table, index);
   let sql = `create `;
   if (type === 'unique') {
     sql += 'unique ';
@@ -878,7 +877,7 @@ const toSql = (table) => {
   }
   if (checks.length > 0) {
     for (const check of checks) {
-      sql += `  check (${check}),\n`;
+      sql += `  constraint ${check.name} check (${check.sql}),\n`;
     }
   }
   sql = sql.replace(/,(\s+)$/, '$1');

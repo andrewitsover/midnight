@@ -19,7 +19,18 @@ const recreate = (table, current) => {
   return sql;
 }
 
-const toString = (column) => Object.values(column).join('');
+const toString = (column, ignoreNull) => {
+  let item;
+  if (!ignoreNull) {
+    item = column;
+  }
+  else {
+    const { notNull, ...rest } = column;
+    item = rest;
+  }
+  return Object.values(item).join('');
+}
+
 const attributesEqual = (c1, c2) => {
   const clone1 = structuredClone(c1);
   const clone2 = structuredClone(c2);
@@ -43,10 +54,6 @@ const toMigration = (existing, updated) => {
     if (!current) {
       continue;
     }
-    const removeChecks = current
-      .checks
-      .filter(c => !table.checks.includes(c))
-      .length > 0;
     const removePrimary = current
       .primaryKeys
       .filter(k => !table.primaryKeys.includes(k))
@@ -61,15 +68,36 @@ const toMigration = (existing, updated) => {
     for (const column of table.columns) {
       const existing = current.columns.find(c => c.name === column.name);
       if (existing) {
-        if (toString(existing) !== toString(column)) {
+        if (toString(existing, true) !== toString(column, true)) {
           alterColumns = true;
           break;
         }
       }
     }
-    if (removeChecks || removePrimary || removeForeign || alterColumns) {
+    if (removePrimary || removeForeign || alterColumns) {
       migrations += recreate(table, current);
       continue;
+    }
+    for (const column of table.columns) {
+      const existing = current.columns.find(c => c.name === column.name);
+      if (existing) {
+        if (existing.notNull !== column.notNull) {
+          const sql = column.notNull ? 'set not null' : 'drop not null';
+          migrations += `alter table ${table.name} alter column ${column.name} ${sql};\n`;
+        }
+      }
+    }
+    for (const check of table.checks) {
+      const existing = current.checks.find(c => c.name === check.name);
+      if (!existing) {
+        migrations += `alter table ${table.name} add constraint ${check.name} check (${check.sql});\n`;
+      }
+    }
+    for (const check of current.checks) {
+      const updated = table.checks.find(c => c.name === check.name);
+      if (!updated) {
+        migrations += `alter table ${table.name} drop constraint ${check.name};\n`;
+      }
     }
     const addColumns = table
       .columns
@@ -94,14 +122,14 @@ const toMigration = (existing, updated) => {
       const sql = `alter table ${table.name} add column ${clause};\n`;
       migrations += sql;
     }
-    const existingHashes = current.indexes.map(index => toHash(index));
-    const updatedHashes = table.indexes.map(index => toHash(index));
+    const existingHashes = current.indexes.map(index => toHash(table.name, index));
+    const updatedHashes = table.indexes.map(index => toHash(table.name, index));
     const removeIndexes = existingHashes.filter(h => !updatedHashes.includes(h));
     for (const index of removeIndexes) {
-      migrations += `drop index ${table.name}_${index};\n`;
+      migrations += `drop index ${index};\n`;
     }
     for (const index of table.indexes) {
-      const hash = toHash(index);
+      const hash = toHash(table.name, index);
       const existing = existingHashes.find(h => h === hash);
       if (!existing) {
         migrations += indexToSql(table.name, index);
