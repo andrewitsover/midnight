@@ -1,7 +1,6 @@
 import { makeClient } from './proxy.js';
-import { toValues, temporal, removeCapital } from './utils.js';
+import { temporal, removeCapital } from './utils.js';
 import { parse } from './parsers.js';
-import { mapOne, mapMany } from './map.js';
 import { processQuery } from './symbols.js';
 import { process, toSql } from './tables.js';
 import toMigration from './migrate.js';
