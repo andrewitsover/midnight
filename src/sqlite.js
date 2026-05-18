@@ -5,6 +5,7 @@ import { processQuery } from './symbols.js';
 import { process, toSql } from './tables.js';
 import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
+import functions from './functions.js';
 
 const dbTypes = {
   integer: true,
@@ -69,6 +70,9 @@ class Database {
     ]);
     if (path) {
       this.db = new DatabaseSync(path, options);
+      for (const item of functions) {
+        this.db.function(item.name, { deterministic: true }, item.lambda);
+      }
     }
   }
 

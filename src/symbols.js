@@ -10,7 +10,7 @@ const dateParsers = temporal.map(type => {
 
 const textParsers = {
   bigInt: (t) => BigInt(t),
-  blob: (t) => Uint8Array.fromHex(t),
+  blob: (t) => Uint8Array.fromBase64(t),
   ...Object.fromEntries(dateParsers)
 }
 

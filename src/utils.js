@@ -219,7 +219,7 @@ const jsonSelector = (type, sql) => {
     return `(case when ${sql} is null then ${sql} else json_object('$bigInt', cast(${sql} as text)) end)`;
   }
   else if (type === 'blob') {
-    return `(case when ${sql} is null then ${sql} else json_object('$blob', hex(${sql})) end)`;
+    return `(case when ${sql} is null then ${sql} else json_object('$blob', base64(${sql})) end)`;
   }
   else if (dateTypes.includes(type)) {
     return `(case when ${sql} is null then ${sql} else json_object('$${type}', ${sql}) end)`;

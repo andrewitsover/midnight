@@ -85,6 +85,9 @@ const toLiteral = (value) => {
   if (exists) {
     return value.toString();
   }
+  if (type === 'object') {
+    return `(${value.function})`;
+  }
   return value;
 }
 
@@ -227,19 +230,14 @@ class BaseTable {
   }
 
   get Now() {
-    const map = {
-      Instant: () => Temporal.Now.instant().toString(),
-      PlainDate: () => Temporal.Now.plainDateISO().toString(),
-      PlainDateTime: () => Temporal.Now.plainDateTimeISO().toString(),
-      ZonedDateTime: () => Temporal.Now.zonedDateTimeISO().toString()
-    };
     return new Proxy(this, {
       get(target, prop, receiver) {
-        const lambda = map[prop];
-        if (!lambda) {
-          throw Error('invalid date type');
-        }
-        return target.Function(target[prop], lambda);
+        const symbol = target[prop];
+        const column = Table.requests.get(symbol);
+        const type = column.type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+        const name = `temporal_now_${type}()`;
+        column.default = { function: name };
+        return symbol;
       }
     });
   }
