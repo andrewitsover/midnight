@@ -130,6 +130,20 @@ class Trigram {
 class BaseTable {
   static requests = new Map();
   static classes = new Map();
+
+  static get Null() {
+    if (!this.StaticProxy) {
+      this.StaticProxy = new Proxy(this, {
+        get(target, prop, receiver) {
+          const value = Reflect.get(target, prop, receiver);
+          const request = BaseTable.requests.get(value);
+          request.notNull = false;
+          return value;
+        }
+      });
+    }
+  }
+
   get Null() {
     if (!this.Proxy) {
       this.Proxy = new Proxy(this, {
@@ -270,10 +284,18 @@ class BaseTable {
     return symbol;
   }
 
-  Function(type, lambda) {
-    const column = Table.requests.get(type);
-    column.lambda = lambda;
-    return type;
+  Primary(symbol) {
+    const request = Table.requests.get(symbol);
+    let column;
+    if (request.category === 'Column') {
+      column = request;
+    }
+    else if (request.category === 'Function') {
+      column = request.column;
+    }
+    column.primaryKey = true;
+    column.notNull = true;
+    return symbol;
   }
 
   get Unindexed() {
@@ -383,6 +405,32 @@ class BaseTable {
     const symbol = Symbol();
     Table.requests.set(symbol, request);
     return symbol;
+  }
+}
+
+for (const type of types) {
+  for (const modifier of modifiers) {
+    const [word, props] = modifier;
+    let dbType = removeCapital(type);
+    if (dbType === 'bool') {
+      dbType = 'boolean';
+    }
+    else if (dbType === 'int') {
+      dbType = 'integer';
+    }
+    const key = `${type}${word}`;
+    Object.defineProperty(BaseTable, key, {
+      get: function() {
+        const symbol = Symbol();
+        Table.requests.set(symbol, {
+          category: 'FunctionType',
+          type: dbType,
+          notNull: true,
+          ...props
+        });
+        return symbol;
+      }
+    });
   }
 }
 
@@ -543,7 +591,12 @@ const process = (Custom, key, classTable) => {
       };
     }
     const request = Table.requests.get(value);
-    const category = request.category;
+    const { category, subcategory } = request;
+    if (subcategory === 'User-Defined Function') {
+      const column = { ...request.column, name: key };
+      column.default = { function: `${request.name}()` };
+      return column;
+    }
     if (category === 'Column') {
       const column = { ...request, name: key };
       if (external && key !== 'rowid') {

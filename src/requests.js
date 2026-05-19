@@ -1,6 +1,7 @@
 import returnTypes from './types.js';
 import { jsonSelector, nameToSql, temporal, removeCapital } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
+import { Table } from './tables.js';
 
 const dateTypes = temporal.map(t => removeCapital(t.name));
 
@@ -667,7 +668,10 @@ const toWhere = (options) => {
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
     let selector;
-    const request = requests.get(symbol);
+    let request = requests.get(symbol);
+    if (!request) {
+      request = Table.requests.get(symbol);
+    }
     if (request.category !== 'Column') {
       if (request.alias) {
         selector = request.alias;

@@ -1,3 +1,6 @@
+import { PathLike } from 'node:fs';
+import { FunctionOptions } from 'node:sqlite';
+
 type ExtractKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
 
 interface Keywords<T, K> {
@@ -624,6 +627,8 @@ type OptionalToNull<T> = {
 
 type Primitive = string | number | boolean | AnyTemporal;
 
+type PrimitiveNull = Primitive | null;
+
 type ReplaceJson<T> =
   null extends T
     ? Exclude<T, null> extends Primitive ? T : string | null
@@ -1010,6 +1015,8 @@ type JsonResult = DbJson | DbNull;
 type DbTypes = number | BigInt | string | boolean | AnyTemporal | Uint8Array | null;
 type DefaultTypes = DefaultNumber | DefaultBigInt | DefaultString | DefaultBoolean | DefaultDateTypes | DefaultBlob;
 
+type ParamType = PrimitiveNull | AnyParam;
+
 declare const sym1: unique symbol;
 type ForeignKeyAction = typeof sym1;
 
@@ -1078,6 +1085,21 @@ type PkToDbType<T> =
   T extends PkPlainYearMonth ? DbPlainYearMonth :
   T extends PkZonedDateTime ? DbZonedDateTime :
   T;
+
+type ToPrimaryKey<T> =
+  T extends AnyStringType ? PkString :
+  T extends AnyNumberType ? PkNumber :
+  T extends AnyBigIntType ? PkBigInt :
+  T extends AnyBlobType ? PkBlob :
+  T extends AnyDurationType ? PkDuration :
+  T extends AnyInstantType ? PkInstant :
+  T extends AnyPlainDateType ? PkPlainDate :
+  T extends AnyPlainDateTimeType ? PkPlainDateTime :
+  T extends AnyPlainMonthDayType ? PkPlainMonthDay :
+  T extends AnyPlainTimeType ? PkPlainTime :
+  T extends AnyPlainYearMonthType ? PkPlainYearMonth :
+  T extends AnyZonedDateTimeType ? PkZonedDateTime :
+  never;
 
 type ClassFields<T extends new (...args: any[]) => any> = {
   [K in keyof InstanceType<T>]: InstanceType<T>[K];
@@ -1303,6 +1325,24 @@ type ToComputed<T> =
 
 type ForeignActions = 'no action' | 'restrict' | 'set null' | 'set default' | 'cascade';
 
+interface StaticNull {
+  Int: DbNumber | DbNull;
+  BigInt: DbBigInt | DbNull;
+  Real: DbNumber | DbNull;
+  Text: DbString | DbNull;
+  Blob: DbBlob | DbNull;
+  Json: DbJson | DbNull;
+  Bool: DbBoolean | DbNull;
+  Duration: DbDuration | DbNull;
+  Instant: DbInstant | DbNull;
+  PlainDate: DbPlainDate | DbNull;
+  PlainDateTime: DbPlainDateTime | DbNull;
+  PlainMonthDay: DbPlainMonthDay | DbNull;
+  PlainTime: DbPlainTime | DbNull;
+  PlainYearMonth: DbPlainYearMonth | DbNull;
+  ZonedDateTime: DbZonedDateTime | DbNull;
+}
+
 interface Null {
   Int: DbNumber | DbNull;
   BigInt: DbBigInt | DbNull;
@@ -1343,7 +1383,7 @@ interface Null {
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
-  Default<T extends Primitive>(value: T): ToDefaultType<T> | DbNull;
+  Default<T extends PrimitiveNull>(value: T): ToDefaultType<T> | DbNull;
 }
 
 interface Now {
@@ -1363,6 +1403,36 @@ interface NullNow {
 }
 
 export class BaseTable {
+  static Int: DbNumber;
+  static IntPrimary: PkNumber;
+  static BigInt: DbBigInt;
+  static BigIntPrimary: PkBigInt;
+  static Real: DbNumber;
+  static RealPrimary: PkNumber;
+  static Text: DbString;
+  static TextPrimary: PkString;
+  static Blob: DbBlob
+  static BlobPrimary: PkBlob;
+  static Json: DbJson;
+  static Duration: DbDuration;
+  static Instant: DbInstant;
+  static PlainDate: DbPlainDate;
+  static PlainDateTime: DbPlainDateTime;
+  static PlainMonthDay: DbPlainMonthDay;
+  static PlainTime: DbPlainTime;
+  static PlainYearMonth: DbPlainYearMonth;
+  static ZonedDateTime: DbZonedDateTime;
+  static DurationPrimary: PkDuration;
+  static InstantPrimary: PkInstant;
+  static PlainDatePrimary: PkPlainDate;
+  static PlainDateTimePrimary: PkPlainDateTime;
+  static PlainMonthDayPrimary: PkPlainMonthDay;
+  static PlainTimePrimary: PkPlainTime;
+  static PlainYearMonthPrimary: PkPlainYearMonth;
+  static ZonedDateTimePrimary: PkZonedDateTime;
+  static Bool: DbBoolean;
+  static Null: StaticNull;
+
   Int: DbNumber;
   IntPrimary: PkNumber;
   BigInt: DbBigInt;
@@ -1396,7 +1466,7 @@ export class BaseTable {
   True: DefaultBoolean;
   False: DefaultBoolean;
 
-  Function<T>(type: T, lambda: () => ToDbType<T>): T;
+  Primary<T extends DbAny>(type: T): ToPrimaryKey<T>;
 
   References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     onDelete?: ForeignActions,
@@ -1428,7 +1498,7 @@ export class BaseTable {
   Check(where: SymbolWhere): void;
   Check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDbType<T>;
   Null: Null;
-  Default<T extends Primitive>(value: T): ToDefaultType<T>;
+  Default<T extends PrimitiveNull>(value: T): ToDefaultType<T>;
 
   Abs<T extends Numeric>(n: T): ToNumericResult<T>;
   Cast(value: any, to: 'real' | 'integer'): ComputedNumber;
@@ -1581,8 +1651,14 @@ export class ExternalFTSTable extends FTSTable {
   ExternalRowId?: PkNumber | DbNumber;
 }
 
+interface FunctionArgs<T, A> {
+  returnType: T;
+  options?: FunctionOptions,
+  lambda: (...args: A) => PrimitiveNull | undefined
+}
+
 export class Database {
-  constructor(path?: string | URL, options?: SQLiteConfig);
+  constructor(path?: PathLike, options?: SQLiteConfig);
   getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C>;
   run(args: { query: any, params?: any }): number;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Array<T>;
@@ -1591,6 +1667,7 @@ export class Database {
   commit(): void;
   rollback(): void;
   close(): void;
+  createFunction<T extends AnyParam, A extends ParamType[]>(args: FunctionArgs<T, A>): (...args: A) => T;
 }
 
 export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<T>>>>;

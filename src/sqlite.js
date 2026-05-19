@@ -2,7 +2,7 @@ import { makeClient } from './proxy.js';
 import { temporal, removeCapital } from './utils.js';
 import { parse } from './parsers.js';
 import { processQuery } from './symbols.js';
-import { process, toSql } from './tables.js';
+import { process, toSql, toHash, Table } from './tables.js';
 import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
 import functions from './functions.js';
@@ -78,6 +78,32 @@ class Database {
 
   get inTransaction() {
     return this.db.isTransaction;
+  }
+
+  createFunction(args) {
+    const { returnType, options, lambda } = args;
+    const name = toHash('function', lambda.toString());
+    if (options) {
+      this.db.function(name, options, lambda);
+    }
+    else {
+      this.db.function(name, lambda);
+    }
+    const column = Table.requests.get(returnType);
+    return (...args) => {
+      const request = {
+        category: 'Method',
+        subcategory: 'User-Defined Function',
+        name,
+        type: column.type,
+        args,
+        alias: null,
+        column
+      };
+      const symbol = Symbol();
+      Table.requests.set(symbol, request);
+      return symbol;
+    }
   }
 
   getClient(schema) {
