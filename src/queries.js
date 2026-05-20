@@ -69,6 +69,13 @@ const getConditions = (args) => {
       conditions.push(`${selector} != $${placeholder}`);
     }
   }
+  else if (method === 'like' && value instanceof RegExp) {
+    const source = getPlaceholder();
+    const flags = getPlaceholder();
+    params[source] = value.source;
+    params[flags] = value.flags;
+    conditions.push(`regex(${selector}, $${source}, $${flags})`);
+  }
   else {
     const operator = compareOperators.get(method);
     if (value === columnProxy) {

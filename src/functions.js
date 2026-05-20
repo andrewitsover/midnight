@@ -1,3 +1,5 @@
+const cache = new Map();
+
 const functions = [
   {
     name: 'temporal_now_instant',
@@ -22,6 +24,18 @@ const functions = [
   {
     name: 'base64',
     lambda: (blob) => blob.toBase64()
+  },
+  {
+    name: 'regex',
+    lambda: (text, source, flags) => {
+      const key = `/${source}/${flags}`;
+      let pattern = cache.get(key);
+      if (!pattern) {
+        pattern = new RegExp(source, flags);
+        cache.set(key, pattern);
+      }
+      return pattern.test(text) ? 1 : 0;
+    }
   }
 ];
 

@@ -555,9 +555,9 @@ type CompareMethods<T> = {
   gte: (value: NonNullable<T>) => symbol;
 	lt: (value: NonNullable<T>) => symbol;
 	lte: (value: NonNullable<T>) => symbol;
-	like: (pattern: NonNullable<T>) => symbol;
-	match: (pattern: NonNullable<T>) => symbol;
-	glob: (pattern: NonNullable<T>) => symbol;
+	like: (pattern: string | AnyStringType | RegExp) => symbol;
+	match: (pattern: string | AnyStringType) => symbol;
+	glob: (pattern: string | AnyStringType) => symbol;
 	eq: (value: T) => symbol;
 }
 
@@ -567,9 +567,9 @@ type UpdateCompareMethods = {
   gte<T>(column: T, value: NonNullable<T>): DbBoolean;
 	lt<T>(column: T, value: NonNullable<T>): DbBoolean;
 	lte<T>(column: T, value: NonNullable<T>): DbBoolean;
-	like<T>(column: T, pattern: NonNullable<T>): DbBoolean;
-	match<T>(column: T, pattern: NonNullable<T>): DbBoolean;
-	glob<T>(column: T, pattern: NonNullable<T>): DbBoolean;
+	like<T>(column: T, pattern: string | AnyStringType | RegExp): DbBoolean;
+	match<T>(column: T, pattern: string | AnyStringType): DbBoolean;
+	glob<T>(column: T, pattern: string | AnyStringType): DbBoolean;
 	eq<T>(column: T, value: T): DbBoolean;
 }
 
@@ -579,9 +579,9 @@ type SymbolCompareMethods<T> = {
   gte: (column: symbol, value: NonNullable<T>) => DbBoolean;
 	lt: (column: symbol, value: NonNullable<T>) => DbBoolean;
 	lte: (column: symbol, value: NonNullable<T>) => DbBoolean;
-	like: (column: symbol, pattern: NonNullable<T>) => DbBoolean;
-	match: (column: symbol, pattern: NonNullable<T>) => DbBoolean;
-	glob: (column: symbol, pattern: NonNullable<T>) => DbBoolean;
+	like: (column: symbol, pattern: string | AnyStringType | RegExp) => DbBoolean;
+	match: (column: symbol, pattern: string | AnyStringType) => DbBoolean;
+	glob: (column: symbol, pattern: string | AnyStringType) => DbBoolean;
 	eq: (column: symbol, value: T) => DbBoolean;
 }
 

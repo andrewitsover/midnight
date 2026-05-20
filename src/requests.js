@@ -285,6 +285,17 @@ const processMethod = (options) => {
       getPlaceholder,
       root
     });
+    if (method.name === 'like' && method.args.at(1) instanceof RegExp) {
+      const pattern = method.args.at(1);
+      const source = getPlaceholder();
+      const flags = getPlaceholder();
+      params[source] = pattern.source;
+      params[flags] = pattern.flags;
+      return {
+        sql: `regex(${result.sql}, $${source}, $${flags})`,
+        type
+      }
+    }
     if (method.args.length === 1) {
       if (name === 'not' && arg === null) {
         return {
@@ -697,6 +708,30 @@ const toWhere = (options) => {
       const param = args.at(0);
       if (name === 'not' && param === null) {
         statements.push(`${selector} is not null`);
+      }
+      else if (name === 'like' && args.some(a => a instanceof RegExp)) {
+        if (args.length === 1) {
+          const source = getPlaceholder();
+          const flags = getPlaceholder();
+          params[source] = param.source;
+          params[flags] = param.flags;
+          statements.push(`regex(${selector}, $${source}, $${flags})`);
+        }
+        else {
+          const arg = args.at(1);
+          const result = processArg({
+            db,
+            arg: param,
+            params,
+            requests,
+            getPlaceholder
+          });
+          const source = getPlaceholder();
+          const flags = getPlaceholder();
+          params[source] = arg.source;
+          params[flags] = arg.flags;
+          statements.push(`${selector} = regex(${result.sql}, $${source}, $${flags})`);
+        }
       }
       else {
         const operator = compareOperators.get(name);
