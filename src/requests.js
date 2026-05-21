@@ -203,7 +203,13 @@ const processWindow = (options) => {
           getPlaceholder,
           root
         }));
-      return args.map(a => a.sql).join(', ');
+      const mapped = args.map(arg => {
+        if (arg.type === 'zonedDateTime') {
+          return `temporal_nanoseconds(${arg.sql})`;
+        }
+        return arg.sql;
+      });
+      return mapped.join(', ');
     }
     if (partitionBy) {
       const items = Array.isArray(partitionBy) ? partitionBy : [partitionBy];
@@ -706,7 +712,20 @@ const toWhere = (options) => {
     if (valueRequest && valueRequest.subcategory === 'Compare') {
       const { name, args } = valueRequest;
       const param = args.at(0);
-      if (name === 'not' && param === null) {
+      if (request.type === 'zonedDateTime') {
+        if (args.length === 1) {
+          const result = processArg({
+            db,
+            arg: param,
+            params,
+            requests,
+            getPlaceholder
+          });
+          const operator = compareOperators.get(name);
+          statements.push(`temporal_compare(${selector}, ${result.sql}) ${operator} 0`);
+        }
+      }
+      else if (name === 'not' && param === null) {
         statements.push(`${selector} is not null`);
       }
       else if (name === 'like' && args.some(a => a instanceof RegExp)) {
@@ -778,7 +797,12 @@ const toWhere = (options) => {
           statements.push(`${selector} in (select json_each.value from json_each(${result.sql}))`);
         }
         else {
-          statements.push(`${selector} = ${result.sql}`);
+          if (request.type === 'zonedDateTime') {
+            statements.push(`temporal_compare(${selector}, ${result.sql}) = 0`);
+          }
+          else {
+            statements.push(`${selector} = ${result.sql}`);
+          }
         }
       }
       else {
@@ -786,7 +810,13 @@ const toWhere = (options) => {
           statements.push(`${selector} in (${value.map(v => toLiteral(v)).join(', ')})`);
         }
         else {
-          statements.push(`${selector} = ${toLiteral(value)}`);
+          const literal = toLiteral(value);
+          if (request.type === 'zonedDateTime') {
+            statements.push(`temporal_compare(${selector}, ${literal}) = 0`);
+          }
+          else {
+            statements.push(`${selector} = ${literal}`);
+          }
         }
       }
     }

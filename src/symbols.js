@@ -403,7 +403,7 @@ const processQuery = (db, expression, firstResult) => {
   }
   if (orderBy) {
     const items = Array.isArray(orderBy) ? orderBy : [orderBy];
-    const clause = items
+    const mapped = items
       .map(arg => processArg({
         db,
         arg,
@@ -411,8 +411,13 @@ const processQuery = (db, expression, firstResult) => {
         requests,
         getPlaceholder
       }))
-      .map(a => a.sql)
-      .join(', ');
+      .map(arg => {
+        if (arg.type === 'zonedDateTime') {
+          return `temporal_nanoseconds(${arg.sql})`;
+        }
+        return arg.sql;
+      });
+    const clause = mapped.join(', ');
     clauses.orderBy = `${clause}${desc ? ' desc' : ''}`;
   }
   if (rank) {

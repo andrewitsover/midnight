@@ -48,10 +48,18 @@ const getConditions = (args) => {
   if (path) {
     params[placeholder] = path;
   }
-  const selector = path ? `json_extract(${column}, $${placeholder})` : column;
+  const selector = path ? `json_extract(${column.name}, $${placeholder})` : column.name;
   const conditions = [];
   const expression = columnTarget.name;
-  if (method === 'not') {
+  if (column.type === 'zonedDateTime') {
+    const operator = compareOperators.get(method);
+    const placeholder = getPlaceholder();
+    params[placeholder] = value;
+    const param = value === columnProxy ? expression : `$${placeholder}`;
+    const sql = `temporal_compare(${selector}, ${param}) ${operator} 0`;
+    conditions.push(sql);
+  }
+  else if (method === 'not') {
     if (Array.isArray(value)) {
       const placeholder = getPlaceholder();
       params[placeholder] = value;
@@ -437,8 +445,9 @@ const toWhere = (options) => {
   const {
     query,
     params,
-    type,
-    getPlaceholder
+    logic,
+    getPlaceholder,
+    columnTypes
   } = options;
   if (!query) {
     return '';
@@ -452,8 +461,9 @@ const toWhere = (options) => {
     if (param === undefined) {
       continue;
     }
-    const adjusted = ['and', 'or'].includes(column) ? column : nameToSql(column);
-    if (column === 'and' || column === 'or') {
+    const isLogic = ['and', 'or'].includes(column);
+    const adjusted = isLogic ? column : nameToSql(column);
+    if (isLogic) {
       if (!Array.isArray(param)) {
         throw Error(`the "${column}" property value must be an array of conditions`);
       }
@@ -462,8 +472,9 @@ const toWhere = (options) => {
         const clauses = toWhere({
           query,
           params,
-          type: column,
-          getPlaceholder
+          logic: column,
+          getPlaceholder,
+          columnTypes
         });
         filters.push(clauses);
       }
@@ -471,7 +482,10 @@ const toWhere = (options) => {
     }
     else if (typeof param === 'function') {
       const result = getConditions({
-        column: adjusted,
+        column: {
+          name: adjusted,
+          type: columnTypes[column]
+        },
         query: param,
         params,
         getPlaceholder
@@ -489,10 +503,15 @@ const toWhere = (options) => {
     else {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${adjusted} = $${placeholder}`);
+      if (columnTypes[column] === 'zonedDateTime') {
+        conditions.push(`temporal_compare(${adjusted}, $${placeholder}) = 0`);
+      }
+      else {
+        conditions.push(`${adjusted} = $${placeholder}`);
+      }
     }
   }
-  return conditions.join(` ${type || 'and'} `);
+  return conditions.join(` ${logic || 'and'} `);
 }
 
 const createSetClause = (args) => {
@@ -550,7 +569,8 @@ const update = (args) => {
       table,
       query: where,
       params,
-      getPlaceholder
+      getPlaceholder,
+      columnTypes: db.columns[table]
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -571,7 +591,8 @@ const toKeywords = (args) => {
     params,
     table,
     columns,
-    getPlaceholder
+    getPlaceholder,
+    columnTypes
   } = args;
   let sql = '';
   if (keywords) {
@@ -602,7 +623,14 @@ const toKeywords = (args) => {
       }
       else {
         const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
-        clause = columns.map(c => nameToSql(c)).join(', ');
+        const mapped = columns.map(column => {
+          const name = nameToSql(column);
+          if (columnTypes[column] === 'zonedDateTime') {
+            return `temporal_nanoseconds(${name})`;
+          }
+          return name;
+        });
+        clause = mapped.join(', ');
       }
       sql += ` order by ${clause}`;
       if (desc) {
@@ -640,10 +668,12 @@ const exists = (config) => {
   const clause = subquery ? `(${subquery.sql})` : table;
   let sql = `select exists(select 1 from ${clause}`;
   if (query) {
+    const columnTypes = subquery ? subquery.columns : db.columns[table];
     const where = toWhere({
       query,
       params,
-      getPlaceholder
+      getPlaceholder,
+      columnTypes
     });
     if (where) {
       sql += ` where ${where}`;
@@ -689,10 +719,12 @@ const aggregate = (config) => {
     expression = `${actualMethod}(${before}${field}) as ${alias}`;
   }
   let sql;
+  const columnTypes = subquery ? subquery.columns : db.columns[table];
   const whereClause = toWhere({
     query: where,
     params,
-    getPlaceholder
+    getPlaceholder,
+    columnTypes
   });
   const tableClause = subquery ? `(${subquery.sql})` : table;
   sql = `select ${expression} from ${tableClause}`;
@@ -1036,7 +1068,8 @@ const match = (config) => {
   sql += toKeywords({
     keywords: query,
     params,
-    getPlaceholder
+    getPlaceholder,
+    columnTypes: db.columns[table]
   });
   const options = {
     query: sql,
@@ -1137,10 +1170,12 @@ const all = (config) => {
   }
   const tableClause = subquery ? `(${subquery.sql})` : table;
   sql += `${select.clause} from ${tableClause}`;
+  const columnTypes = subquery ? subquery.columns : db.columns[table];
   const clause = toWhere({
     query,
     params,
-    getPlaceholder
+    getPlaceholder,
+    columnTypes
   });
   if (clause) {
     sql += ` where ${clause}`;
@@ -1150,7 +1185,8 @@ const all = (config) => {
     params,
     table,
     columns: db.tables[table],
-    getPlaceholder
+    getPlaceholder,
+    columnTypes
   });
   if (first) {
     sql += ' limit 1';
@@ -1167,7 +1203,6 @@ const all = (config) => {
   else {
     keys = Object.keys(db.columns[table]);
   }
-  const columnTypes = subquery ? subquery.columns : db.columns[table];
   const { parse, bigInt } = getParser(db, columnTypes, keys);
   const options = {
     query: sql,
@@ -1227,7 +1262,8 @@ const remove = (args) => {
     table,
     query,
     params,
-    getPlaceholder
+    getPlaceholder,
+    columnTypes: db.columns[table]
   });
   if (clause) {
     sql += ` where ${clause}`;
