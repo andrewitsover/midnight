@@ -186,12 +186,6 @@ const upsert = (args) => {
   const { values, target, set, log } = options;
   const params = {};
   const columns = Object.keys(values);
-  const lambdas = Object
-    .keys(db.lambdas[table])
-    .filter(k => !columns.includes(k));
-  for (const key of lambdas) {
-    values[key] = db.lambdas[table][key]();
-  }
   const query = adjust(db, table, values);
   let sql = makeInsertSql({
     db,
@@ -238,12 +232,6 @@ const insert = (args) => {
   } = args;
   const getPlaceholder = createPlaceholder();
   const columns = Object.keys(values);
-  const lambdas = Object
-    .keys(db.lambdas[table])
-    .filter(k => !columns.includes(k));
-  for (const key of lambdas) {
-    values[key] = db.lambdas[table][key]();
-  }
   verify(columns);
   const adjusted = adjust(db, table, values);
   const params = {};
@@ -358,17 +346,6 @@ const insertMany = (args) => {
   for (const items of result) {
     const first = items.at(0);
     const columns = Object.keys(first);
-    const lambdas = Object
-      .keys(db.lambdas[table])
-      .filter(k => !columns.includes(k));
-    columns.push(...lambdas);
-    if (lambdas.length > 0) {
-      for (const item of items) {
-        for (const key of lambdas) {
-          item[key] = db.lambdas[table][key]();
-        }
-      }
-    }
     verify(columns);
     const types = db.tables[table]
       .filter(c => columns.includes(c.name));

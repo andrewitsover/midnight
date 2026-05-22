@@ -69,18 +69,26 @@ const makeProxy = (options) => {
         const symbol = Symbol();
         const type = db.columns[table][property];
         const computed = db.computed[table][property];
-        let selector = nameToSql(property, tableAlias);
-        if (computed !== undefined) {
+        const sql = nameToSql(property, tableAlias);
+        let selector;
+        if (type === 'json') {
+          selector = `json(${sql})`;
+        }
+        else if (computed === undefined) {
+          selector = sql;
+        }
+        else {
           selector = addAlias(computed, tableAlias);
         }
-        requests.set(symbol, {
+        const request = {
           category: 'Column',
           table,
           name: property,
           selector,
           type,
           tableAlias
-        });
+        };
+        requests.set(symbol, request);
         return symbol;
       },
       ownKeys: function(target) {

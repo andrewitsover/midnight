@@ -28,7 +28,6 @@ class Database {
     this.tables = {};
     this.mappers = {};
     this.customTypes = {};
-    this.lambdas = {};
     this.columns = {};
     this.computed = {};
     this.notNull = {};
@@ -113,9 +112,7 @@ class Database {
       classTable[type.name] = removeCapital(key);
     }
     for (const [key, type] of entries) {
-      const result = process(type, key, classTable);
-      const { lambdas, ...table } = result;
-      this.lambdas[table.name] = lambdas;
+      const table = process(type, key, classTable);
       this.schema.push(table);
     }
     this.addTables();

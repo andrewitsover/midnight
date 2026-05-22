@@ -503,7 +503,6 @@ const process = (Custom, key, classTable) => {
   const table = {
     name,
     type,
-    lambdas: {},
     columns: [],
     computed: [],
     indexes: [],
@@ -715,11 +714,7 @@ const process = (Custom, key, classTable) => {
     }
     else {
       if (result.name !== 'rowid') {
-        const { lambda, ...column } = result;
-        if (lambda) {
-          table.lambdas[column.name] = lambda;
-        }
-        table.columns.push(column);
+        table.columns.push(result);
         Table.requests.set(value, result);
       }
     }
