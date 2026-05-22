@@ -287,7 +287,8 @@ const batchInserts = (args) => {
       getPlaceholder
     });
     if (returning) {
-      sql += ' returning *';
+      const result = expandStar(db.columns[table]);
+      sql += ` returning ${result.clause}`;
     }
     inserts.push({
       query: sql,
