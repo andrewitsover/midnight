@@ -419,7 +419,8 @@ const insertMany = (args) => {
       items: adjusted
     };
     if (returning) {
-      sql += ' returning *';
+      const result = expandStar(columnTypes);
+      sql += ` returning ${result.clause}`;
     }
     const options = {
       query: sql,
