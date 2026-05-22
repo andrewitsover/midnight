@@ -291,6 +291,20 @@ const processMethod = (options) => {
       getPlaceholder,
       root
     });
+    if (result.type === 'zonedDateTime' && method.args.length === 2) {
+      const second = processArg({
+        db,
+        arg: method.args.at(1),
+        params,
+        requests,
+        getPlaceholder,
+        root
+      });
+      return {
+        sql: `temporal_compare(${result.sql}, ${second.sql}) ${operator} 0`,
+        type
+      }
+    }
     if (method.name === 'like' && method.args.at(1) instanceof RegExp) {
       const pattern = method.args.at(1);
       const source = getPlaceholder();
@@ -723,6 +737,24 @@ const toWhere = (options) => {
           });
           const operator = compareOperators.get(name);
           statements.push(`temporal_compare(${selector}, ${result.sql}) ${operator} 0`);
+        }
+        else {
+          const first = processArg({
+            db,
+            arg: param,
+            params,
+            requests,
+            getPlaceholder
+          });
+          const second = processArg({
+            db,
+            arg: param,
+            params,
+            requests,
+            getPlaceholder
+          });
+          const operator = compareOperators.get(name);
+          statements.push(`${selector} = temporal_compare(${first.sql}, ${second.sql}) ${operator} 0`);
         }
       }
       else if (name === 'not' && param === null) {

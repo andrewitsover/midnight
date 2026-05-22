@@ -231,6 +231,24 @@ class BaseTable {
         });
       }
     }
+    for (const key of ['TypedArray', 'TypedObject']) {
+      Object.defineProperty(this, key, {
+        get: function() {
+          const symbol = Symbol();
+          Table.classes.set(symbol, cls);
+          const request = {
+            category: 'Column',
+            type: 'json',
+            notNull: true
+          };
+          Table.requests.set(symbol, request);
+          return (structure) => {
+            request.structure = structure;
+            return symbol;
+          }
+        }
+      });
+    }
     return new Proxy(this, {
       get(target, prop, receiver) {
         if (typeof prop === 'string' && Reflect.has(target, prop)) {
@@ -593,12 +611,14 @@ const process = (Custom, key, classTable) => {
     const request = Table.requests.get(value);
     const { category, subcategory } = request;
     if (subcategory === 'User-Defined Function') {
-      const column = { ...request.column, name: key };
+      const { structure, ...rest } = request.column;
+      const column = { ...rest, name: key };
       column.default = { function: `${request.name}()` };
       return column;
     }
     if (category === 'Column') {
-      const column = { ...request, name: key };
+      const { structure, ...rest } = request;
+      const column = { ...rest, name: key };
       if (external && key !== 'rowid') {
         const virtual = virtualColumns.get(key);
         column.original = {

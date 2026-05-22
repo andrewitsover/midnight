@@ -360,6 +360,7 @@ type ToJsType<T> =
   T extends AnyNullType ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends new (...args: any[]) => Table ? GetReturnType<T> :
+  T extends { symbol: DbJson, typed: infer U } ? ToJsType<U> :
   T extends object
     ? {
         [K in keyof T]: ToJsType<T[K]>
@@ -1384,6 +1385,9 @@ interface Null {
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
   Default<T extends PrimitiveNull>(value: T): ToDefaultType<T> | DbNull;
+
+  TypedArray<T extends TypedJson>(type: T): { symbol: DbJson, typed: T[] | DbNull };
+  TypedObject<T extends TypedJson>(type: T): { symbol: DbJson, typed: T | DbNull };
 }
 
 interface Now {
@@ -1401,6 +1405,8 @@ interface NullNow {
   PlainTime: DefaultPlainTime | DbNull;
   ZonedDateTime: DefaultZonedDateTime | DbNull;
 }
+
+type TypedJson = { [key: string]: TypedJson } | AnyParam | { symbol: DbJson, typed: TypedJson | TypedJson[] };
 
 export class BaseTable {
   static Int: DbNumber;
@@ -1499,6 +1505,9 @@ export class BaseTable {
   Check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDbType<T>;
   Null: Null;
   Default<T extends PrimitiveNull>(value: T): ToDefaultType<T>;
+
+  TypedArray<T extends TypedJson>(type: T): { symbol: DbJson, typed: T[] };
+  TypedObject<T extends TypedJson>(type: T): { symbol: DbJson, typed: T };
 
   Abs<T extends Numeric>(n: T): ToNumericResult<T>;
   Cast(value: any, to: 'real' | 'integer'): ComputedNumber;

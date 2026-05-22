@@ -141,7 +141,8 @@ const processInsert = (args) => {
   let result;
   if (returning) {
     result = getParser(db, types);
-    query += ' returning *';
+    const expanded = expandStar(types);
+    query += ` returning ${expanded.clause}`;
   }
   else {
     result = getParser(db, types, [primaryKey]);
@@ -783,7 +784,7 @@ const invertOmit = (all, omit) => {
   return all.filter(t => !remove.includes(t));
 }
 
-const expandStar = (types, computed) => {
+const expandStar = (types, computed = {}) => {
   const names = Object.keys(types);
   const statements = [];
   for (const [column, type] of Object.entries(types)) {
