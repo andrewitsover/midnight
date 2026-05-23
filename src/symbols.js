@@ -89,6 +89,11 @@ const makeProxy = (options) => {
           tableAlias
         };
         requests.set(symbol, request);
+        if (db.structured[table][property]) {
+          return {
+            symbol
+          }
+        }
         return symbol;
       },
       ownKeys: function(target) {
@@ -330,7 +335,8 @@ const processQuery = (db, expression, firstResult) => {
   for (const [key, value] of Object.entries(select)) {
     let parser;
     let type;
-    const request = requests.get(value);
+    const symbol = typeof value === 'symbol' ? value : value.symbol;
+    const request = requests.get(symbol);
     if (request.category !== 'Column') {
       const left = request.name === 'group' && maybeSymbols.has(value);
       const valueArg = processMethod({
@@ -355,14 +361,14 @@ const processQuery = (db, expression, firstResult) => {
         parser = (v) => v === null ? null : JSON.parse(v, reviver);
       }
       else {
-        parser = db.getDbToJsConverter(valueArg.type);
+        parser = db.getDbToJsParser(valueArg.type);
       }
     }
     else {
       statements.push(`${request.selector} as ${nameToSql(key)}`);
       columnTypes[key] = request.type;
       original[key] = request;
-      parser = db.getDbToJsConverter(request.type);
+      parser = db.getDbToJsParser(request.type);
     }
     if (parser) {
       parsers[key] = parser;

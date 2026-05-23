@@ -242,8 +242,8 @@ class BaseTable {
             notNull: true
           };
           Table.requests.set(symbol, request);
-          return (structure) => {
-            request.structure = structure;
+          return () => {
+            request.structure = true;
             return symbol;
           }
         }
@@ -508,7 +508,8 @@ const process = (Custom, key, classTable) => {
     indexes: [],
     primaryKeys: [],
     foreignKeys: [],
-    checks: []
+    checks: [],
+    structured: {}
   };
   if (type === 'fts5') {
     table.tokenizer = toString(instance.Tokenizer);
@@ -610,14 +611,12 @@ const process = (Custom, key, classTable) => {
     const request = Table.requests.get(value);
     const { category, subcategory } = request;
     if (subcategory === 'User-Defined Function') {
-      const { structure, ...rest } = request.column;
-      const column = { ...rest, name: key };
+      const column = { ...request.column, name: key };
       column.default = { function: `${request.name}()` };
       return column;
     }
     if (category === 'Column') {
-      const { structure, ...rest } = request;
-      const column = { ...rest, name: key };
+      const column = { ...request, name: key };
       if (external && key !== 'rowid') {
         const virtual = virtualColumns.get(key);
         column.original = {
@@ -777,10 +776,15 @@ const process = (Custom, key, classTable) => {
       }
     }
   }
-  table.columns = table.columns.map(column => {
-    const { category, ...rest } = column;
-    return rest;
-  });
+  const columns = [];
+  for (const item of table.columns) {
+    const { category, structure, ...column } = item;
+    if (structure) {
+      table.structured[column.name] = structure;
+    }
+    columns.push(column);
+  }
+  table.columns = columns;
   return table;
 }
 

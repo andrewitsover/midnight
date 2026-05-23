@@ -727,7 +727,7 @@ const aggregate = (config) => {
     const value = rows[0][`${method}_result`];
     if (method == 'min' || method === 'max') {
       const type = db.columns[table][distinct || column];
-      const converter = db.getDbToJsConverter(type);
+      const converter = db.getDbToJsParser(type);
       return converter ? converter(value) : value;
     }
     return value;
@@ -742,7 +742,7 @@ const getConverters = (key, value, db, converters, keys = [], optional = []) => 
     if (value.functionName && /^json_/i.test(value.functionName)) {
       return;
     }
-    const converter = db.getDbToJsConverter(value.type);
+    const converter = db.getDbToJsParser(value.type);
     if (converter) {
       converters.push({
         keys: [...keys],
@@ -1075,7 +1075,7 @@ const getParser = (db, types, columns) => {
       parsers.push([key, intParser]);
     }
     else {
-      const parser = db.getDbToJsConverter(type);
+      const parser = db.getDbToJsParser(type);
       if (parser) {
         parsers.push([key, parser]);
       }

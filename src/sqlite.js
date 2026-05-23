@@ -30,6 +30,7 @@ class Database {
     this.customTypes = {};
     this.columns = {};
     this.computed = {};
+    this.structured = {};
     this.notNull = {};
     this.foreignKeys = {};
     this.schema = [];
@@ -112,7 +113,8 @@ class Database {
       classTable[type.name] = removeCapital(key);
     }
     for (const [key, type] of entries) {
-      const table = process(type, key, classTable);
+      const { structured, ...table } = process(type, key, classTable);
+      this.structured[table.name] = structured;
       this.schema.push(table);
     }
     this.addTables();
@@ -212,7 +214,7 @@ class Database {
     return primaryKey.name;
   }
 
-  getDbToJsConverter(type) {
+  getDbToJsParser(type) {
     const customType = this.customTypes[type];
     if (customType) {
       return customType.dbToJs;

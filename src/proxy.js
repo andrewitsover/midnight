@@ -55,7 +55,7 @@ const getConverters = (key, value, db, converters, keys = [], optional = []) => 
     if (value.functionName && /^json_/i.test(value.functionName)) {
       return;
     }
-    const converter = db.getDbToJsConverter(value.type);
+    const converter = db.getDbToJsParser(value.type);
     if (converter) {
       converters.push({
         keys: [...keys],
@@ -95,7 +95,7 @@ const makeOptions = (columns, db) => {
   let typeMap = null;
   for (const column of columns) {
     columnMap[column.name] = column.name.replace(/^flyweight\d+_/, '');
-    const converter = db.getDbToJsConverter(column.type);
+    const converter = db.getDbToJsParser(column.type);
     if (converter) {
       if (!typeMap) {
         typeMap = {};
