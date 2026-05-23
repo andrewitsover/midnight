@@ -309,17 +309,6 @@ class Database {
     return this.db.prepare(sql);
   }
 
-  insertBatch(inserts) {
-    const inserted = this.db.transaction(() => {
-      for (const insert of inserts) {
-        const { query, params } = insert;
-        const statement = this.db.prepare(query);
-        statement.run(params);
-      }
-    });
-    inserted();
-  }
-
   cache(query, bigInt) {
     if (typeof query !== 'string') {
       return query;
