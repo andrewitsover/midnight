@@ -178,12 +178,12 @@ interface AggregateMethods<T, W, K extends keyof T, Y> {
   count<A extends string>(params?: GroupQueryCountStarDistinct<A, T, W & ToWhere<{ count: number }>, K | 'count'>): Array<Pick<T, K> & { [key in A]: number }>;
   avg<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'avg'>): Array<Pick<T, K> & { [key in A]: number }>;
   avg<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'avg'>): Array<Pick<T, K> & { [key in A]: number }>;
-  max<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'max'>): Array<Pick<T, K> & { [key in A]: number }>;
-  max<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'max'>): Array<Pick<T, K> & { [key in A]: number }>;
-  min<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'min'>): Array<Pick<T, K> & { [key in A]: number }>;
-  min<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'min'>): Array<Pick<T, K> & { [key in A]: number }>;
-  sum<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Array<Pick<T, K> & { [key in A]: number }>;
-  sum<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'sum'>): Array<Pick<T, K> & { [key in A]: number }>;
+  max<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ max: number }>, K | 'max'>): Array<Pick<T, K> & { [key in A]: number }>;
+  max<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ max: number }>, K | 'max'>): Array<Pick<T, K> & { [key in A]: number }>;
+  min<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ min: number }>, K | 'min'>): Array<Pick<T, K> & { [key in A]: number }>;
+  min<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ min: number }>, K | 'min'>): Array<Pick<T, K> & { [key in A]: number }>;
+  sum<A extends string>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ sum: number }>, K | 'sum'>): Array<Pick<T, K> & { [key in A]: number }>;
+  sum<A extends string>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ sum: number }>, K | 'sum'>): Array<Pick<T, K> & { [key in A]: number }>;
   array<A extends string, S extends keyof T>(params: GroupArrayValue<A, W, K, S>): Array<Pick<T, K> & { [key in A]: Array<DateToString<T[S]>> }>;
   array<A extends string>(params: GroupArray<A, W, K>): Array<Pick<T, K> & { [key in A]: Array<DateToString<T>> }>;
   array<A extends string, S extends keyof T>(params: GroupArraySelect<A, W, K, S>): Array<Pick<T, K> & { [key in A]: Array<DateToString<Pick<T, S>>> }>;
@@ -1369,7 +1369,7 @@ interface Null {
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
-  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
   References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
@@ -1378,7 +1378,7 @@ interface Null {
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
   Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     index?: false
-  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
   Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     index?: false
@@ -1478,7 +1478,7 @@ export class BaseTable {
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
-  }): GetPrimaryKey<InstanceType<T>>;
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
   References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
@@ -1487,7 +1487,7 @@ export class BaseTable {
   }): PkToDbType<InstanceType<T>[K]>;
   Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     index?: false
-  }): GetPrimaryKey<InstanceType<T>>;
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
   Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
     column: K,
     index?: false
