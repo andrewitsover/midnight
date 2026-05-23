@@ -1108,11 +1108,13 @@ type ClassFields<T extends new (...args: any[]) => any> = {
 
 type RemoveUpperCase<T> = {
   [K in keyof T as K extends string
-    ? K extends `${infer First}${string}`
-      ? First extends Lowercase<First>
-        ? K
-        : never
-      : never
+    ? K extends `${infer First}${infer Second}${string}`
+      ? First extends Uppercase<First>
+        ? Second extends Lowercase<Second>
+          ? never
+          : K
+        : K
+      : K
     : never]: T[K];
 };
 
@@ -1120,13 +1122,13 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 type ExtractColumns<T> = {
   [K in keyof T as K extends string
-    ? K extends `${infer First}${infer Rest}`
+    ? K extends `${infer First}${infer Second}${string}`
       ? First extends Uppercase<First>
-        ? Rest extends Uncapitalize<Rest>
+        ? Second extends Lowercase<Second>
           ? never
           : K
         : K
-      : never
+      : K
     : never]: IsAny<ToDbType<T[K]>> extends true
       ? DbString
       : ToDefaultType<T[K]>;
