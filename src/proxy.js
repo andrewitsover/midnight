@@ -48,48 +48,6 @@ const basic = {
   delete: (args) => (query) => remove({ query, ...args })
 }
 
-const getConverters = (key, value, db, converters, keys = [], optional = []) => {
-  keys.push(key);
-  if (typeof value.type === 'string') {
-    optional.push(value.isOptional);
-    if (value.functionName && /^json_/i.test(value.functionName)) {
-      return;
-    }
-    const converter = db.getDbToJsParser(value.type);
-    if (converter) {
-      converters.push({
-        keys: [...keys],
-        converter
-      });
-    }
-    return;
-  }
-  else {
-    for (const [k, v] of Object.entries(value.type)) {
-      getConverters(k, v, db, converters, [...keys], optional);
-    }
-  }
-}
-
-const allNulls = (item) => {
-  if (item === null) {
-    return true;
-  }
-  for (const value of Object.values(item)) {
-    if (value === null) {
-      continue;
-    }
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value instanceof Date) {
-      return false;
-    }
-    const isNull = allNulls(value);
-    if (!isNull) {
-      return false;
-    }
-  }
-  return true;
-}
-
 const makeOptions = (columns, db) => {
   const columnMap = {};
   let typeMap = null;
@@ -112,23 +70,10 @@ const makeOptions = (columns, db) => {
   return options;
 }
 
-const getResultType = (columns) => {
-  if (columns.length === 0) {
-    return 'none';
-  }
-  if (columns.length === 1) {
-    return 'values';
-  }
-  else {
-    return 'array';
-  }
-}
-
 const makeQueryHandler = (options) => {
   const { 
     table,
     db,
-    dbClient,
     subquery
   } = options;
   return {
@@ -141,7 +86,6 @@ const makeQueryHandler = (options) => {
         const run = makeQuery({ 
           db,
           table,
-          dbClient,
           subquery
         });
         target[method] = (...args) => {
@@ -156,7 +100,7 @@ const makeQueryHandler = (options) => {
 
 const makeClient = (db) => {
   const tableHandler = {
-    get: function(target, table, dbClient) {
+    get: function(target, table) {
       if (table === 'query' || table === 'queryValues') {
         return (expression) => db.query(expression);
       }
@@ -167,23 +111,22 @@ const makeClient = (db) => {
         return (expression) => db.subquery(expression);
       }
       if (db[table] && ['begin', 'commit', 'rollback'].includes(table)) {
-        db[table] = db[table].bind(db);
-        return () => db[table]();
+        const method = db[table].bind(db);
+        return () => method();
       }
       if (db[table] && table === 'exec') {
-        db[table] = db[table].bind(db);
-        return (sql) => db[table](sql);
+        const method = db[table].bind(db);
+        return (sql) => method(sql);
       }
       if (db[table] && ['getTransaction', 'diff', 'getSchema', 'migrate'].includes(table)) {
-        db[table] = db[table].bind(db);
-        return db[table];
+        const method = db[table].bind(db);
+        return method;
       }
       if (table === 'use') {
         return (subquery) => {
           return new Proxy({}, makeQueryHandler({ 
             table,
             db,
-            dbClient,
             subquery
           }));
         }
@@ -197,8 +140,7 @@ const makeClient = (db) => {
         }
         target[table] = new Proxy({}, makeQueryHandler({ 
           table,
-          db,
-          dbClient
+          db
         }));
       }
       return target[table];
@@ -209,6 +151,5 @@ const makeClient = (db) => {
 
 export {
   makeClient,
-  makeOptions,
-  getResultType
+  makeOptions
 }
