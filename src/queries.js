@@ -546,7 +546,6 @@ const update = (args) => {
   let sql = `update ${table} set ${setString}`;
   if (where) {
     const clause = toWhere({
-      table,
       query: where,
       params,
       getPlaceholder,
@@ -1016,19 +1015,28 @@ const match = (config) => {
   const getPlaceholder = createPlaceholder();
   let sql;
   const params = {};
+  const types = db.columns[table];
   let select = '*';
   if (query.select) {
     select = query
       .select
       .map(c => {
         verify(c);
-        return nameToSql(c);
+        const sql = nameToSql(c);
+        if (types[c] === 'json') {
+          return `json(${sql})`;
+        }
+        return sql;
       })
       .join(', ');
   }
   else if (query.return) {
     verify(query.return);
-    select = nameToSql(query.return);
+    const sql = nameToSql(query.return);
+    if (types[query.return] === 'json') {
+      select = `json(${sql})`;
+    }
+    select = sql;
   }
   if (query.where) {
     const statements = [];
@@ -1239,7 +1247,6 @@ const remove = (args) => {
     }
   }
   const clause = toWhere({
-    table,
     query,
     params,
     getPlaceholder,
