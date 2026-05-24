@@ -242,14 +242,14 @@ const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
 
 const toLiteral = (value) => {
   if (value === null) {
-    return value;
+    return 'null';
   }
   const type = typeof value;
   if (type === 'string') {
     return `'${sanitize(value)}'`;
   }
   if (type === 'boolean') {
-    return value === true ? 1 : 0;
+    return value === true ? '1' : '0';
   }
   const exists = temporal.some(type => value instanceof type);
   if (exists) {
