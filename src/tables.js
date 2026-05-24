@@ -57,7 +57,7 @@ const toColumn = (literal, instance) => {
     symbol = instance.Bool;
   }
   else {
-    const type = temporal.find(type => symbol instanceof type);
+    const type = temporal.find(type => literal instanceof type);
     if (type) {
       symbol = instance[type.name];
     }
@@ -74,6 +74,9 @@ const toColumn = (literal, instance) => {
 }
 
 const toLiteral = (value) => {
+  if (value === null) {
+    return value;
+  }
   const type = typeof value;
   if (type === 'string') {
     return `'${sanitize(value)}'`;
@@ -83,7 +86,7 @@ const toLiteral = (value) => {
   }
   const exists = temporal.some(type => value instanceof type);
   if (exists) {
-    return value.toString();
+    return `'${value.toString()}'`;
   }
   if (type === 'object') {
     return `(${value.function})`;
@@ -130,19 +133,6 @@ class Trigram {
 class BaseTable {
   static requests = new Map();
   static classes = new Map();
-
-  static get Null() {
-    if (!this.StaticProxy) {
-      this.StaticProxy = new Proxy(this, {
-        get(target, prop, receiver) {
-          const value = Reflect.get(target, prop, receiver);
-          const request = BaseTable.requests.get(value);
-          request.notNull = false;
-          return value;
-        }
-      });
-    }
-  }
 
   get Null() {
     if (!this.Proxy) {
@@ -562,7 +552,7 @@ const process = (Custom, key, classTable) => {
     const sql = column.sql || nameToSql(column.name);
     const statements = [];
     for (const check of checks) {
-      if (check.is) {
+      if (check.is !== undefined) {
         if (typeof check.is === 'symbol') {
           const method = Table.requests.get(check.is);
           if (method.category === 'Column') {
@@ -851,7 +841,7 @@ const toVirtual = (table) => {
     }
     else {
       names.push(nameToSql(column.name));
-      sql += `  ${nameToSql(column.name)}${column.unindexed ? ' unindexable' : ''},\n`;
+      sql += `  ${nameToSql(column.name)}${column.unindexed ? ' unindexed' : ''},\n`;
     }
   }
   if (!contentless) {
@@ -932,7 +922,8 @@ const toSql = (table) => {
     sql += `  ${clause},\n`;
   }
   if (primaryKeys.length > 0) {
-    sql += `  primary key (${primaryKeys.join(', ')}),\n`;
+    const mapped = primaryKeys.map(k => nameToSql(k));
+    sql += `  primary key (${mapped.join(', ')}),\n`;
   }
   if (foreignKeys.length > 0) {
     for (const foreignKey of foreignKeys) {
