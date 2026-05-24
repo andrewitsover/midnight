@@ -867,7 +867,7 @@ const getVirtualSelect = (args) => {
 }
 
 const escape = (phrase) => {
-  return `"${phrase.replaceAll(/"/g, '""')}"`;
+  return `"${phrase.replaceAll('"', '""')}"`;
 }
 
 const toSql = (phrases, type) => {
