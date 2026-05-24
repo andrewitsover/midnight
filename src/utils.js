@@ -23,19 +23,6 @@ const createPlaceholder = () => {
   }
 }
 
-const toValues = (rows) => {
-  if (!rows || rows.length === 0) {
-    return rows;
-  }
-  const sample = rows[0];
-  const keys = Object.keys(sample);
-  if (keys.length === 1) {
-    const key = keys[0];
-    return rows.map(r => r[key]);
-  }
-  return rows;
-}
-
 const expressionHandler = (expression, getPlaceholder) => {
   const columnHandler = {
     get: function(target, property) {
@@ -265,7 +252,6 @@ export {
   pick,
   omit,
   addAlias,
-  toValues,
   nameToSql,
   jsonSelector,
   createPlaceholder,

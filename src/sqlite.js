@@ -1,5 +1,4 @@
 import { temporal, removeCapital } from './utils.js';
-import { parse } from './parsers.js';
 import { processQuery } from './symbols.js';
 import { process, toSql, toHash, Table } from './tables.js';
 import toMigration from './migrate.js';
