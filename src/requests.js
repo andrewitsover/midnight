@@ -1,5 +1,5 @@
 import returnTypes from './types.js';
-import { jsonSelector, nameToSql, temporal, removeCapital } from './utils.js';
+import { jsonSelector, nameToSql, temporal, removeCapital, toLiteral } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
 import { Table } from './tables.js';
 
@@ -43,23 +43,6 @@ const getParamType = (param) => {
     return removeCapital(found.name);
   }
   return 'json';
-}
-
-const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
-
-const toLiteral = (value) => {
-  const type = typeof value;
-  if (type === 'string') {
-    return `'${sanitize(value)}'`;
-  }
-  if (type === 'boolean') {
-    return value === true ? 1 : 0;
-  }
-  const exists = temporal.some(type => value instanceof type);
-  if (exists) {
-    return `'${value.toString()}'`;
-  }
-  return value;
 }
 
 const processArg = (options) => {
@@ -523,7 +506,7 @@ const processMethod = (options) => {
       if (!Number.isInteger(groups)) {
         throw Error('invalid argument: groups');
       }
-      sql = `ntil(${groups})`;
+      sql = `ntile(${groups})`;
     }
     else if (name === 'lag' || name === 'lead') {
       const { expression, offset, otherwise } = arg;
@@ -686,7 +669,8 @@ const toWhere = (options) => {
     where,
     params,
     requests,
-    getPlaceholder
+    getPlaceholder,
+    internal
   } = options;
   const type = options.type || 'and';
   const statements = [];
@@ -719,7 +703,7 @@ const toWhere = (options) => {
       }
     }
     else {
-      selector = request.selector || request.sql || request.name;
+      selector = request.selector || request.sql || nameToSql(request.name);
     }
     const value = where[symbol];
     const valueRequest = requests.get(value);
@@ -748,7 +732,7 @@ const toWhere = (options) => {
           });
           const second = processArg({
             db,
-            arg: param,
+            arg: args.at(1),
             params,
             requests,
             getPlaceholder
@@ -866,13 +850,18 @@ const toWhere = (options) => {
           type,
           params,
           requests,
-          getPlaceholder
+          getPlaceholder,
+          internal: true
         }))
         .join(` ${type} `);
-      statements.push(statement);
+      statements.push(`(${statement})`);
     }
   }
-  return statements.join(` ${type} `);
+  const sql = statements.join(` ${type} `);
+  if (!internal && sql.startsWith('(')) {
+    return sql.slice(1, -1);
+  }
+  return sql;
 }
 
 export {

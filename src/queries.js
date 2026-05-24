@@ -417,7 +417,8 @@ const toWhere = (options) => {
     params,
     logic,
     getPlaceholder,
-    columnTypes
+    columnTypes,
+    internal
   } = options;
   if (!query) {
     return '';
@@ -444,7 +445,8 @@ const toWhere = (options) => {
           params,
           logic: column,
           getPlaceholder,
-          columnTypes
+          columnTypes,
+          internal: true
         });
         filters.push(clauses);
       }
@@ -481,7 +483,11 @@ const toWhere = (options) => {
       }
     }
   }
-  return conditions.join(` ${logic || 'and'} `);
+  const sql = conditions.join(` ${logic || 'and'} `);
+  if (!internal && sql.startsWith('(')) {
+    return sql.slice(1, -1);
+  }
+  return sql;
 }
 
 const createSetClause = (args) => {

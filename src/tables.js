@@ -1,6 +1,6 @@
 import { compareMethods, computeMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
-import { nameToSql, temporal, removeCapital } from './utils.js';
+import { nameToSql, temporal, removeCapital, toLiteral } from './utils.js';
 import { createHash } from 'node:crypto';
 
 const toHash = (table, sql) => {
@@ -37,8 +37,6 @@ const addCapital = (name) => {
   return name.at(0).toUpperCase() + name.substring(1);
 }
 
-const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
-
 const toColumn = (literal, instance) => {
   const type = typeof literal;
   let symbol;
@@ -71,27 +69,6 @@ const toColumn = (literal, instance) => {
     symbol,
     column
   };
-}
-
-const toLiteral = (value) => {
-  if (value === null) {
-    return value;
-  }
-  const type = typeof value;
-  if (type === 'string') {
-    return `'${sanitize(value)}'`;
-  }
-  if (type === 'boolean') {
-    return value === true ? 1 : 0;
-  }
-  const exists = temporal.some(type => value instanceof type);
-  if (exists) {
-    return `'${value.toString()}'`;
-  }
-  if (type === 'object') {
-    return `(${value.function})`;
-  }
-  return value;
 }
 
 class Unicode61 {

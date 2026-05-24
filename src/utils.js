@@ -238,6 +238,29 @@ const nameToSql = (column, alias) => {
   return name;
 }
 
+const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
+
+const toLiteral = (value) => {
+  if (value === null) {
+    return value;
+  }
+  const type = typeof value;
+  if (type === 'string') {
+    return `'${sanitize(value)}'`;
+  }
+  if (type === 'boolean') {
+    return value === true ? 1 : 0;
+  }
+  const exists = temporal.some(type => value instanceof type);
+  if (exists) {
+    return `'${value.toString()}'`;
+  }
+  if (type === 'object') {
+    return `(${value.function})`;
+  }
+  return value;
+}
+
 export {
   pick,
   omit,
@@ -248,5 +271,6 @@ export {
   createPlaceholder,
   expressionHandler,
   removeCapital,
-  temporal
+  temporal,
+  toLiteral
 }
