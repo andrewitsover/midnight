@@ -1,4 +1,3 @@
-import { makeClient } from './proxy.js';
 import { temporal, removeCapital } from './utils.js';
 import { parse } from './parsers.js';
 import { processQuery } from './symbols.js';
@@ -6,6 +5,7 @@ import { process, toSql, toHash, Table } from './tables.js';
 import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
 import functions from './functions.js';
+import DbApi from './proxy.js';
 
 const dbTypes = {
   integer: true,
@@ -118,7 +118,7 @@ class Database {
       this.schema.push(table);
     }
     this.addTables();
-    return makeClient(this);
+    return new DbApi(this);
   }
 
   getSchema() {

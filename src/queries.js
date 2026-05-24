@@ -134,7 +134,7 @@ const makeInsertSql = (args) => {
 }
 
 const processInsert = (args) => {
-  const { db, table, sql, params, returning, tx, log } = args;
+  const { db, table, sql, params, returning, log } = args;
   const primaryKey = db.getPrimaryKey(table);
   const types = db.columns[table];
   let query = sql;
@@ -151,7 +151,6 @@ const processInsert = (args) => {
   const options = {
     query,
     params,
-    tx,
     adjusted: true,
     bigInt: result.bigInt
   };
@@ -179,8 +178,7 @@ const upsert = (args) => {
     db,
     table,
     options,
-    returning,
-    tx
+    returning
   } = args;
   const getPlaceholder = createPlaceholder();
   const { values, target, set, log } = options;
@@ -217,7 +215,6 @@ const upsert = (args) => {
     table,
     params,
     returning,
-    tx,
     log
   });
 }
@@ -227,8 +224,7 @@ const insert = (args) => {
     db,
     table,
     values,
-    returning,
-    tx
+    returning
   } = args;
   const getPlaceholder = createPlaceholder();
   const columns = Object.keys(values);
@@ -247,14 +243,12 @@ const insert = (args) => {
     sql,
     table,
     params,
-    returning,
-    tx
+    returning
   });
 }
 
 const batchInserts = (args) => {
   const {
-    tx,
     db,
     table,
     items,
@@ -281,7 +275,6 @@ const batchInserts = (args) => {
     inserts.push({
       query: sql,
       params,
-      tx,
       adjusted: true,
       bigInt
     });
@@ -334,8 +327,7 @@ const insertMany = (args) => {
     db,
     table,
     items,
-    returning,
-    tx
+    returning
   } = args;
   if (items.length === 0) {
     return;
@@ -353,7 +345,6 @@ const insertMany = (args) => {
     const { parse, bigInt } = getParser(db, columnTypes);
     if (hasBlob) {
       const rows = batchInserts({
-        tx,
         db,
         table,
         items,
@@ -402,7 +393,6 @@ const insertMany = (args) => {
     const options = {
       query: sql,
       params,
-      tx,
       bigInt
     };
     if (!returning) {
@@ -527,8 +517,7 @@ const update = (args) => {
   const { 
     db,
     table,
-    options,
-    tx
+    options
   } = args;
   const getPlaceholder = createPlaceholder();
   const { where, set, log } = options;
@@ -558,7 +547,6 @@ const update = (args) => {
   const runOptions = {
     query: sql,
     params: db.adjust(params),
-    tx,
     adjusted: true
   };
   return withLog(db, runOptions, log, 'run');
@@ -638,7 +626,6 @@ const exists = (config) => {
   const {
     db,
     table,
-    tx,
     subquery,
   } = config;
   const getPlaceholder = createPlaceholder();
@@ -661,8 +648,7 @@ const exists = (config) => {
   sql += ') as exists_result';
   const options = {
     query: sql,
-    params,
-    tx
+    params
   };
   const results = db.all(options);
   if (results.length > 0) {
@@ -675,9 +661,8 @@ const aggregate = (config) => {
   const {
     db,
     table,
-    tx,
     method,
-    subquery,
+    subquery
   } = config;
   const getPlaceholder = createPlaceholder();
   const params = {};
@@ -717,7 +702,6 @@ const aggregate = (config) => {
   const options = {
     query: sql,
     params: db.adjust(params),
-    tx,
     adjusted: true,
     bigInt
   };
@@ -1009,8 +993,7 @@ const match = (config) => {
   const {
     db,
     table,
-    query,
-    tx
+    query
   } = config;
   const getPlaceholder = createPlaceholder();
   let sql;
@@ -1062,7 +1045,6 @@ const match = (config) => {
   const options = {
     query: sql,
     params: db.adjust(params),
-    tx,
     adjusted: true
   };
   const rows = withLog(db, options, query.log);
@@ -1108,7 +1090,6 @@ const all = (config) => {
     db,
     table,
     first,
-    tx,
     subquery,
     type
   } = config;
@@ -1195,7 +1176,6 @@ const all = (config) => {
   const options = {
     query: sql,
     params: db.adjust(params),
-    tx,
     adjusted: true,
     bigInt
   };
@@ -1235,8 +1215,7 @@ const remove = (args) => {
   const { 
     db,
     table,
-    query,
-    tx
+    query
   } = args;
   const getPlaceholder = createPlaceholder();
   let sql = `delete from ${table}`;
@@ -1257,8 +1236,7 @@ const remove = (args) => {
   }
   const options = {
     query: sql,
-    params,
-    tx
+    params
   };
   return db.run(options);
 }
