@@ -225,7 +225,7 @@ const nameToSql = (column, alias) => {
   return name;
 }
 
-const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
+const sanitize = (s) => s.replaceAll(`'`, `''`);
 
 const toLiteral = (value) => {
   if (value === null) {
