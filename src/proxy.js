@@ -10,6 +10,7 @@ import {
   remove
 } from './queries.js';
 import { removeCapital } from './utils.js';
+import { Table } from './tables.js';
 
 class TableApi {
   constructor(args) {
@@ -229,9 +230,12 @@ class DbApi {
   }
 
   use(subquery) {
+    const symbol = Object.values(subquery).at(0);
+    const request = Table.requests.get(symbol);
+    const context = request.subquery;
     return new TableApi({
       db: this.db,
-      subquery
+      subquery: context
     });
   }
 }

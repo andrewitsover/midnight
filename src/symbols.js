@@ -1,6 +1,7 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
 import { addAlias, nameToSql, createPlaceholder, temporal, removeCapital } from './utils.js';
+import { Table } from './tables.js';
 
 const dateParsers = temporal.map(type => {
   const key = removeCapital(type.name);
@@ -36,21 +37,9 @@ const makeProxy = (options) => {
   const {
     db,
     requests,
-    subqueries
+    subqueries,
+    makeAlias
   } = options;
-  const existing = Object.keys(db.columns);
-  const usedAliases = new Set(existing);
-  const makeAlias = (table) => {
-    const letter = table ? table[0].toLowerCase() : 's';
-    for (let i = 0; i < 100; i++) {
-      const alias = i ? `${letter}${i}` : letter;
-      if (!usedAliases.has(alias)) {
-        usedAliases.add(alias);
-        return alias;
-      }
-    }
-    throw Error('failed to create a unique table alias');
-  }
   const makeTableHandler = (table) => {
     const tableAlias = makeAlias(table);
     const symbol = Symbol();
@@ -116,17 +105,6 @@ const makeProxy = (options) => {
   }
   const handler = {
     get: function(target, property) {
-      if (property === 'hint') {
-        return (...args) => {
-          const [column, proxy] = args.map(a => requests.get(a));
-          const symbol = Symbol();
-          requests.set(symbol, {
-            category: 'Hint',
-            tableKey: proxy.tableKey,
-            column
-          });
-        }
-      }
       if (property === 'use') {
         return (context) => {
           const keys = Object.keys(context.columns);
@@ -242,7 +220,7 @@ const replaceParams = (subqueries, sql, params) => {
   }
 }
 
-const getColumns = (where, requests) => {
+const getColumns = (where, getRequest) => {
   const getSymbols = (clause) => {
     const found = [];
     const symbols = Object.getOwnPropertySymbols(clause);
@@ -262,7 +240,7 @@ const getColumns = (where, requests) => {
     return found;
   }
   return getSymbols(where)
-    .map(s => requests.get(s))
+    .map(s => getRequest(s))
     .filter(s => s.category === 'Column');
 }
 
@@ -299,10 +277,24 @@ const processQuery = (db, expression, firstResult) => {
   const getPlaceholder = createPlaceholder();
   const requests = new Map();
   const subqueries = [];
+  const existing = Object.keys(db.columns);
+  const usedAliases = new Set(existing);
+  const makeAlias = (table) => {
+    const letter = table ? table[0].toLowerCase() : 's';
+    for (let i = 0; i < 100; i++) {
+      const alias = i ? `${letter}${i}` : letter;
+      if (!usedAliases.has(alias)) {
+        usedAliases.add(alias);
+        return alias;
+      }
+    }
+    throw Error('failed to create a unique table alias');
+  }
   const proxy = makeProxy({
     db,
     requests,
-    subqueries
+    subqueries,
+    makeAlias
   });
   const params = {};
   const result = expression(proxy);
@@ -332,12 +324,68 @@ const processQuery = (db, expression, firstResult) => {
   const parsers = {};
   const columnTypes = {};
   const original = {};
+  const includeSubquery = (symbol) => {
+    const request = Table.requests.get(symbol);
+    if (request) {
+      requests.set(symbol, request);
+    }
+    if (request && request.category === 'SubqueryColumn') {
+      const context = request.subquery;
+      let subquery = subqueries.find(s => s.context === context);
+      if (!subquery) {
+        const tableAlias = makeAlias();
+        subquery = {
+          alias: tableAlias,
+          sql: context.sql,
+          params: context.params,
+          context
+        };
+        subqueries.push(subquery);
+        for (const key of Object.keys(context.columns)) {
+          if (key === request.name) {
+            continue;
+          }
+          const symbol = Symbol();
+          const type = context.columns[key];
+          const original = context.original[key];
+          requests.set(symbol, {
+            category: 'SubqueryColumn',
+            name: key,
+            type,
+            original,
+            subquery: context,
+            tableAlias,
+            selector: `${tableAlias}.${key}`
+          });
+        }
+      }
+      request.selector = `${subquery.alias}.${request.name}`;
+      request.tableAlias = subquery.alias;
+      return request;
+    }
+  }
+  const getRequest = (symbol) => {
+    let request = requests.get(symbol);
+    if (!request) {
+      request = includeSubquery(symbol);
+    }
+    return request;
+  }
   for (const [key, value] of Object.entries(select)) {
     let parser;
     let type;
     const symbol = typeof value === 'symbol' ? value : value.symbol;
-    const request = requests.get(symbol);
-    if (request.category !== 'Column') {
+    let request = requests.get(symbol);
+    if (!request) {
+      request = includeSubquery(symbol);
+      if (request) {
+        statements.push(`${request.selector} as ${nameToSql(key)}`);
+        columnTypes[key] = request.type;
+        original[key] = request.original || request;
+        parser = db.getDbToJsParser(request.type);
+      }
+    }
+    else if (request.category !== 'Column') {
       const left = request.name === 'group' && maybeSymbols.has(value);
       const valueArg = processMethod({
         db,
@@ -345,7 +393,8 @@ const processQuery = (db, expression, firstResult) => {
         params,
         requests,
         getPlaceholder,
-        left
+        left,
+        includeSubquery
       });
       request.alias = key;
       request.type = valueArg.type;
@@ -401,7 +450,8 @@ const processQuery = (db, expression, firstResult) => {
         arg: c,
         params,
         requests,
-        getPlaceholder
+        getPlaceholder,
+        includeSubquery
       }))
       .map(a => a.sql);
     clauses.groupBy = statements.join(', ');
@@ -412,7 +462,8 @@ const processQuery = (db, expression, firstResult) => {
       where: having,
       params,
       requests,
-      getPlaceholder
+      getPlaceholder,
+      includeSubquery
     });
   }
   if (orderBy) {
@@ -423,7 +474,8 @@ const processQuery = (db, expression, firstResult) => {
         arg,
         params,
         requests,
-        getPlaceholder
+        getPlaceholder,
+        includeSubquery
       }))
       .map(arg => {
         if (arg.type === 'zonedDateTime') {
@@ -456,7 +508,8 @@ const processQuery = (db, expression, firstResult) => {
       arg: offset,
       params,
       requests,
-      getPlaceholder
+      getPlaceholder,
+      includeSubquery
     });
     clauses.offset = result.sql;
   }
@@ -466,7 +519,8 @@ const processQuery = (db, expression, firstResult) => {
       arg: limit,
       params,
       requests,
-      getPlaceholder
+      getPlaceholder,
+      includeSubquery
     });
     clauses.limit = result.sql;
   }
@@ -486,13 +540,13 @@ const processQuery = (db, expression, firstResult) => {
     join = join.map(tuple => {
       if (!Array.isArray(tuple)) {
         if (!first) {
-          first = getColumns(tuple, requests).at(0);
+          first = getColumns(tuple, getRequest).at(0);
           used.add(toKey(first));
         }
         return tuple;
       }
       const [l, r, type] = tuple;
-      const processed = [requests.get(l), requests.get(r), type];
+      const processed = [getRequest(l), getRequest(r), type];
       if (!first) {
         first = processed[0];
         used.add(toKey(first));
@@ -508,7 +562,7 @@ const processQuery = (db, expression, firstResult) => {
     const set = new Set();
     const columns = [];
     for (const value of values) {
-      if (value.category === 'Column') {
+      if (['Column', 'SubqueryColumn'].includes(value.category)) {
         if (set.has(value.selector)) {
           continue;
         }
@@ -519,7 +573,43 @@ const processQuery = (db, expression, firstResult) => {
       }
     }
     const used = values.filter(r => r.category === 'UsedColumn');
-    const unique = new Set(columns.map(c => toKey(c)));
+    const unique = new Set();
+    for (const request of columns) {
+      if (request.category === 'SubqueryColumn') {
+        const context = request.subquery;
+        let subquery = subqueries.find(s => s.context === context);
+        if (!subquery) {
+          const tableAlias = makeAlias();
+          subquery = {
+            alias: tableAlias,
+            sql: context.sql,
+            params: context.params
+          };
+          subqueries.push(subquery);
+          for (const key of Object.keys(context.columns)) {
+            if (key === request.name) {
+              continue;
+            }
+            const symbol = Symbol();
+            const type = context.columns[key];
+            const original = context.original[key];
+            requests.set(symbol, {
+              category: 'SubqueryColumn',
+              name: key,
+              type,
+              original,
+              subquery: context,
+              tableAlias,
+              selector: `${tableAlias}.${key}`
+            });
+          }
+        }
+        request.selector = `${subquery.alias}.${request.name}`;
+        request.tableAlias = subquery.alias;
+      }
+      const key = toKey(request);
+      unique.add(key);
+    }
     const tables = Array.from(unique.values());
     const left = new Set();
     if (result.maybe) {
@@ -599,67 +689,47 @@ const processQuery = (db, expression, firstResult) => {
       clauses.from = `${table} ${tableAlias}`;
     }
     else if (tables.length > 1) {
-      if (!firstTable) {
-        firstTable = tables.at(0);
-      }
-      const makeKey = (request) => {
-        const symbol = Symbol();
-        requests.set(symbol, request);
-        return symbol;
-      }
-      const filtered = values.filter(r => r.category === 'Hint');
-      const hints = new Map();
-      const usedKeys = new Set();
-      for (const hint of filtered) {
-        const { tableKey, column } = hint;
-        hints.set(tableKey, column);
-        const [table] = tableKey.split(' ');
-        const relation = db.foreignKeys[column.table]
-          .filter(k => k.references.table === table)
-          .filter(k => k.columns.length === 1)
-          .find(k => k.columns.at(0) === column.name);
-        hints.set(tableKey, { relation, otherKey: toKey(column) });
-        usedKeys.add(relation);
-      }
-      const ordered = [firstTable, ...tables.filter(t => t !== firstTable)];
-      const join = [];
-      const joined = new Set();
-      for (const tableKey of ordered) {
-        const [table, tableAlias] = tableKey.split(' ');
-        const process = (relation, otherKey) => {
-          const joinKey = [tableKey, otherKey].sort().join(' ');
-          if (joined.has(joinKey)) {
-            return;
-          }
-          const [other, otherAlias] = otherKey.split(' ');
-          if (relation) {
-            const otherColumn = relation.columns.at(0);
-            const column = relation.references.column;
-            const tableSymbol = makeKey({
-              table,
-              tableAlias,
-              selector: `${tableAlias}.${column}`
-            });
-            const otherSymbol = makeKey({
-              table: other,
-              tableAlias: otherAlias,
-              selector: `${otherAlias}.${otherColumn}`
-            });
-            let type;
-            if (left.has(tableKey) || left.has(otherKey)) {
-              type = 'left';
+      const findJoins = (shared) => {
+        if (!firstTable) {
+          firstTable = tables.at(0);
+        }
+        const makeKey = (request) => {
+          const symbol = Symbol();
+          requests.set(symbol, request);
+          return symbol;
+        }
+        const ordered = [firstTable, ...tables.filter(t => t !== firstTable)];
+        const join = [];
+        const joined = new Set();
+        for (const tableKey of ordered) {
+          const [table, tableAlias] = tableKey.split(' ');
+          const process = (relation, otherKey) => {
+            const joinKey = [tableKey, otherKey].sort().join(' ');
+            if (joined.has(joinKey)) {
+              return;
             }
-            joined.add(joinKey);
-            join.push([tableSymbol, otherSymbol, type]);
+            const [other, otherAlias] = otherKey.split(' ');
+            if (relation) {
+              const otherColumn = relation.columns.at(0);
+              const column = relation.references.column;
+              const tableSymbol = makeKey({
+                table,
+                tableAlias,
+                selector: `${tableAlias}.${column}`
+              });
+              const otherSymbol = makeKey({
+                table: other,
+                tableAlias: otherAlias,
+                selector: `${otherAlias}.${otherColumn}`
+              });
+              let type;
+              if (left.has(tableKey) || left.has(otherKey)) {
+                type = 'left';
+              }
+              joined.add(joinKey);
+              join.push([tableSymbol, otherSymbol, type]);
+            }
           }
-        }
-        const hint = hints.get(tableKey);
-        if (hint) {
-          const { relation, otherKey } = hint;
-          const joinKey = [tableKey, otherKey].sort().join(' ');
-          process(relation, otherKey);
-        }
-        else {
           for (const otherKey of ordered.filter(t => t !== tableKey)) {
             const joinKey = [tableKey, otherKey].sort().join(' ');
             if (joined.has(joinKey)) {
@@ -700,21 +770,53 @@ const processQuery = (db, expression, firstResult) => {
                     join.push([tableSymbol, otherSymbol, type]);
                   }
                 }
+                else if (shared && original) {
+                  const found = db.foreignKeys[original.table]
+                    .filter(k => k.columns.length === 1)
+                    .find(k => k.columns.at(0) === original.name);
+                  if (found) {
+                    const foreignKey = db.foreignKeys[table]
+                      .filter(k => k.columns.length === 1)
+                      .filter(k => k.references.table === found.references.table)
+                      .find(k => k.references.column === found.references.column);
+                    if (foreignKey) {
+                      const otherSymbol = makeKey({
+                        tableAlias: other,
+                        selector: `${other}.${column.name}`
+                      });
+                      const tableSymbol = makeKey({
+                        table,
+                        tableAlias,
+                        selector: `${tableAlias}.${foreignKey.columns.at(0)}`
+                      });
+                      let type;
+                      if (left.has(tableKey) || left.has(otherKey)) {
+                        type = 'left';
+                      }
+                      joined.add(joinKey);
+                      join.push([tableSymbol, otherSymbol, type]);
+                    }
+                  }
+                }
               }
             }
             else {
               const foreignKeys = db.foreignKeys[other];
               const relation = foreignKeys
-                .filter(k => !usedKeys.has(k))
                 .filter(k => k.columns.length === 1)
                 .find(k => k.references.table === table);
               process(relation, otherKey);
             }
           }
         }
+        return join;
       }
+      let join = findJoins();
       if (join.length !== tables.length - 1) {
-        throw Error('Could not join all tables');
+        join = findJoins(true);
+        if (join.length !== tables.length - 1) {
+          throw Error('Could not join all tables');
+        }
       }
       processJoin(join);
     }
@@ -724,14 +826,15 @@ const processQuery = (db, expression, firstResult) => {
     for (const tuple of join) {
       if (!Array.isArray(tuple)) {
         const joinType = tuple.type ? `${tuple.type} join` : 'join';
-        const columns = getColumns(tuple, requests);
+        const columns = getColumns(tuple, getRequest);
         const { type, ...where } = tuple;
         const whereClause = toWhere({
           db,
           where,
           params,
           requests,
-          getPlaceholder
+          getPlaceholder,
+          includeSubquery
         });
         const from = columns.find(c => !used.has(toKey(c)));
         const table = from.table || from.tableAlias;
@@ -777,7 +880,4 @@ const processQuery = (db, expression, firstResult) => {
   }
 }
 
-export {
-  processQuery,
-  makeProxy
-}
+export default processQuery;

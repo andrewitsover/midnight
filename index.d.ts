@@ -1204,8 +1204,7 @@ type SubqueryContext =
   SymbolCompareMethods<QueryCompareTypes> &
   ComputeMethods &
   SymbolMethods &
-  { use<T>(context: T): T } &
-  { hint(column: any, table: any): void }
+  { use<T>(context: T): T };
 
 type MakeOptional<T> = {
   [K in keyof T]:

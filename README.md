@@ -677,11 +677,11 @@ The query below creates a list of people that have sighted a particular ```anima
 
 ```js
 const sighted = db.subquery(c => {
-  const { sightings: s, people: p } = c.sightings;
+  const { animalId } = c.sightings;
   return {
     select: {
-      animalId: s.animalId,
-      sightedBy: c.group(p)
+      animalId,
+      by: c.group(c.people)
     }
   }
 });
@@ -691,17 +691,15 @@ You can now use this subquery in other queries.
 
 ```js
 const animals = db.query(c => {
-  const { animalId, sightedBy } = c.use(sighted);
-  const a = c.animals;
+  const { animals: a } = c;
   return {
-    select: {
-      ...a,
-      sightedBy
+    select: a,
+    maybe: {
+      sightedBy: sighted.by
     },
     where: {
       [c.length(a.name)]: c.gt(10)
-    },
-    join: [a.id, animalId, 'left']
+    }
   }
 });
 ```

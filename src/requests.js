@@ -53,20 +53,30 @@ const processArg = (options) => {
     requests,
     inJson,
     getPlaceholder,
-    root
+    root,
+    includeSubquery
   } = options;
-  const request = requests.get(arg);
-  if (request && request.category !== 'Column') {
+  let request = requests.get(arg);
+  if (!request) {
+    if (includeSubquery) {
+      request = includeSubquery(arg);
+    }
+    else {
+      request = Table.requests.get(arg);
+    }
+  }
+  if (request && !['Column', 'SubqueryColumn'].includes(request.category)) {
     return processMethod({
       db,
       method: request,
       params,
       requests,
       getPlaceholder,
-      root
+      root,
+      includeSubquery
     });
   }
-  else if (request && request.category === 'Column') {
+  else if (request && ['Column', 'SubqueryColumn'].includes(request.category)) {
     if (root) {
       const symbol = Symbol();
       const item = {
@@ -113,7 +123,8 @@ const getObjectBody = (options) => {
     params,
     requests,
     getPlaceholder,
-    root
+    root,
+    includeSubquery
   } = options;
   const items = [];
   const types = [];
@@ -126,7 +137,8 @@ const getObjectBody = (options) => {
         requests,
         inJson: true,
         getPlaceholder,
-        root
+        root,
+        includeSubquery
       });
       types.push(valueArg.type);
       items.push(valueArg.sql);
@@ -136,7 +148,8 @@ const getObjectBody = (options) => {
         db,
         params,
         value,
-        getPlaceholder
+        getPlaceholder,
+        includeSubquery
       });
       types.push(result.type);
       items.push(result.sql);
@@ -155,7 +168,8 @@ const processWindow = (options) => {
     params,
     requests,
     getPlaceholder,
-    root
+    root,
+    includeSubquery
   } = options;
   let sql = '';
   const { 
@@ -171,7 +185,8 @@ const processWindow = (options) => {
       where,
       params,
       requests,
-      getPlaceholder
+      getPlaceholder,
+      includeSubquery
     });
     sql += `filter (where ${clause})`;
   }
@@ -184,7 +199,8 @@ const processWindow = (options) => {
           params,
           requests,
           getPlaceholder,
-          root
+          root,
+          includeSubquery
         }));
       const mapped = args.map(arg => {
         if (arg.type === 'zonedDateTime') {
@@ -250,7 +266,8 @@ const processMethod = (options) => {
     params,
     requests,
     getPlaceholder,
-    left
+    left,
+    includeSubquery
   } = options;
   if (method.alias) {
     return {
@@ -272,7 +289,8 @@ const processMethod = (options) => {
       params,
       requests,
       getPlaceholder,
-      root
+      root,
+      includeSubquery
     });
     if (result.type === 'zonedDateTime' && method.args.length === 2) {
       const second = processArg({
@@ -281,7 +299,8 @@ const processMethod = (options) => {
         params,
         requests,
         getPlaceholder,
-        root
+        root,
+        includeSubquery
       });
       return {
         sql: `temporal_compare(${result.sql}, ${second.sql}) ${operator} 0`,
@@ -325,7 +344,8 @@ const processMethod = (options) => {
       params,
       requests,
       getPlaceholder,
-      root
+      root,
+      includeSubquery
     });
     return {
       sql: `${selector} ${operator} ${toResult.sql}`,
@@ -351,7 +371,8 @@ const processMethod = (options) => {
       params,
       requests,
       getPlaceholder,
-      root
+      root,
+      includeSubquery
     });
     const type = method.args.at(1);
     if (!['real', 'integer'].includes(type)) {
@@ -391,7 +412,8 @@ const processMethod = (options) => {
           requests,
           inJson: true,
           getPlaceholder,
-          root
+          root,
+          includeSubquery
         });
         otherTypes = [result.type];
         sql = `${name}(${result.sql})`;
@@ -402,7 +424,8 @@ const processMethod = (options) => {
           select: selectArg,
           params,
           requests,
-          root
+          root,
+          includeSubquery
         });
         otherTypes = result.types;
         sql = `${name}(json_object(${result.sql}))`;
@@ -414,7 +437,8 @@ const processMethod = (options) => {
           params,
           requests,
           getPlaceholder,
-          root
+          root,
+          includeSubquery
         });
         sql += ` ${clause}`;
       }
@@ -452,7 +476,8 @@ const processMethod = (options) => {
         params,
         requests,
         getPlaceholder,
-        root
+        root,
+        includeSubquery
       });
       const valueArg = processArg({
         db,
@@ -460,7 +485,8 @@ const processMethod = (options) => {
         params,
         requests,
         getPlaceholder,
-        root
+        root,
+        includeSubquery
       });
       otherTypes = [keyArg.type, valueArg.type];
       let windowClause = '';
@@ -471,7 +497,8 @@ const processMethod = (options) => {
           params,
           requests,
           getPlaceholder,
-          root
+          root,
+          includeSubquery
         });
       }
       const sql = `${name}(${keyArg.sql}, ${valueArg.sql})${windowClause}`;
@@ -488,7 +515,8 @@ const processMethod = (options) => {
         params,
         requests,
         getPlaceholder,
-        root
+        root,
+        includeSubquery
       });
       otherTypes = result.types;
       const sql = `${name}(${result.sql})`;
@@ -519,7 +547,8 @@ const processMethod = (options) => {
           params,
           requests,
           getPlaceholder,
-          root
+          root,
+          includeSubquery
         }));
       if (parsed.length === 1) {
         type = parsed.at(0).type;
@@ -542,7 +571,8 @@ const processMethod = (options) => {
           params,
           requests,
           getPlaceholder,
-          root
+          root,
+          includeSubquery
         }));
       type = parsed.at(0).type;
       sql = `${name}(${parsed.map(a => a.sql).join(', ')})`;
@@ -554,7 +584,8 @@ const processMethod = (options) => {
         params,
         requests,
         getPlaceholder,
-        root
+        root,
+        includeSubquery
       });
       const sql = `${name}(${bodyArg.sql})`;
       if (['min', 'max'].includes(name)) {
@@ -581,7 +612,8 @@ const processMethod = (options) => {
         params,
         requests,
         getPlaceholder,
-        root
+        root,
+        includeSubquery
       });
       if (['min', 'max'].includes(name)) {
         type = bodyArg.type;
@@ -597,7 +629,8 @@ const processMethod = (options) => {
       params,
       requests,
       getPlaceholder,
-      root
+      root,
+      includeSubquery
     });
     if (clause) {
       sql += ` ${clause}`;
@@ -613,7 +646,8 @@ const processMethod = (options) => {
     params,
     requests,
     getPlaceholder,
-    root
+    root,
+    includeSubquery
   }));
   if (method.name === 'if') {
     const length = method.args.length;
@@ -670,7 +704,8 @@ const toWhere = (options) => {
     params,
     requests,
     getPlaceholder,
-    internal
+    internal,
+    includeSubquery
   } = options;
   const type = options.type || 'and';
   const statements = [];
@@ -685,9 +720,14 @@ const toWhere = (options) => {
     let selector;
     let request = requests.get(symbol);
     if (!request) {
-      request = Table.requests.get(symbol);
+      if (includeSubquery) {
+        request = includeSubquery(symbol);
+      }
+      else {
+        request = Table.requests.get(symbol);
+      }
     }
-    if (request.category !== 'Column') {
+    if (request && !['Column', 'SubqueryColumn'].includes(request.category)) {
       if (request.alias) {
         selector = request.alias;
       }
@@ -697,7 +737,8 @@ const toWhere = (options) => {
           method: request,
           params,
           requests,
-          getPlaceholder
+          getPlaceholder,
+          includeSubquery
         });
         selector = keyArg.sql;
       }
@@ -717,7 +758,8 @@ const toWhere = (options) => {
             arg: param,
             params,
             requests,
-            getPlaceholder
+            getPlaceholder,
+            includeSubquery
           });
           const operator = compareOperators.get(name);
           statements.push(`temporal_compare(${selector}, ${result.sql}) ${operator} 0`);
@@ -728,14 +770,16 @@ const toWhere = (options) => {
             arg: param,
             params,
             requests,
-            getPlaceholder
+            getPlaceholder,
+            includeSubquery
           });
           const second = processArg({
             db,
             arg: args.at(1),
             params,
             requests,
-            getPlaceholder
+            getPlaceholder,
+            includeSubquery
           });
           const operator = compareOperators.get(name);
           statements.push(`${selector} = temporal_compare(${first.sql}, ${second.sql}) ${operator} 0`);
@@ -759,7 +803,8 @@ const toWhere = (options) => {
             arg: param,
             params,
             requests,
-            getPlaceholder
+            getPlaceholder,
+            includeSubquery
           });
           const source = getPlaceholder();
           const flags = getPlaceholder();
@@ -775,7 +820,8 @@ const toWhere = (options) => {
           arg: param,
           params,
           requests,
-          getPlaceholder
+          getPlaceholder,
+          includeSubquery
         });
         if (name === 'not' && Array.isArray(param)) {
           statements.push(`${selector} not in (select json_each.value from json_each(${result.sql}))`);
@@ -785,17 +831,18 @@ const toWhere = (options) => {
         }
       }
     }
-    else if (valueRequest && valueRequest.category !== 'Column') {
+    else if (valueRequest && !['Column', 'SubqueryColumn'].includes(valueRequest.category)) {
       const methodArg = processMethod({
         db,
         method: valueRequest,
         params,
         requests,
-        getPlaceholder
+        getPlaceholder,
+        includeSubquery
       });
       statements.push(`${selector} = ${methodArg.sql}`);
     }
-    else if (valueRequest && valueRequest.category === 'Column') {
+    else if (valueRequest && ['Column', 'SubqueryColumn'].includes(valueRequest.category)) {
       statements.push(`${selector} = ${valueRequest.selector}`);
     }
     else if (value === null) {
@@ -807,7 +854,8 @@ const toWhere = (options) => {
           db,
           params,
           value,
-          getPlaceholder
+          getPlaceholder,
+          includeSubquery
         });
         if (Array.isArray(value)) {
           statements.push(`${selector} in (select json_each.value from json_each(${result.sql}))`);
@@ -851,7 +899,8 @@ const toWhere = (options) => {
           params,
           requests,
           getPlaceholder,
-          internal: true
+          internal: true,
+          includeSubquery
         }))
         .join(` ${type} `);
       statements.push(`(${statement})`);

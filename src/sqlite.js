@@ -1,5 +1,5 @@
 import { temporal, removeCapital } from './utils.js';
-import { processQuery } from './symbols.js';
+import processQuery from './symbols.js';
 import { process, toSql, toHash, Table } from './tables.js';
 import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
@@ -138,7 +138,38 @@ class Database {
   }
 
   subquery(expression) {
-    return processQuery(this, expression);
+    const context = processQuery(this, expression);
+    const keys = Object.keys(context.columns);
+    const handler = {
+      get: function(target, property) {
+        const symbol = Symbol();
+        const type = context.columns[property];
+        const original = context.original[property];
+        Table.requests.set(symbol, {
+          category: 'SubqueryColumn',
+          name: property,
+          type,
+          original,
+          subquery: context
+        });
+        return symbol;
+      },
+      ownKeys: function(target) {
+        return keys;
+      },
+      getOwnPropertyDescriptor: function(target, property) {
+        if (keys.includes(property)) {
+          return {
+            enumerable: true,
+            configurable: true
+          };
+        }
+        return undefined;
+      }
+    }
+    const proxy = new Proxy({}, handler);
+    Table.requests.set(proxy, { isProxy: true });
+    return proxy;
   }
 
   query(expression, first) {
