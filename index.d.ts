@@ -401,7 +401,7 @@ type ToSelectJsType<T> =
   T extends object
     ? {
         [K in keyof T]: 
-          T[K] extends (infer U)[] ? ToJsType<U>[] : T[K] extends object ? 
+          T[K] extends (infer U)[] ? ToJsType<U>[] : T[K] extends () => infer R ? ToJsType<R> : T[K] extends object ? 
           Extract<T[K][keyof T[K]], DbAny> extends never ? T[K] : ToJsType<T[K]>[] : ToJsType<T[K]>
       } : ToJsType<T>;
 
@@ -1012,7 +1012,7 @@ type DbAny = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | An
 type AnyParam = DbAny | AnyNullType;
 
 type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson | Primitive | null } | AllowedJson[];
-type SelectType = Primitive | AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson | Primitive };
+type SelectType = (() => SelectType) | Primitive | AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson | Primitive | (() => SelectType) };
 
 type Numeric = number | BigInt | AnyNumberType | AnyBigIntType;
 type NumericParam = number | BigInt | AnyNumberType | null | AnyNullType;

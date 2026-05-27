@@ -337,6 +337,10 @@ const processQuery = (db, expression, firstResult) => {
     else if (Array.isArray(value)) {
       return proxy.group(value.at(0));
     }
+    else if (typeof value === 'function') {
+      const result = value();
+      return proxy.object(result);
+    }
     else {
       return proxy.group(value);
     }
