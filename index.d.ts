@@ -408,6 +408,7 @@ type ToSelectJsType<T> =
 type ToSubqueryType<T> =
   T extends AnyNullType ? T :
   T extends (infer U)[] ? T :
+  T extends [infer U] ? U[] :
   T extends new (...args: any[]) => Table ? T :
   T extends { symbol: DbJson, typed: infer U } ? T :
   T extends object

@@ -319,16 +319,57 @@ const processQuery = (db, expression, firstResult) => {
     offset,
     limit
   } = result;
-  const properties = [result.select, result.distinct, result.maybe, result.certain].filter(p => p !== undefined);
+  const mapped = requests
+    .values()
+    .filter(r => r.category === 'TableProxy')
+    .map(r => r.proxy);
+  const tableProxies = new Set(mapped);
+  const getSymbol = (value) => {
+    if (tableProxies.has(value)) {
+      return proxy.group(value);
+    }
+    else if (typeof value === 'symbol') {
+      return value;
+    }
+    else if (value instanceof Structured) {
+      return value.symbol;
+    }
+    else if (Array.isArray(value)) {
+      return proxy.group(value.at(0));
+    }
+    else {
+      return proxy.group(value);
+    }
+  }
+  const adjust = (select) => {
+    if (!select) {
+      return select;
+    }
+    if (typeof select !== 'object') {
+      return getSymbol(select);
+    }
+    const adjusted = {};
+    for (const [key, value] of Object.entries(select)) {
+      adjusted[key] = getSymbol(value);
+    }
+    return adjusted;
+  }
+  const adjusted = {
+    select: adjust(result.select),
+    distinct: adjust(result.distinct),
+    maybe: adjust(result.maybe),
+    certain: adjust(result.certain)
+  };
+  const properties = Object.values(adjusted).filter(p => p !== undefined);
   const valueReturn = properties.every(p => typeof p === 'symbol');
   let select;
   if (valueReturn) {
     select = { valueReturn: properties.at(0) };
   }
   else {
-    select = { ...result.select, ...result.distinct, ...result.maybe, ...result.certain };
+    select = { ...adjusted.select, ...adjusted.distinct, ...adjusted.maybe, ...adjusted.certain };
   }
-  const maybeSymbols = new Set(Object.values(result.maybe || {}));
+  const maybeSymbols = new Set(Object.values(adjusted.maybe || {}));
   const clauses = {};
   const statements = [];
   const parsers = {};
@@ -381,29 +422,9 @@ const processQuery = (db, expression, firstResult) => {
     }
     return request;
   }
-  const mapped = requests
-    .values()
-    .filter(r => r.category === 'TableProxy')
-    .map(r => r.proxy);
-  const tableProxies = new Set(mapped);
-  for (const [key, value] of Object.entries(select)) {
+  for (const [key, symbol] of Object.entries(select)) {
     let parser;
     let type;
-    let symbol;
-    if (tableProxies.has(value)) {
-      symbol = proxy.group(value);
-      select[key] = symbol;
-    }
-    else if (typeof value === 'symbol') {
-      symbol = value;
-    }
-    else if (value instanceof Structured) {
-      symbol = value.symbol;
-    }
-    else {
-      symbol = proxy.group(value);
-      select[key] = symbol;
-    }
     let request = requests.get(symbol);
     if (!request) {
       request = includeSubquery(symbol);
@@ -415,7 +436,7 @@ const processQuery = (db, expression, firstResult) => {
       }
     }
     else if (request.category !== 'Column') {
-      const left = request.name === 'group' && maybeSymbols.has(value);
+      const left = request.name === 'group' && maybeSymbols.has(symbol);
       const valueArg = processMethod({
         db,
         method: request,
@@ -641,8 +662,8 @@ const processQuery = (db, expression, firstResult) => {
     }
     const tables = Array.from(unique.values());
     const left = new Set();
-    if (result.maybe) {
-      for (const symbol of Object.values(result.maybe)) {
+    if (adjusted.maybe) {
+      for (const symbol of Object.values(adjusted.maybe)) {
         const request = requests.get(symbol);
         if (request.category === 'Method') {
           for (const item of used) {
@@ -661,7 +682,7 @@ const processQuery = (db, expression, firstResult) => {
       const key = `${table.name} ${table.alias}`;
       if (!tables.includes(key)) {
         tables.push(key);
-        if (result.maybe) {
+        if (adjusted.maybe) {
           left.add(key);
         }
       }
@@ -898,9 +919,9 @@ const processQuery = (db, expression, firstResult) => {
     return firstResult ? mapped.at(0) : mapped;
   }
   const sql = toSql(clauses);
-  const adjusted = replaceParams(subqueries, sql, params);
+  const adjustedParams = replaceParams(subqueries, sql, params);
   return {
-    ...adjusted,
+    ...adjustedParams,
     columns: columnTypes,
     log: result.log,
     original,

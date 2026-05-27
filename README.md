@@ -650,7 +650,7 @@ const tree = db.first(c => {
 
 The ```c``` parameter of the query represents the context of the database, including both tables and functions.
 
-The ```group``` function represents ```json_group_array``` or ```json_group_object``` depending on the number of parameters supplied to the function.
+The ```group``` function represents ```json_group_array``` or ```json_group_object``` depending on the number of parameters supplied to the function. As a shortcut to ```group```, you can simply put selected items in an array.
 
 ```js
 const moons = db.subquery(c => {
@@ -658,12 +658,11 @@ const moons = db.subquery(c => {
   return {
     select: {
       planetId,
-      moons: c.group({
+      moons: [{
         id,
         name
-      })
+      }]
     },
-    groupBy: planetId,
     having: {
       [c.count()]: c.gt(1)
     }
