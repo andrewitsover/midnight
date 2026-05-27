@@ -354,12 +354,10 @@ const processQuery = (db, expression, firstResult) => {
     }
     return adjusted;
   }
-  const adjusted = {
-    select: adjust(result.select),
-    distinct: adjust(result.distinct),
-    maybe: adjust(result.maybe),
-    certain: adjust(result.certain)
-  };
+  const adjusted = {};
+  for (const key of ['select', 'distinct', 'maybe', 'certain']) {
+    adjusted[key] = adjust(result[key]);
+  }
   const properties = Object.values(adjusted).filter(p => p !== undefined);
   const valueReturn = properties.every(p => typeof p === 'symbol');
   let select;
