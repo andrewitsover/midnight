@@ -1011,7 +1011,7 @@ type AnyNullType = DbNull | ComputedNull;
 type DbAny = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType;
 type AnyParam = DbAny | AnyNullType;
 
-type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
+type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson | Primitive | null } | AllowedJson[];
 type SelectType = Primitive | AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson | Primitive };
 
 type Numeric = number | BigInt | AnyNumberType | AnyBigIntType;

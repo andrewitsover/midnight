@@ -143,16 +143,21 @@ const getObjectBody = (options) => {
       types.push(valueArg.type);
       items.push(valueArg.sql);
     }
-    else {
-      const result = addParam({
+    else if (typeof value === 'object') {
+      const result = getObjectBody({
         db,
+        select: value,
         params,
-        value,
+        requests,
         getPlaceholder,
+        root,
         includeSubquery
       });
       types.push(result.type);
-      items.push(result.sql);
+      items.push(`json_object(${result.sql})`);
+    }
+    else {
+      throw Error('invalid arguments to "object" method');
     }
   }
   return {
