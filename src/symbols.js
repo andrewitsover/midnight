@@ -7,7 +7,7 @@ const dateParsers = temporal.map(type => {
   const key = removeCapital(type.name);
   const parser = (t) => type.from(t);
   return [key, parser];
-})
+});
 
 const textParsers = {
   bigInt: (t) => BigInt(t),
@@ -31,6 +31,12 @@ const reviver = (key, value) => {
     }
   }
   return value;
+}
+
+class Structured {
+  constructor(symbol) {
+    this.symbol = symbol;
+  }
 }
 
 const makeProxy = (options) => {
@@ -79,9 +85,7 @@ const makeProxy = (options) => {
         };
         requests.set(symbol, request);
         if (db.structured[table][property]) {
-          return {
-            symbol
-          }
+          return new Structured(symbol);
         }
         return symbol;
       },
@@ -164,7 +168,13 @@ const makeProxy = (options) => {
         subcategory = 'Window';
       }
       else {
-        return makeTableHandler(property);
+        const symbol = Symbol();
+        const proxy = makeTableHandler(property);
+        requests.set(symbol, {
+          category: 'TableProxy',
+          proxy
+        });
+        return proxy;
       }
       const symbol = Symbol();
       const request = {
@@ -371,10 +381,29 @@ const processQuery = (db, expression, firstResult) => {
     }
     return request;
   }
+  const mapped = requests
+    .values()
+    .filter(r => r.category === 'TableProxy')
+    .map(r => r.proxy);
+  const tableProxies = new Set(mapped);
   for (const [key, value] of Object.entries(select)) {
     let parser;
     let type;
-    const symbol = typeof value === 'symbol' ? value : value.symbol;
+    let symbol;
+    if (tableProxies.has(value)) {
+      symbol = proxy.group(value);
+      select[key] = symbol;
+    }
+    else if (typeof value === 'symbol') {
+      symbol = value;
+    }
+    else if (value instanceof Structured) {
+      symbol = value.symbol;
+    }
+    else {
+      symbol = proxy.group(value);
+      select[key] = symbol;
+    }
     let request = requests.get(symbol);
     if (!request) {
       request = includeSubquery(symbol);

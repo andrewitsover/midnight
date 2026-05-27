@@ -681,7 +681,7 @@ const sighted = db.subquery(c => {
   return {
     select: {
       animalId,
-      by: c.group(c.people)
+      by: c.people
     }
   }
 });
