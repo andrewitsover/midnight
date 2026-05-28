@@ -1,5 +1,5 @@
 import returnTypes from './types.js';
-import { jsonSelector, nameToSql, temporal, removeCapital, toLiteral } from './utils.js';
+import { jsonSelector, nameToSql, temporal, removeCapital, toLiteral, isColumn } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
 import { Table } from './tables.js';
 
@@ -65,7 +65,7 @@ const processArg = (options) => {
       request = Table.requests.get(arg);
     }
   }
-  if (request && !['Column', 'SubqueryColumn'].includes(request.category)) {
+  if (request && !isColumn(request)) {
     return processMethod({
       db,
       method: request,
@@ -76,7 +76,7 @@ const processArg = (options) => {
       includeSubquery
     });
   }
-  else if (request && ['Column', 'SubqueryColumn'].includes(request.category)) {
+  else if (request && isColumn(request)) {
     if (root) {
       const symbol = Symbol();
       const item = {
@@ -732,7 +732,7 @@ const toWhere = (options) => {
         request = Table.requests.get(symbol);
       }
     }
-    if (request && !['Column', 'SubqueryColumn'].includes(request.category)) {
+    if (request && !isColumn(request)) {
       if (request.alias) {
         selector = request.alias;
       }
@@ -846,7 +846,7 @@ const toWhere = (options) => {
         }
       }
     }
-    else if (valueRequest && !['Column', 'SubqueryColumn'].includes(valueRequest.category)) {
+    else if (valueRequest && !isColumn(valueRequest)) {
       const methodArg = processMethod({
         db,
         method: valueRequest,
@@ -857,7 +857,7 @@ const toWhere = (options) => {
       });
       statements.push(`${selector} = ${methodArg.sql}`);
     }
-    else if (valueRequest && ['Column', 'SubqueryColumn'].includes(valueRequest.category)) {
+    else if (valueRequest && isColumn(valueRequest)) {
       statements.push(`${selector} = ${valueRequest.selector}`);
     }
     else if (value === null) {

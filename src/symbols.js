@@ -1,6 +1,6 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
-import { addAlias, nameToSql, createPlaceholder, temporal, removeCapital } from './utils.js';
+import { addAlias, nameToSql, createPlaceholder, temporal, removeCapital, isColumn } from './utils.js';
 import { Table } from './tables.js';
 import reserved from './reserved.js';
 
@@ -640,7 +640,7 @@ const processQuery = (db, expression, firstResult) => {
     const set = new Set();
     const columns = [];
     for (const value of values) {
-      if (['Column', 'SubqueryColumn'].includes(value.category)) {
+      if (isColumn(value)) {
         if (set.has(value.selector)) {
           continue;
         }
@@ -900,6 +900,12 @@ const processQuery = (db, expression, firstResult) => {
         used.add(toKey(from));
         clauses.from += ` ${joinType} ${tableClause} on ${from.selector} = ${to.selector}`;
       }
+    }
+  }
+  if (having && !clauses.groupBy) {
+    const request = requests.get(Object.values(select).at(0));
+    if (isColumn(request)) {
+      clauses.groupBy = request.selector;
     }
   }
   const post = (rows) => {

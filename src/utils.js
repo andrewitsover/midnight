@@ -248,6 +248,10 @@ const toLiteral = (value) => {
   return value;
 }
 
+const isColumn = (request) => {
+  return ['Column', 'SubqueryColumn'].includes(request.category);
+}
+
 export {
   pick,
   omit,
@@ -258,5 +262,6 @@ export {
   expressionHandler,
   removeCapital,
   temporal,
-  toLiteral
+  toLiteral,
+  isColumn
 }
