@@ -416,6 +416,9 @@ const processQuery = (db, expression, firstResult) => {
       request.tableAlias = subquery.alias;
       return request;
     }
+    else {
+      return request;
+    }
   }
   const getRequest = (symbol) => {
     let request = requests.get(symbol);
@@ -491,7 +494,8 @@ const processQuery = (db, expression, firstResult) => {
       where,
       params,
       requests,
-      getPlaceholder
+      getPlaceholder,
+      includeSubquery
     });
   }
   if (groupBy) {

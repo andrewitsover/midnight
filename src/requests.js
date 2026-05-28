@@ -854,7 +854,14 @@ const toWhere = (options) => {
       statements.push(`${selector} is null`);
     }
     else {
-      if (params) {
+      const found = Table.requests.get(value);
+      if (found && found.isProxy) {
+        const column = Object.keys(value).at(0);
+        const symbol = value[column];
+        const request = includeSubquery(symbol);
+        statements.push(`${selector} in (select ${request.selector} from ${request.tableAlias})`);
+      }
+      else if (params) {
         const result = addParam({
           db,
           params,
