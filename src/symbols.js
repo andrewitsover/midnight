@@ -2,6 +2,7 @@ import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
 import { addAlias, nameToSql, createPlaceholder, temporal, removeCapital } from './utils.js';
 import { Table } from './tables.js';
+import reserved from './reserved.js';
 
 const dateParsers = temporal.map(type => {
   const key = removeCapital(type.name);
@@ -290,9 +291,23 @@ const processQuery = (db, expression, firstResult) => {
   const existing = Object.keys(db.columns);
   const usedAliases = new Set(existing);
   const makeAlias = (table) => {
+    let letters;
+    if (table) {
+      letters = table.at(0).toLowerCase();
+      const matches = table.match(/[A-Z]/g);
+      if (matches) {
+        letters += matches.join('').toLowerCase();
+      }
+      if (reserved.has(letters)) {
+        letters = letters.at(0);
+      }
+    }
+    else {
+      letters = 's';
+    }
     const letter = table ? table[0].toLowerCase() : 's';
     for (let i = 0; i < 100; i++) {
-      const alias = i ? `${letter}${i}` : letter;
+      const alias = i ? `${letters}${i}` : letters;
       if (!usedAliases.has(alias)) {
         usedAliases.add(alias);
         return alias;
@@ -469,7 +484,12 @@ const processQuery = (db, expression, firstResult) => {
       }
     }
     else {
-      statements.push(`${request.selector} as ${nameToSql(key)}`);
+      const alias = nameToSql(key);
+      let statement = request.selector
+      if (request.selector.substring(request.tableAlias.length + 1) !== alias) {
+        statement += ` as ${alias}`;
+      }
+      statements.push(statement);
       columnTypes[key] = request.type;
       original[key] = request;
       parser = db.getDbToJsParser(request.type);
