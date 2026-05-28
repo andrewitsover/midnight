@@ -819,6 +819,16 @@ const toWhere = (options) => {
         }
       }
       else {
+        if (name === 'not') {
+          const found = Table.requests.get(param);
+          if (found && found.isProxy) {
+            const column = Object.keys(param).at(0);
+            const symbol = param[column];
+            const request = includeSubquery(symbol, false);
+            statements.push(`${selector} not in (select ${request.selector} from ${request.tableAlias})`);
+            continue;
+          }
+        }
         const operator = compareOperators.get(name);
         const result = processArg({
           db,

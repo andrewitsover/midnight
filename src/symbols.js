@@ -392,10 +392,11 @@ const processQuery = (db, expression, firstResult) => {
   const parsers = {};
   const columnTypes = {};
   const original = {};
-  const includeSubquery = (symbol) => {
+  const includeSubquery = (symbol, join = true) => {
     const request = Table.requests.get(symbol);
     if (request) {
       requests.set(symbol, request);
+      request.join = join;
     }
     if (request && request.category === 'SubqueryColumn') {
       const context = request.subquery;
@@ -423,7 +424,8 @@ const processQuery = (db, expression, firstResult) => {
             original,
             subquery: context,
             tableAlias,
-            selector: `${tableAlias}.${key}`
+            selector: `${tableAlias}.${key}`,
+            join
           });
         }
       }
@@ -643,6 +645,9 @@ const processQuery = (db, expression, firstResult) => {
           continue;
         }
         else {
+          if (value.join === false) {
+            continue;
+          }
           columns.push(value);
           set.add(value.selector);
         }
@@ -651,38 +656,6 @@ const processQuery = (db, expression, firstResult) => {
     const used = values.filter(r => r.category === 'UsedColumn');
     const unique = new Set();
     for (const request of columns) {
-      if (request.category === 'SubqueryColumn') {
-        const context = request.subquery;
-        let subquery = subqueries.find(s => s.context === context);
-        if (!subquery) {
-          const tableAlias = makeAlias();
-          subquery = {
-            alias: tableAlias,
-            sql: context.sql,
-            params: context.params
-          };
-          subqueries.push(subquery);
-          for (const key of Object.keys(context.columns)) {
-            if (key === request.name) {
-              continue;
-            }
-            const symbol = Symbol();
-            const type = context.columns[key];
-            const original = context.original[key];
-            requests.set(symbol, {
-              category: 'SubqueryColumn',
-              name: key,
-              type,
-              original,
-              subquery: context,
-              tableAlias,
-              selector: `${tableAlias}.${key}`
-            });
-          }
-        }
-        request.selector = `${subquery.alias}.${request.name}`;
-        request.tableAlias = subquery.alias;
-      }
       const key = toKey(request);
       unique.add(key);
     }
