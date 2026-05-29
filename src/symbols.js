@@ -889,7 +889,8 @@ const processQuery = (db, expression, firstResult) => {
           if (found.length === 1) {
             const table = found.at(0);
             const alias = makeAlias(table);
-            join = findJoins(false, `${table} ${alias}`);
+            const key = `${table} ${alias}`;
+            join = findJoins(false, key);
             if (join.length !== tables.length - 1) {
               throw Error('Could not join all tables');
             }
