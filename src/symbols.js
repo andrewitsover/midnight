@@ -733,6 +733,12 @@ const processQuery = (db, expression, firstResult) => {
         }
       }
     }
+    let ordered;
+    const makeKey = (request) => {
+      const symbol = Symbol();
+      requests.set(symbol, request);
+      return symbol;
+    }
     if (tables.length === 1) {
       const { tableAlias, table } = columns.at(0);
       clauses.from = `${table} ${tableAlias}`;
@@ -742,12 +748,7 @@ const processQuery = (db, expression, firstResult) => {
         if (!firstTable) {
           firstTable = tables.at(0);
         }
-        const makeKey = (request) => {
-          const symbol = Symbol();
-          requests.set(symbol, request);
-          return symbol;
-        }
-        const ordered = [firstTable, ...tables.filter(t => t !== firstTable)];
+        ordered = [firstTable, ...tables.filter(t => t !== firstTable)];
         const join = [];
         const joined = new Set();
         for (const tableKey of ordered) {
@@ -862,8 +863,57 @@ const processQuery = (db, expression, firstResult) => {
       }
       let join = findJoins();
       if (join.length !== tables.length - 1) {
-        join = findJoins(true);
-        if (join.length !== tables.length - 1) {
+        if (subqueries.length > 0) {
+          join = findJoins(true);
+          if (join.length !== tables.length - 1) {
+            throw Error('Could not join all tables');
+          }
+        }
+        else if (tables.length === 2) {
+          const mapped = ordered.map(key => {
+            const [name, alias] = key.split(' ');
+            return {
+              name,
+              alias
+            }
+          });
+          const found = [];
+          for (const [name, relations] of Object.entries(db.foreignKeys)) {
+            const first = relations.find(r => r.references.table === mapped.at(0).name);
+            const second = relations.find(r => r.references.table === mapped.at(1).name);
+            if (first && second) {
+              found.push({ name, first, second });
+            }
+          }
+          if (found.length === 1) {
+            const { name, first, second } = found.at(0);
+            const alias = makeAlias(name);
+            const type = adjusted.maybe ? 'left' : undefined;
+            join = [];
+            mapped.at(0).relation = first;
+            mapped.at(1).relation = second;
+            for (const table of mapped) {
+              const left = makeKey({
+                table: table.name,
+                tableAlias: table.alias,
+                selector: `${table.alias}.${table.relation.references.column}`
+              });
+              const right = makeKey({
+                table: name,
+                tableAlias: alias,
+                selector: `${alias}.${table.relation.columns.at(0)}`
+              });
+              join.push([left, right, type]);
+            }
+            if (join.length !== tables.length) {
+              throw Error('Could not join all tables');
+            }
+          }
+          else {
+            throw Error('Could not join all tables');
+          }
+        }
+        else {
           throw Error('Could not join all tables');
         }
       }
