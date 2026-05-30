@@ -713,7 +713,7 @@ const process = (Custom, key, classTable) => {
           result = request.expression;
         }
         if (!result || !result.where) {
-          throw Error('Invalid index expression');
+          throw Error('invalid index expression');
         }
         where = toWhere({
           where: result.where,

@@ -35,7 +35,6 @@ class Database {
     this.schema = [];
     this.statements = new Map();
     this.virtualSet = new Set();
-    this.closed = false;
     const dateTypes = temporal.map(type => {
       return {
         name: removeCapital(type.name),
@@ -392,12 +391,31 @@ class Database {
   }
 
   close() {
-    if (this.closed) {
+    if (!this.db.isOpen) {
       return;
     }
     this.statements.clear();
     this.db.close();
-    this.closed = true;
+  }
+
+  serialize(dbName) {
+    return this.db.serialize(dbName);
+  }
+
+  deserialize(buffer) {
+    this.db.deserialize(buffer);
+  }
+
+  createSession(options) {
+    return this.db.createSession(options);
+  }
+
+  applyChangeset(changeset, options) {
+    return this.db.applyChangeset(changeset, options);
+  }
+
+  [Symbol.dispose]() {
+    this.close();
   }
 }
 

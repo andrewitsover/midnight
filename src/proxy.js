@@ -238,6 +238,10 @@ class DbApi {
       subquery: context
     });
   }
+
+  [Symbol.dispose]() {
+    this.db.close();
+  }
 }
 
 export default DbApi;

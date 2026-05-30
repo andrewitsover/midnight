@@ -866,10 +866,11 @@ const processQuery = (db, expression, firstResult) => {
       }
       let join = findJoins();
       if (join.length !== tables.length - 1) {
+        const message = 'could not join all tables';
         if (subqueries.length > 0) {
           join = findJoins(true);
           if (join.length !== tables.length - 1) {
-            throw Error('Could not join all tables');
+            throw Error(message);
           }
         }
         else if (tables.length === 2) {
@@ -892,15 +893,15 @@ const processQuery = (db, expression, firstResult) => {
             const key = `${table} ${alias}`;
             join = findJoins(false, key);
             if (join.length !== tables.length - 1) {
-              throw Error('Could not join all tables');
+              throw Error(message);
             }
           }
           else {
-            throw Error('Could not join all tables');
+            throw Error(message);
           }
         }
         else {
-          throw Error('Could not join all tables');
+          throw Error(message);
         }
       }
       processJoin(join);

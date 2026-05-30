@@ -1,5 +1,5 @@
 import { PathLike } from 'node:fs';
-import { FunctionOptions } from 'node:sqlite';
+import { FunctionOptions, Session, ApplyChangesetOptions } from 'node:sqlite';
 
 type ExtractKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
 
@@ -1703,6 +1703,10 @@ export class Database {
   rollback(): void;
   close(): void;
   createFunction<T extends AnyParam, A extends ParamType[]>(args: FunctionArgs<T, A>): (...args: A) => T;
+  serialize(dbName?: string): Uint8Array;
+  deserialize(buffer: Uint8Array): void;
+  createSession(options?: { table?: string, db?: string }): Session;
+  applyChangeset(changeset: Uint8Array, options?: ApplyChangesetOptions): boolean;
 }
 
 export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<T>>>>;
