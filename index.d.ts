@@ -14,10 +14,6 @@ interface Keywords<T, K> {
 
 type ReadQueries<P, T> = Pick<ToQuery<P, T>, 'get' | 'many' | 'query' | 'first' | 'count' | 'avg' | 'sum' | 'min' | 'max' | 'exists'>;
 
-type ObjectFunction = {
-  [key: string]: (...args: any) => any;
-}
-
 interface VirtualKeywords<T> extends Keywords<T, (keyof T)[] | keyof T> {
   rank?: true;
   bm25?: Partial<Record<keyof Omit<T, "rowid">, number>>;
@@ -633,18 +629,6 @@ type JsonMap<T> = {
 
 type Json = JsonValue | JsonObject | JsonArray;
 
-type TableProperty = {
-  [key: string]: TableProperty;
-}
-
-type TableObject<T> = {
-  [key in keyof T]: TableProperty;
-}
-
-interface SqlQueryParams<P> {
-  params: P;
-}
-
 type WhereField<T> = T | Array<NonNullable<T>> | WhereFunction<T> | null;
 
 type OptionalToNull<T> = {
@@ -1042,25 +1026,6 @@ type DbTypes = number | BigInt | string | boolean | AnyTemporal | Uint8Array | n
 type DefaultTypes = DefaultNumber | DefaultBigInt | DefaultString | DefaultBoolean | DefaultDateTypes | DefaultBlob;
 
 type ParamType = PrimitiveNull | AnyParam;
-
-declare const sym1: unique symbol;
-type ForeignKeyAction = typeof sym1;
-
-declare const sym2: unique symbol;
-declare const sym3: unique symbol;
-type DbIndex = typeof sym2 | typeof sym3;
-
-declare const sym4: unique symbol;
-declare const sym5: unique symbol;
-type DbUnique = typeof sym4 | typeof sym5;
-
-declare const sym6: unique symbol;
-declare const sym7: unique symbol;
-type DbPrimaryKey = typeof sym6 | typeof sym7;
-
-declare const sym8: unique symbol;
-declare const sym9: unique symbol;
-type DbCheck = typeof sym8 | typeof sym9;
 
 type ToNumericResult<T> =
   T extends BigInt | AnyBigIntType ? ComputedBigInt :
@@ -1624,6 +1589,8 @@ export class BaseTable {
   Not(column: symbol, value: QueryCompareTypes | QueryCompareTypes[]): ComputedBoolean;
   Gt(value: symbol | QueryCompareTypes): ComputedBoolean;
 	Gt(column: symbol, value: QueryCompareTypes): ComputedBoolean;
+  Gte(value: symbol | QueryCompareTypes): ComputedBoolean;
+	Gte(column: symbol, value: QueryCompareTypes): ComputedBoolean;
   Lt(value: symbol | QueryCompareTypes): ComputedBoolean;
 	Lt(column: symbol, value: QueryCompareTypes): ComputedBoolean;
   Lte(value: symbol | QueryCompareTypes): ComputedBoolean;
