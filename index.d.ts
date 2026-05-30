@@ -248,7 +248,7 @@ interface ComputeMethods {
   julianDay(time: DateParam, ...modifiers: StringParam[]): NumberResult;
   unixEpoch(): DbNumber;
   unixEpoch(time: CompatibleDate): DbNumber;
-  unixEpoch(time: DateParam, ...modifiers: StringParam[]): StringResult;
+  unixEpoch(time: DateParam, ...modifiers: StringParam[]): NumberResult;
   strfTime(format: StringParam, time: DateParam, ...modifiers: StringParam[]): StringResult;
   timeDiff(start: CompatibleDate, end: CompatibleDate): DbString;
   timeDiff(start: DateParam, end: DateParam): StringResult;
