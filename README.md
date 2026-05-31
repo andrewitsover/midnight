@@ -834,7 +834,7 @@ const animals = db.query(c => {
 
 The above query will find the ```AnimalForests``` join table and group the rows by ```Animal.id```.
 
-The below query will get all animals that live in more than 2 forests.
+The below query will get all animals that live in exactly 2 forests.
 
 ```js
 const animals = db.query(c => {
@@ -845,7 +845,7 @@ const animals = db.query(c => {
       name: a.name
     },
     having: {
-      [c.count(f.id)]: c.gt(2)
+      [c.count(f.id)]: 2
     }
   }
 });

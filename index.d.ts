@@ -1035,7 +1035,7 @@ type GetPrimaryKey<T> =
   PkPlainTime extends T[keyof T] ? DbPlainTime :
   PkPlainYearMonth extends T[keyof T] ? DbPlainYearMonth :
   PkZonedDateTime extends T[keyof T] ? DbZonedDateTime :
-  never;
+  DbNumber;
 
 type PkToDbType<T> = 
   T extends PkNumber ? DbNumber :
