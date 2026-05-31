@@ -357,7 +357,7 @@ const processQuery = (db, expression, firstResult) => {
       return proxy.object(result);
     }
     else {
-      return proxy.group(value);
+      throw Error('invalid arguments');
     }
   }
   const adjust = (select) => {

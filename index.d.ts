@@ -280,7 +280,7 @@ interface ComputeMethods {
   minus<T extends NumericParam>(...args: T[]): ToDbType<T>;
   divide<T extends NumericParam>(...args: T[]): ToDbType<T>;
   multiply<T extends NumericParam>(...args: T[]): ToDbType<T>;
-  object<T extends { [key: string]: AllowedJson }>(select: T): ToJsType<T>;
+  object<T extends { [key: string]: AllowedJson }>(select: T): ToDbType<T>;
   arrayLength(param: JsonParam | any[]): NumberResult;
   highlight(column: DbString, before: string, after: string): DbString;
 }
@@ -388,31 +388,6 @@ type ToJsType<T> =
     T extends Temporal.PlainYearMonth ? Temporal.PlainYearMonth :
     T extends Temporal.ZonedDateTime ? Temporal.ZonedDateTime :
     never;
-
-type ToSelectJsType<T> =
-  T extends AnyNullType ? null :
-  T extends (infer U)[] ? ToJsType<U>[] :
-  T extends new (...args: any[]) => Table ? GetReturnType<T> :
-  T extends { symbol: DbJson, typed: infer U } ? ToJsType<U> :
-  T extends object
-    ? {
-        [K in keyof T]: 
-          T[K] extends (infer U)[] ? ToJsType<U>[] : T[K] extends () => infer R ? ToJsType<R> : T[K] extends object ? 
-          Extract<T[K][keyof T[K]], DbAny> extends never ? T[K] : ToJsType<T[K]>[] : ToJsType<T[K]>
-      } : ToJsType<T>;
-
-type ToSubqueryType<T> =
-  T extends AnyNullType ? T :
-  T extends (infer U)[] ? T :
-  T extends [infer U] ? U[] :
-  T extends new (...args: any[]) => Table ? T :
-  T extends { symbol: DbJson, typed: infer U } ? T :
-  T extends object
-    ? {
-        [K in keyof T]: 
-          T[K] extends (infer U)[] ? T : T[K] extends object ? 
-          Extract<T[K][keyof T[K]], DbAny> extends never ? T[K] : T[K][] : T[K]
-      } : T;
 
 interface LagOptions<T> {
   expression: T;
@@ -1276,11 +1251,11 @@ interface TypedDb<P, C> {
   migrate(sql: string): void;
   getSchema(): any[];
   diff(schema?: any[]): string;
-  first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToSelectJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>> | undefined;
+  first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>> | undefined;
   firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>> | undefined;
-  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToSelectJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>[];
+  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>[];
   queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>>[];
-  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToSubqueryType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>;
+  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>;
   use<S>(query: S): ReadQueries<P, S>;
 }
 

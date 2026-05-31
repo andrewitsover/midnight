@@ -670,6 +670,40 @@ const moons = db.subquery(c => {
 });
 ```
 
+There is also an ```object``` function, but it is usually easier to use the function notation to specify structured columns:
+
+```js
+const trees = db.query(c => {
+  const { trees: t, forests: f } = c;
+  return {
+    select: {
+      ...t,
+      forest: () => ({
+        id: f.id,
+        name: f.name
+      })
+    }
+  }
+});
+```
+
+As the table columns are a special type of ```Symbol```, you can use them as keys in objects more than once:
+
+```js
+const now = Temporal.Now.zonedDateTimeISO();
+const start = now.subtract({ days: 3 });
+const trees = db.query(c => {
+  const { trees: t } = c;
+  return {
+    select: t,
+    where: {
+      [t.planted]: c.gte(start),
+      [t.planted]: c.lt(now)
+    }
+  }
+});
+```
+
 If you want to create a subquery for use in many different queries, you can use the ```subquery``` method.
 
 The query below creates a list of people that have sighted a particular ```animalId```.
@@ -680,7 +714,7 @@ const sighted = db.subquery(c => {
   return {
     select: {
       animalId,
-      by: c.people
+      by: [c.people]
     }
   }
 });
@@ -776,6 +810,46 @@ const animalRangers = db.query(c => {
 ## Inferred joins
 
 In most cases, the ```join``` and ```groupBy``` clauses can be inferred by the foreign key constraints and the use of the ```group``` function and ```maybe``` property if there are left joins.
+
+When using ```json_group_array``` via the ```group``` function or array syntax, Midnight will add a ```groupBy``` statement if one is not supplied. If there is only one non-grouped column in the select statement, it will be used in the ```groupBy``` clause, otherwise the primary key of the first column will be used.
+
+If there is a ```having``` clause with no ```groupBy``` clause, a ```groupBy``` clause will be added based on the same rules.
+
+If exactly two tables are selected but there is no way to join them, Midnight will search for a join table to connect them.
+
+Assuming an animal can have many forests, and a forest can have many animals:
+
+```js
+const animals = db.query(c => {
+  const { animals: a, forests: f } = c;
+  return {
+    select: {
+      id: a.id,
+      name: a.name,
+      forests: [f]
+    }
+  }
+});
+```
+
+The above query will find the ```AnimalForests``` join table and group the rows by ```Animal.id```.
+
+The below query will get all animals that live in more than 2 forests.
+
+```js
+const animals = db.query(c => {
+  const { animals: a, forests: f } = c;
+  return {
+    select: {
+      id: a.id,
+      name: a.name
+    },
+    having: {
+      [c.count(f.id)]: c.gt(2)
+    }
+  }
+});
+```
 
 ## Full-text search
 
@@ -905,3 +979,21 @@ const cloud: Insert<Clouds> = {
 };
 const id = db.clouds.insert(cloud);
 ```
+
+## Typed JSON
+
+JSON columns can be typed using the ```TypedArray``` and ```TypedObject``` functions like this:
+
+```js
+class Moons extends Table {
+  name;
+  researchPapers = this.TypedArray({
+    id: this.Int,
+    contents: this.Text,
+    createdAt: this.Null.Text,
+    authors: this.TypedArray(this.Text)
+  });
+}
+```
+
+You should only use the types that are supported natively by JSON as the fields inside the objects are not parsed by Midnight.
