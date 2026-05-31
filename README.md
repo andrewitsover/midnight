@@ -821,12 +821,12 @@ Assuming an animal can have many forests, and a forest can have many animals:
 
 ```js
 const animals = db.query(c => {
-  const { animals: a, forests: f } = c;
+  const { animals: a } = c;
   return {
     select: {
       id: a.id,
       name: a.name,
-      forests: [f]
+      forests: [c.forests]
     }
   }
 });
