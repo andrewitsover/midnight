@@ -275,7 +275,8 @@ interface ComputeMethods {
   tanh(value: NumericParam): NumberResult;
   trunc<T extends NumericParam>(value: T): ToDbType<T>;
   json(param: JsonParam | any[]): StringResult;
-  extract(json: JsonParam | any[], path: StringParam): ExtractResult;
+  extract(json: JsonParam | any[], path: string): any;
+  extract<T, S extends (json: T) => any>(json: T, extractor: S): ReturnType<S>;
   plus<T extends NumericParam>(...args: T[]): ToDbType<T>;
   minus<T extends NumericParam>(...args: T[]): ToDbType<T>;
   divide<T extends NumericParam>(...args: T[]): ToDbType<T>;
@@ -283,6 +284,7 @@ interface ComputeMethods {
   object<T extends { [key: string]: AllowedJson }>(select: T): ToDbType<T>;
   arrayLength(param: JsonParam | any[]): NumberResult;
   highlight(column: DbString, before: string, after: string): DbString;
+  symbol<T>(json: T): T extends DbNull ? DbJson | DbNull : DbJson;
 }
 
 interface FrameOptions {
@@ -356,7 +358,6 @@ type ToJsType<T> =
   T extends AnyNullType ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends new (...args: any[]) => Table ? GetReturnType<T> :
-  T extends { symbol: DbJson, typed: infer U } ? ToJsType<U> :
   T extends object
     ? {
         [K in keyof T]: ToJsType<T[K]>
@@ -1352,8 +1353,8 @@ interface Null {
 
   Default<T extends PrimitiveNull>(value: T): ToDefaultType<T> | DbNull;
 
-  TypedArray<T extends TypedJson>(type: T): { symbol: DbJson, typed: T[] | DbNull };
-  TypedObject<T extends TypedJson>(type: T): { symbol: DbJson, typed: T | DbNull };
+  TypedArray<T extends TypedJson>(type: T): T[] | DbNull;
+  TypedObject<T extends TypedJson>(type: T): T | DbNull;
 }
 
 interface Now {
@@ -1372,7 +1373,7 @@ interface NullNow {
   ZonedDateTime: DefaultZonedDateTime | DbNull;
 }
 
-type TypedJson = { [key: string]: TypedJson } | AnyParam | { symbol: DbJson, typed: TypedJson | TypedJson[] };
+type TypedJson = AnyParam | { [key: string]: AnyParam | TypedJson | TypedJson[] };
 
 export class BaseTable {
   static Int: DbNumber;
@@ -1472,8 +1473,10 @@ export class BaseTable {
   Null: Null;
   Default<T extends PrimitiveNull>(value: T): ToDefaultType<T>;
 
-  TypedArray<T extends TypedJson>(type: T): { symbol: DbJson, typed: T[] };
-  TypedObject<T extends TypedJson>(type: T): { symbol: DbJson, typed: T };
+  TypedArray<T extends TypedJson>(type: T): T[];
+  TypedObject<T extends TypedJson>(type: T): T;
+
+  Symbol<T>(json: T): T extends DbNull ? DbJson | DbNull : DbJson;
 
   Abs<T extends Numeric>(n: T): ToNumericResult<T>;
   Cast(value: any, to: 'real' | 'integer'): ComputedNumber;
@@ -1551,7 +1554,8 @@ export class BaseTable {
   Tanh(value: NumericParam): ToComputed<NumberResult>;
   Trunc<T extends NumericParam>(value: T): ToComputed<T>;
   ToJson(param: JsonParam | any[]): ToComputed<StringResult>;
-  Extract(json: JsonParam | any[], path: StringParam): ToComputed<ExtractResult>;
+  Extract(json: JsonParam | any[], path: string): any;
+  Extract<T, S extends (T) => any>(json: T, extractor: S): ToComputed<ReturnType<S>>;
   Object<T extends { [key: string]: AllowedJson }>(select: T): ToComputed<ToJson<T>>;
   ArrayLength(param: JsonParam | any[]): ToComputed<NumberResult>;
 

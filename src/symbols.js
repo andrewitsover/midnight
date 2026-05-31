@@ -155,6 +155,16 @@ const makeProxy = (options) => {
           return proxy;
         }
       }
+      if (property === 'symbol') {
+        return (type) => {
+          if (type instanceof Structured) {
+            return type.symbol;
+          }
+          else {
+            throw Error('Invalid argument to "symbol"');
+          }
+        }
+      }
       const isCompare = compareMethods.includes(property);
       const isCompute = computeMethods.includes(property);
       const isWindow = windowMethods.includes(property);
