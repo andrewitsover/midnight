@@ -146,7 +146,7 @@ const processInsert = (args) => {
   }
   else {
     result = getParser(db, types, [primaryKey]);
-    query += ` returning ${primaryKey}`;
+    query += ` returning ${nameToSql(primaryKey)}`;
   }
   const options = {
     query,
@@ -1066,7 +1066,7 @@ const getParser = (db, types, columns) => {
   const intParser = (v) => v === null ? null : Number(v);
   const parsers = [];
   for (const key of keys) {
-    const type = types[key];
+    const type = key === 'rowid' ? 'integer' : types[key];
     if (bigInt && type === 'integer') {
       parsers.push([key, intParser]);
     }

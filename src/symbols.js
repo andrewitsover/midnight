@@ -710,7 +710,7 @@ const processQuery = (db, expression, firstResult) => {
           }
           else {
             const primaryKey = db.getPrimaryKey(table);
-            clauses.groupBy = `${tableAlias}.${primaryKey}`;
+            clauses.groupBy = `${tableAlias}.${nameToSql(primaryKey)}`;
           }
         }
       }
@@ -813,7 +813,7 @@ const processQuery = (db, expression, firstResult) => {
                     const tableSymbol = makeKey({
                       table,
                       tableAlias,
-                      selector: `${tableAlias}.${primaryKey}`
+                      selector: `${tableAlias}.${nameToSql(primaryKey)}`
                     });
                     let type;
                     if (left.has(tableKey) || left.has(otherKey)) {
@@ -940,6 +940,22 @@ const processQuery = (db, expression, firstResult) => {
     }
   }
   if (having && !clauses.groupBy) {
+    const columns = Object
+      .values(select)
+      .map(v => requests.get(v))
+      .filter(r => isColumn(r));
+    if (columns.length === 1) {
+      clauses.groupBy = columns.at(0).selector;
+    }
+    else if (columns.length > 1) {
+      const column = columns
+        .filter(c => c.table !== undefined)
+        .at(0);
+      if (column) {
+        const primaryKey = db.getPrimaryKey(column.table);
+        clauses.groupBy = `${column.table}.${nameToSql(primaryKey)}`;
+      }
+    }
     const request = requests.get(Object.values(select).at(0));
     if (isColumn(request)) {
       clauses.groupBy = request.selector;

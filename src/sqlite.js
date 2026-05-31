@@ -240,6 +240,9 @@ class Database {
 
   getPrimaryKey(table) {
     const primaryKey = this.tables[table].find(c => c.primaryKey);
+    if (!primaryKey) {
+      return 'rowid';
+    }
     return primaryKey.name;
   }
 
