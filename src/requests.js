@@ -280,7 +280,8 @@ const processMethod = (options) => {
       type: method.type
     };
   }
-  const arg = method.args.at(0);
+  const args = method.args;
+  const arg = args.at(0);
   const isSymbol = typeof arg === 'symbol';
   const root = options.root ? options.root : method;
   const name = toDbName(method);
@@ -297,10 +298,10 @@ const processMethod = (options) => {
       root,
       includeSubquery
     });
-    if (result.type === 'zonedDateTime' && method.args.length === 2) {
+    if (result.type === 'zonedDateTime' && args.length === 2) {
       const second = processArg({
         db,
-        arg: method.args.at(1),
+        arg: args.at(1),
         params,
         requests,
         getPlaceholder,
@@ -312,8 +313,8 @@ const processMethod = (options) => {
         type
       }
     }
-    if (method.name === 'like' && method.args.at(1) instanceof RegExp) {
-      const pattern = method.args.at(1);
+    if (method.name === 'like' && args.at(1) instanceof RegExp) {
+      const pattern = args.at(1);
       const source = getPlaceholder();
       const flags = getPlaceholder();
       params[source] = pattern.source;
@@ -323,7 +324,7 @@ const processMethod = (options) => {
         type
       }
     }
-    if (method.args.length === 1) {
+    if (args.length === 1) {
       if (name === 'not' && arg === null) {
         return {
           sql: 'is not null',
@@ -336,7 +337,7 @@ const processMethod = (options) => {
       }
     }
     const selector = result.sql;
-    const to = method.args.at(1);
+    const to = args.at(1);
     if (name === 'not' && to === null) {
       return {
         sql: `${selector} is not null`,
@@ -357,8 +358,63 @@ const processMethod = (options) => {
       type
     }
   }
+  if (method.name === 'extract' && args.length === 2 && typeof args.at(1) === 'function') {
+    const chain = [];
+    const proxy = new Proxy(function() {}, {
+      get(target, prop) {
+        chain.push(prop);
+        return proxy;
+      },
+      apply(target, thisArg, args) {
+        chain.push(args.at(0));
+        return proxy;
+      }
+    });
+    args.at(1)(proxy);
+    let path = '$';
+    for (let i = 0; i < chain.length; i++) {
+      const current = chain[i];
+      if (current === 'at') {
+        if (i === chain.length - 1) {
+          path += `.${current}`;
+          break;
+        }
+        const next = chain[i + 1];
+        if (typeof next === 'number') {
+          if (next === -1) {
+            path += `[#${next}]`;
+          }
+          path += `[${next}]`;
+        }
+        else {
+          path += `.${current}.${next}`;
+        }
+        i++;
+      }
+      else {
+        path += `.${current}`;
+      }
+    }
+    const result = processArg({
+      db,
+      arg: arg.symbol,
+      params,
+      requests,
+      getPlaceholder,
+      root,
+      includeSubquery
+    });
+    const match = /^json\((?<selector>.+)\)$/.exec(result.sql);
+    const selector = match ? match.groups.selector : result.sql;
+    const placeholder = getPlaceholder();
+    params[placeholder] = path;
+    return {
+      sql: `${selector} -> $${placeholder}`,
+      type: 'json'
+    }
+  }
   if (name === 'highlight') {
-    const [symbol, before, after] = method.args;
+    const [symbol, before, after] = args;
     const column = requests.get(symbol);
     const index = Object
       .keys(db.columns[column.table])
@@ -379,7 +435,7 @@ const processMethod = (options) => {
       root,
       includeSubquery
     });
-    const type = method.args.at(1);
+    const type = args.at(1);
     if (!['real', 'integer'].includes(type)) {
       throw Error(`invalid cast type: ${type}`);
     }
@@ -473,7 +529,7 @@ const processMethod = (options) => {
       }
       else {
         key = arg;
-        value = method.args.at(1);
+        value = args.at(1);
       }
       const keyArg = processArg({
         db,
@@ -645,7 +701,7 @@ const processMethod = (options) => {
       type
     };
   }
-  const processed = method.args.map(arg => processArg({
+  const processed = args.map(arg => processArg({
     db,
     arg,
     params,
@@ -655,7 +711,7 @@ const processMethod = (options) => {
     includeSubquery
   }));
   if (method.name === 'if') {
-    const length = method.args.length;
+    const length = args.length;
     if (length <= 13) {
       const types = [];
       for (let i = 1; i < processed.length; i += 2) {
