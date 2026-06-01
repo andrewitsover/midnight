@@ -358,37 +358,37 @@ type ToJsType<T> =
   T extends AnyNullType ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends new (...args: any[]) => Table ? GetReturnType<T> :
+  T extends AnyNumberType ? number :
+  T extends AnyBigIntType ? BigInt :
+  T extends AnyStringType ? string :
+  T extends AnyDurationType ? Temporal.Duration :
+  T extends AnyInstantType ? Temporal.Instant :
+  T extends AnyPlainDateType ? Temporal.PlainDate :
+  T extends AnyPlainDateTimeType ? Temporal.PlainDateTime :
+  T extends AnyPlainMonthDayType ? Temporal.PlainMonthDay :
+  T extends AnyPlainTimeType ? Temporal.PlainTime :
+  T extends AnyPlainYearMonthType ? Temporal.PlainYearMonth :
+  T extends AnyZonedDateTimeType ? Temporal.ZonedDateTime :
+  T extends AnyBooleanType ? boolean :
+  T extends AnyJsonType ? Json :
+  T extends AnyBlobType ? Uint8Array :
+  T extends string ? string :
+  T extends number ? number :
+  T extends BigInt ? BigInt :
+  T extends boolean ? boolean :
+  T extends Temporal.Duration ? Temporal.Duration :
+  T extends Temporal.Instant ? Temporal.Instant :
+  T extends Temporal.PlainDate ? Temporal.PlainDate :
+  T extends Temporal.PlainDateTime ? Temporal.PlainDateTime :
+  T extends Temporal.PlainMonthDay ? Temporal.PlainMonthDay :
+  T extends Temporal.PlainTime ? Temporal.PlainTime :
+  T extends Temporal.PlainYearMonth ? Temporal.PlainYearMonth :
+  T extends Temporal.ZonedDateTime ? Temporal.ZonedDateTime :
   T extends object
     ? {
         [K in keyof T]: ToJsType<T[K]>
       }
-  : T extends AnyNumberType ? number :
-    T extends AnyBigIntType ? BigInt :
-    T extends AnyStringType ? string :
-    T extends AnyDurationType ? Temporal.Duration :
-    T extends AnyInstantType ? Temporal.Instant :
-    T extends AnyPlainDateType ? Temporal.PlainDate :
-    T extends AnyPlainDateTimeType ? Temporal.PlainDateTime :
-    T extends AnyPlainMonthDayType ? Temporal.PlainMonthDay :
-    T extends AnyPlainTimeType ? Temporal.PlainTime :
-    T extends AnyPlainYearMonthType ? Temporal.PlainYearMonth :
-    T extends AnyZonedDateTimeType ? Temporal.ZonedDateTime :
-    T extends AnyBooleanType ? boolean :
-    T extends AnyJsonType ? Json :
-    T extends AnyBlobType ? Uint8Array :
-    T extends string ? string :
-    T extends number ? number :
-    T extends BigInt ? BigInt :
-    T extends boolean ? boolean :
-    T extends Temporal.Duration ? Temporal.Duration :
-    T extends Temporal.Instant ? Temporal.Instant :
-    T extends Temporal.PlainDate ? Temporal.PlainDate :
-    T extends Temporal.PlainDateTime ? Temporal.PlainDateTime :
-    T extends Temporal.PlainMonthDay ? Temporal.PlainMonthDay :
-    T extends Temporal.PlainTime ? Temporal.PlainTime :
-    T extends Temporal.PlainYearMonth ? Temporal.PlainYearMonth :
-    T extends Temporal.ZonedDateTime ? Temporal.ZonedDateTime :
-    never;
+  : never;
 
 interface LagOptions<T> {
   expression: T;
