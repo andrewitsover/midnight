@@ -1358,11 +1358,11 @@ interface Null {
 }
 
 interface Now {
-  Instant: DbInstant;
-  PlainDate: DbPlainDate;
-  PlainDateTime: DbPlainDateTime;
-  PlainTime: DbPlainTime;
-  ZonedDateTime: DbZonedDateTime;
+  Instant: DefaultInstant;
+  PlainDate: DefaultPlainDate;
+  PlainDateTime: DefaultPlainDateTime;
+  PlainTime: DefaultPlainTime;
+  ZonedDateTime: DefaultZonedDateTime;
 }
 
 interface NullNow {
