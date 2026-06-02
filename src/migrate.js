@@ -1,4 +1,5 @@
-import { toSql, columnToSql, indexToSql, toHash } from './tables.js'
+import { toSql, columnToSql, indexToSql, toHash } from './tables.js';
+import { toLiteral } from './utils.js';
 
 const recreate = (table, current) => {
   const temp = `temp_${table.name}`;
@@ -80,7 +81,17 @@ const toMigration = (existing, updated) => {
         }
       }
     }
-    const expressionDefault = addColumns.some(c => typeof c.default === 'object');
+    let expressionDefault = false;
+    for (const column of addColumns) {
+      if (column.default !== undefined) {
+        const literal = toLiteral(column.default);
+        if (typeof literal === 'string') {
+          if (literal.startsWith('(')) {
+            expressionDefault = true;
+          }
+        }
+      }
+    }
     if (removePrimary || removeForeign || alterColumns || expressionDefault) {
       migrations += recreate(table, current);
       continue;

@@ -1,6 +1,6 @@
 {
   "name": "@andrewitsover/midnight",
-  "version": "4.0.19",
+  "version": "4.0.21",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
@@ -9,7 +9,7 @@
     "require": "./index.cjs"
   },
   "scripts": {
-    "build": "./node_modules/.bin/esbuild index.js --bundle --platform=node --format=cjs --packages=external --outfile=index.cjs"
+    "build": "esbuild index.js --bundle --platform=node --format=cjs --packages=external --outfile=index.cjs"
   },
   "author": "Andrew Jones",
   "license": "MIT",
