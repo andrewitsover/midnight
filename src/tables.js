@@ -64,7 +64,7 @@ const toColumn = (literal, instance) => {
     }
   }
   const column = Table.requests.get(symbol);
-  column.default = literal;
+  column.default = toLiteral(literal);
   return {
     symbol,
     column
@@ -234,8 +234,7 @@ class BaseTable {
         const symbol = target[prop];
         const column = Table.requests.get(symbol);
         const type = column.type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
-        const name = `temporal_now_${type}()`;
-        column.default = { function: name };
+        column.default = `(temporal_now_${type}())`;
         return symbol;
       }
     });
@@ -579,7 +578,7 @@ const process = (Custom, key, classTable) => {
     const { category, subcategory } = request;
     if (subcategory === 'User-Defined Function') {
       const column = { ...request.column, name: key };
-      column.default = { function: `${request.name}()` };
+      column.default = `(${request.name}())`;
       return column;
     }
     if (category === 'Column') {
@@ -861,7 +860,7 @@ const columnToSql = (column) => {
   const notNull = column.notNull ? ' not null' : '';
   let defaultClause = '';
   if (column.default !== undefined) {
-    defaultClause = ` default ${toLiteral(column.default)}`;
+    defaultClause = ` default ${column.default}`;
   }
   return `${nameToSql(column.name)} ${dbType}${notNull}${defaultClause}`;
 }

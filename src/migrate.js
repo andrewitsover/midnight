@@ -83,7 +83,8 @@ const toMigration = (existing, updated) => {
     }
     const expressionDefault = addColumns
       .filter(c => c.default !== undefined)
-      .some(c => toLiteral(c.default).startsWith('('));
+      .filter(c => !c.default.startsWith(`'`))
+      .some(c => c.default.includes('('));
     if (removePrimary || removeForeign || alterColumns || expressionDefault) {
       migrations += recreate(table, current);
       continue;

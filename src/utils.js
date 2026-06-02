@@ -245,9 +245,6 @@ const toLiteral = (value) => {
   if (exists) {
     return `'${value.toString()}'`;
   }
-  if (type === 'object' && Object.hasOwn(value, 'function')) {
-    return `(${value.function})`;
-  }
   throw Error('invalid literal');
 }
 
