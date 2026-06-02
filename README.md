@@ -393,8 +393,7 @@ All of the Temporal date types are also available and stored as strings internal
 
 To create a table, you simply extend either ```Table```, ```FTSTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ```FTSTable``` is used for defining fts5 tables. Columns start with a lowercase letter.
 
-> [!NOTE]
-> Tables cannot be named after the built-in function names as they share the same context with each other. To avoid this, try to use plurals when creating table names.
+Tables cannot be named after the built-in functions as they share the same context with each other. To avoid clashes, try to use plurals when creating table names.
 
 ```js
 class Moons extends BaseTable {
