@@ -81,17 +81,9 @@ const toMigration = (existing, updated) => {
         }
       }
     }
-    let expressionDefault = false;
-    for (const column of addColumns) {
-      if (column.default !== undefined) {
-        const literal = toLiteral(column.default);
-        if (typeof literal === 'string') {
-          if (literal.startsWith('(')) {
-            expressionDefault = true;
-          }
-        }
-      }
-    }
+    const expressionDefault = addColumns
+      .filter(c => c.default !== undefined)
+      .some(c => toLiteral(c.default).startsWith('('));
     if (removePrimary || removeForeign || alterColumns || expressionDefault) {
       migrations += recreate(table, current);
       continue;

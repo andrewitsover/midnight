@@ -229,23 +229,26 @@ const sanitize = (s) => s.replaceAll(`'`, `''`);
 
 const toLiteral = (value) => {
   if (value === null) {
-    return value;
+    return 'null';
   }
   const type = typeof value;
   if (type === 'string') {
     return `'${sanitize(value)}'`;
   }
   if (type === 'boolean') {
-    return value === true ? 1 : 0;
+    return value === true ? '1' : '0';
+  }
+  if (type === 'number') {
+    return `${value}`;
   }
   const exists = temporal.some(type => value instanceof type);
   if (exists) {
     return `'${value.toString()}'`;
   }
-  if (type === 'object') {
+  if (type === 'object' && Object.hasOwn(value, 'function')) {
     return `(${value.function})`;
   }
-  return value;
+  throw Error('invalid literal');
 }
 
 const isColumn = (request) => {
