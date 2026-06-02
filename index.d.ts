@@ -6,8 +6,8 @@ type ExtractKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
 interface Keywords<T, K> {
   orderBy?: K | ((column: T, method: ComputeMethods) => void);
   desc?: boolean;
-  limit?: number | BigInt;
-  offset?: number | BigInt;
+  limit?: number | bigint;
+  offset?: number | bigint;
   distinct?: boolean;
   log?: boolean | ((info: LogInfo) => void);
 }
@@ -98,8 +98,8 @@ interface GroupQueryKeywords<W, K> {
   where?: W;
   orderBy?: K;
   desc?: boolean;
-  limit?: number | BigInt;
-  offset?: number | BigInt;
+  limit?: number | bigint;
+  offset?: number | bigint;
   log?: boolean | ((info: LogInfo) => void);
 }
 
@@ -133,16 +133,16 @@ interface GroupQueryObjectAlias<T, W, K> {
   distinct?: keyof T;
   orderBy?: K;
   desc?: boolean;
-  limit?: number | BigInt;
-  offset?: number | BigInt;
+  limit?: number | bigint;
+  offset?: number | bigint;
 }
 
 interface GroupArrayKeywords<W, K> {
   where?: W;
   orderBy?: K;
   desc?: boolean;
-  limit?: number | BigInt;
-  offset?: number | BigInt;
+  limit?: number | bigint;
+  offset?: number | bigint;
 }
 
 interface GroupArray<A extends string, W, K> extends GroupArrayKeywords<W, K> {
@@ -314,7 +314,7 @@ type ToDbType<T> =
   T extends null ? DbNull :
   T extends infer U ? (
     U extends number ? DbNumber :
-    U extends BigInt ? DbBigInt :
+    U extends bigint ? DbBigInt :
     U extends string ? DbString :
     U extends Temporal.Duration ? DbDuration :
     U extends Temporal.Instant ? DbInstant :
@@ -334,7 +334,7 @@ type ToDefaultType<T> =
   T extends null ? DbNull :
   T extends infer U ? (
     U extends number ? DefaultNumber :
-    U extends BigInt ? DefaultBigInt :
+    U extends bigint ? DefaultBigInt :
     U extends string ? DefaultString :
     U extends Temporal.Duration ? DefaultDuration :
     U extends Temporal.Instant ? DefaultInstant :
@@ -359,7 +359,7 @@ type ToJsType<T> =
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends new (...args: any[]) => Table ? GetReturnType<T> :
   T extends AnyNumberType ? number :
-  T extends AnyBigIntType ? BigInt :
+  T extends AnyBigIntType ? bigint :
   T extends AnyStringType ? string :
   T extends AnyDurationType ? Temporal.Duration :
   T extends AnyInstantType ? Temporal.Instant :
@@ -374,7 +374,7 @@ type ToJsType<T> =
   T extends AnyBlobType ? Uint8Array :
   T extends string ? string :
   T extends number ? number :
-  T extends BigInt ? BigInt :
+  T extends bigint ? bigint :
   T extends boolean ? boolean :
   T extends Temporal.Duration ? Temporal.Duration :
   T extends Temporal.Instant ? Temporal.Instant :
@@ -392,7 +392,7 @@ type ToJsType<T> =
 
 interface LagOptions<T> {
   expression: T;
-  offset?: number | BigInt | AnyNumberType | AnyBigIntType;
+  offset?: number | bigint | AnyNumberType | AnyBigIntType;
   otherwise?: T;
 }
 
@@ -974,8 +974,8 @@ type AnyParam = DbAny | AnyNullType;
 type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson | Primitive | null } | AllowedJson[];
 type SelectType = (() => SelectType) | Primitive | AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson | Primitive | (() => SelectType) };
 
-type Numeric = number | BigInt | AnyNumberType | AnyBigIntType;
-type NumericParam = number | BigInt | AnyNumberType | null | AnyNullType;
+type Numeric = number | bigint | AnyNumberType | AnyBigIntType;
+type NumericParam = number | bigint | AnyNumberType | null | AnyNullType;
 type NumberResult = DbNumber | DbNull;
 
 type OnlyStrings = string | AnyStringType;
@@ -998,13 +998,13 @@ type JsonParam = string | Uint8Array | null | DbString | DbBlob | DbJson | AnyNu
 type ExtractResult = DbString | DbNumber | DbBoolean | DbNull;
 type JsonResult = DbJson | DbNull;
 
-type DbTypes = number | BigInt | string | boolean | AnyTemporal | Uint8Array | null;
+type DbTypes = number | bigint | string | boolean | AnyTemporal | Uint8Array | null;
 type DefaultTypes = DefaultNumber | DefaultBigInt | DefaultString | DefaultBoolean | DefaultDateTypes | DefaultBlob;
 
 type ParamType = PrimitiveNull | AnyParam;
 
 type ToNumericResult<T> =
-  T extends BigInt | AnyBigIntType ? ComputedBigInt :
+  T extends bigint | AnyBigIntType ? ComputedBigInt :
   T extends number | AnyNumberType ? ComputedNumber :
   T extends null | AnyNullType ? ComputedNull :
   never;
@@ -1208,9 +1208,9 @@ interface QueryReturn {
   having?: SymbolWhere;
   orderBy?: symbol | symbol[];
   desc?: boolean | AnyBooleanType;
-  offset?: number | BigInt | AnyNumberType | AnyBigIntType;
-  limit?: number | BigInt | AnyNumberType | AnyBigIntType;
-  bm25?: { [key: symbol]: number | BigInt | AnyNumberType | AnyBigIntType };
+  offset?: number | bigint | AnyNumberType | AnyBigIntType;
+  limit?: number | bigint | AnyNumberType | AnyBigIntType;
+  bm25?: { [key: symbol]: number | bigint | AnyNumberType | AnyBigIntType };
   rank?: boolean | DbBoolean | ComputedBoolean;
   log?: boolean | ((info: LogInfo) => void);
 }
@@ -1277,7 +1277,7 @@ type ToComputed<T> =
   T extends AnyBigIntType ? ComputedBigInt :
   T extends boolean ? ComputedBoolean :
   T extends number ? ComputedNumber :
-  T extends BigInt ? ComputedBigInt :
+  T extends bigint ? ComputedBigInt :
   T extends string ? ComputedString :
   T extends Temporal.Duration ? ComputedDuration :
   T extends Temporal.Instant ? ComputedInstant :
