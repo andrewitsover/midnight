@@ -277,6 +277,7 @@ interface ComputeMethods {
   json(param: JsonParam | any[]): StringResult;
   extract(json: JsonParam | any[], path: string): any;
   extract<T, S extends (json: T) => any>(json: T, extractor: S): ReturnType<S>;
+  each<T extends unknown[], S extends (json: T[number]) => EachSelector>(json: T, extractor: S): ReturnType<S>['select'][];
   plus<T extends NumericParam>(...args: T[]): ToDbType<T>;
   minus<T extends NumericParam>(...args: T[]): ToDbType<T>;
   divide<T extends NumericParam>(...args: T[]): ToDbType<T>;
@@ -285,6 +286,13 @@ interface ComputeMethods {
   arrayLength(param: JsonParam | any[]): NumberResult;
   highlight(column: DbString, before: string, after: string): DbString;
   symbol<T>(json: T): T extends DbNull ? DbJson | DbNull : DbJson;
+}
+
+type JsonPrimitive = DbString | DbNumber | DbBoolean | DbNull | JsonPrimitive[] | { [key: string]: JsonPrimitive };
+
+interface EachSelector {
+  select?: JsonPrimitive,
+  where?: { [key: JsonPrimitive]: symbol }
 }
 
 interface FrameOptions {

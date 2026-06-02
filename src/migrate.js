@@ -54,6 +54,12 @@ const toMigration = (existing, updated) => {
     if (!current) {
       continue;
     }
+    const addColumns = table
+      .columns
+      .filter(u => !current.columns.map(c => c.name).includes(u.name));
+    const removeColumns = current
+      .columns
+      .filter(c => !table.columns.map(c => c.name).includes(c.name));
     const removePrimary = current
       .primaryKeys
       .filter(k => !table.primaryKeys.includes(k))
@@ -74,7 +80,8 @@ const toMigration = (existing, updated) => {
         }
       }
     }
-    if (removePrimary || removeForeign || alterColumns) {
+    const expressionDefault = addColumns.some(c => typeof c.default === 'object');
+    if (removePrimary || removeForeign || alterColumns || expressionDefault) {
       migrations += recreate(table, current);
       continue;
     }
@@ -99,12 +106,6 @@ const toMigration = (existing, updated) => {
         migrations += `alter table ${table.name} drop constraint ${check.name};\n`;
       }
     }
-    const addColumns = table
-      .columns
-      .filter(u => !current.columns.map(c => c.name).includes(u.name));
-    const removeColumns = current
-      .columns
-      .filter(c => !table.columns.map(c => c.name).includes(c.name));
     const renameColumns = [];
     for (const column of removeColumns) {
       const same = addColumns.find(c => attributesEqual(column, c));
