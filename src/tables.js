@@ -466,6 +466,7 @@ const process = (Custom, key, classTable) => {
   const name = removeCapital(key);
   const type = Custom.prototype instanceof FTSTable ? 'fts5' : 'base';
   const external = Custom.prototype instanceof ExternalFTSTable;
+  const getRequest = (symbol) => Table.requests.get(symbol);
   const table = {
     name,
     type,
@@ -537,7 +538,8 @@ const process = (Custom, key, classTable) => {
           else {
             const result = processMethod({
               method,
-              requests: Table.requests
+              requests: Table.requests,
+              getRequest
             });
             statements.push(`${sql} ${result.sql}`);
           }
@@ -639,7 +641,8 @@ const process = (Custom, key, classTable) => {
         }
         where = toWhere({
           where: result.where,
-          requests: Table.requests
+          requests: Table.requests,
+          getRequest
         });
       }
       table.indexes.push({
@@ -652,7 +655,8 @@ const process = (Custom, key, classTable) => {
     if (category === 'Method') {
       const { type, sql } = processMethod({
         method: request,
-        requests: Table.requests
+        requests: Table.requests,
+        getRequest
       });
       return {
         category: 'Computed',
@@ -698,7 +702,8 @@ const process = (Custom, key, classTable) => {
         .columns
         .map(arg => processArg({
           arg,
-          requests: Table.requests
+          requests: Table.requests,
+          getRequest
         }))
         .map(r => r.sql || r.name)
         .join(', ');
@@ -716,7 +721,8 @@ const process = (Custom, key, classTable) => {
         }
         where = toWhere({
           where: result.where,
-          requests: Table.requests
+          requests: Table.requests,
+          getRequest
         });
       }
       table.indexes.push({
@@ -729,7 +735,8 @@ const process = (Custom, key, classTable) => {
       if (!request.column) {
         const where = toWhere({
           where: request.checks,
-          requests: Table.requests
+          requests: Table.requests,
+          getRequest
         });
         table.checks.push({
           name: toHash(table.name, where),

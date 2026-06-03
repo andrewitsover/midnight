@@ -208,9 +208,9 @@ interface ComputeMethods {
   concat(...args: any[]): DbString;
   concatWs(...args: any[]): DbString;
   format<T extends StringParam>(format: T, ...args: any[]): ToDbType<T>;
-  if<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToDbType<T>;
-  if<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToDbType<T | null>;
-  if(...args: any[]): AnyResult;
+  iif<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToDbType<T>;
+  iif<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToDbType<T | null>;
+  iif(...args: any[]): AnyResult;
   instr(a: OnlyStrings, b: OnlyStrings): DbNumber;
   instr(a: StringBlobParam, b: StringBlobParam): NumberResult;
   length(value: any): NumberResult;
@@ -366,6 +366,7 @@ type ToJsType<T> =
   T extends AnyNullType ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends new (...args: any[]) => Table ? GetReturnType<T> :
+  T extends () => infer U ? ToJsType<U> : 
   T extends AnyNumberType ? number :
   T extends AnyBigIntType ? bigint :
   T extends AnyStringType ? string :
@@ -1260,11 +1261,11 @@ interface TypedDb<P, C> {
   migrate(sql: string): void;
   getSchema(): any[];
   diff(schema?: any[]): string;
-  first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>> | undefined;
-  firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>> | undefined;
-  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>[];
-  queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): GetDefined<ReturnType<T>>[];
-  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>;
+  first<S extends SelectType, K extends ObjectReturn<S>, T extends (tables: C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>> | undefined;
+  firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (tables: C) => K>(expression: T): GetDefined<ReturnType<T>> | undefined;
+  query<S extends SelectType, K extends ObjectReturn<S>, T extends (tables: C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>[];
+  queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (tables: C) => K>(expression: T): GetDefined<ReturnType<T>>[];
+  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (tables: C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>;
   use<S>(query: S): ReadQueries<P, S>;
 }
 
@@ -1492,9 +1493,9 @@ export class BaseTable {
   Concat(...args: any[]): ComputedString;
   ConcatWs(...args: any[]): ComputedString;
   Format<T extends StringParam>(format: T, ...args: any[]): ToComputed<T>;
-  If<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToComputed<ToDbType<T>>;
-  If<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToComputed<ToDbType<T | null>>;
-  If(...args: any[]): ToComputed<AnyResult>;
+  Iif<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToComputed<ToDbType<T>>;
+  Iif<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToComputed<ToDbType<T | null>>;
+  Iif(...args: any[]): ToComputed<AnyResult>;
   Instr(a: OnlyStrings, b: OnlyStrings): ComputedNumber;
   Instr(a: StringBlobParam, b: StringBlobParam): ToComputed<NumberResult>;
   Length(value: any): ToComputed<NumberResult>;
@@ -1669,3 +1670,5 @@ export type Select<T> = ToJsType<ExtractColumns<T>>;
 
 export function pick<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Pick<T, K[number]>;
 export function omit<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Omit<T, K[number]>;
+
+export const functions: SubqueryContext;

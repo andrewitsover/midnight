@@ -110,104 +110,66 @@ const makeProxy = (options) => {
   }
   const handler = {
     get: function(target, property) {
-      if (property === 'use') {
-        return (context) => {
-          const keys = Object.keys(context.columns);
-          const tableAlias = makeAlias();
-          subqueries.push({
-            alias: tableAlias,
-            sql: context.sql,
-            params: context.params
-          });
-          const handler = {
-            get: function(target, property) {
-              const symbol = Symbol();
-              const type = context.columns[property];
-              const original = context.original[property];
-              requests.set(symbol, {
-                category: 'Column',
-                name: property,
-                selector: `${tableAlias}.${property}`,
-                type,
-                original,
-                tableAlias
-              });
-              return symbol;
-            },
-            ownKeys: function(target) {
-              return keys;
-            },
-            getOwnPropertyDescriptor: function(target, property) {
-              if (keys.includes(property)) {
-                return {
-                  enumerable: true,
-                  configurable: true
-                };
-              }
-              return undefined;
-            }
-          }
-          const proxy = new Proxy({}, handler);
-          requests.set(proxy, { isProxy: true });
-          for (const key of Object.keys(proxy)) {
-            proxy[key];
-          }
-          return proxy;
+      const symbol = Symbol();
+      const proxy = makeTableHandler(property);
+      requests.set(symbol, {
+        category: 'TableProxy',
+        proxy
+      });
+      return proxy;
+    }
+  }
+  return new Proxy({}, handler);
+}
+
+const handler = {
+  get: function(target, property) {
+    if (property === 'symbol') {
+      return (type) => {
+        if (type instanceof Structured) {
+          return type.symbol;
+        }
+        else {
+          throw Error('Invalid argument to "symbol"');
         }
       }
-      if (property === 'symbol') {
-        return (type) => {
-          if (type instanceof Structured) {
-            return type.symbol;
-          }
-          else {
-            throw Error('Invalid argument to "symbol"');
-          }
-        }
-      }
-      const isCompare = compareMethods.includes(property);
-      const isCompute = computeMethods.includes(property);
-      const isWindow = windowMethods.includes(property);
-      let subcategory;
-      if (isCompare) {
-        subcategory = 'Compare';
-      }
-      else if (isCompute) {
-        subcategory = 'Compute';
-      }
-      else if (isWindow) {
-        subcategory = 'Window';
-      }
-      else {
-        const symbol = Symbol();
-        const proxy = makeTableHandler(property);
-        requests.set(symbol, {
-          category: 'TableProxy',
-          proxy
-        });
-        return proxy;
-      }
+    }
+    const isCompare = compareMethods.includes(property);
+    const isCompute = computeMethods.includes(property);
+    const isWindow = windowMethods.includes(property);
+    let subcategory;
+    if (isCompare) {
+      subcategory = 'Compare';
+    }
+    else if (isCompute) {
+      subcategory = 'Compute';
+    }
+    else if (isWindow) {
+      subcategory = 'Window';
+    }
+    else {
+      throw Error(`there is no function named "${property}"`);
+    }
+    return (...args) => {
       const symbol = Symbol();
       const request = {
         category: 'Method',
         subcategory,
         name: property,
         type: null,
-        args: null,
+        args,
         alias: null
       }
-      requests.set(symbol, request);
-      return (...args) => {
-        request.args = args;
-        if (['min', 'max'].includes(property) && args.length === 1) {
-          request.subcategory = 'Window';
-        }
-        return symbol;
+      Table.requests.set(symbol, request);
+      if (['min', 'max'].includes(property) && args.length === 1) {
+        request.subcategory = 'Window';
       }
+      return symbol;
     }
   }
-  return new Proxy({}, handler);
 }
+
+const functions = new Proxy({}, handler);
 
 const replaceParams = (subqueries, sql, params) => {
   if (subqueries.length === 0) {
@@ -351,7 +313,7 @@ const processQuery = (db, expression, firstResult) => {
   const tableProxies = new Set(mapped);
   const getSymbol = (value) => {
     if (tableProxies.has(value)) {
-      return proxy.group(value);
+      return functions.group(value);
     }
     else if (typeof value === 'symbol') {
       return value;
@@ -360,11 +322,11 @@ const processQuery = (db, expression, firstResult) => {
       return value.symbol;
     }
     else if (Array.isArray(value)) {
-      return proxy.group(value.at(0));
+      return functions.group(value.at(0));
     }
     else if (typeof value === 'function') {
       const result = value();
-      return proxy.object(result);
+      return functions.object(result);
     }
     else {
       throw Error('invalid arguments');
@@ -406,9 +368,9 @@ const processQuery = (db, expression, firstResult) => {
     const request = Table.requests.get(symbol);
     if (request) {
       requests.set(symbol, request);
-      request.join = join;
     }
     if (request && request.category === 'SubqueryColumn') {
+      request.join = join;
       const context = request.subquery;
       let subquery = subqueries.find(s => s.context === context);
       if (!subquery) {
@@ -447,10 +409,10 @@ const processQuery = (db, expression, firstResult) => {
       return request;
     }
   }
-  const getRequest = (symbol) => {
-    let request = requests.get(symbol);
+  const getRequest = (symbol, join = true) => {
+    const request = requests.get(symbol);
     if (!request) {
-      request = includeSubquery(symbol);
+      return includeSubquery(symbol, join);
     }
     return request;
   }
@@ -460,14 +422,15 @@ const processQuery = (db, expression, firstResult) => {
     let request = requests.get(symbol);
     if (!request) {
       request = includeSubquery(symbol);
-      if (request) {
+      if (request && request.category === 'SubqueryColumn') {
         statements.push(`${request.selector} as ${nameToSql(key)}`);
         columnTypes[key] = request.type;
         original[key] = request.original || request;
         parser = db.getDbToJsParser(request.type);
+        continue;
       }
     }
-    else if (request.category !== 'Column') {
+    if (request.category !== 'Column') {
       const left = request.name === 'group' && maybeSymbols.has(symbol);
       const valueArg = processMethod({
         db,
@@ -476,7 +439,7 @@ const processQuery = (db, expression, firstResult) => {
         requests,
         getPlaceholder,
         left,
-        includeSubquery
+        getRequest
       });
       request.alias = key;
       request.type = valueArg.type;
@@ -527,7 +490,7 @@ const processQuery = (db, expression, firstResult) => {
       params,
       requests,
       getPlaceholder,
-      includeSubquery
+      getRequest
     });
   }
   if (groupBy) {
@@ -539,7 +502,7 @@ const processQuery = (db, expression, firstResult) => {
         params,
         requests,
         getPlaceholder,
-        includeSubquery
+        getRequest
       }))
       .map(a => a.sql);
     clauses.groupBy = statements.join(', ');
@@ -551,7 +514,7 @@ const processQuery = (db, expression, firstResult) => {
       params,
       requests,
       getPlaceholder,
-      includeSubquery
+      getRequest
     });
   }
   if (orderBy) {
@@ -563,7 +526,7 @@ const processQuery = (db, expression, firstResult) => {
         params,
         requests,
         getPlaceholder,
-        includeSubquery
+        getRequest
       }))
       .map(arg => {
         if (arg.type === 'zonedDateTime') {
@@ -597,7 +560,7 @@ const processQuery = (db, expression, firstResult) => {
       params,
       requests,
       getPlaceholder,
-      includeSubquery
+      getRequest
     });
     clauses.offset = result.sql;
   }
@@ -608,7 +571,7 @@ const processQuery = (db, expression, firstResult) => {
       params,
       requests,
       getPlaceholder,
-      includeSubquery
+      getRequest
     });
     clauses.limit = result.sql;
   }
@@ -930,7 +893,7 @@ const processQuery = (db, expression, firstResult) => {
           params,
           requests,
           getPlaceholder,
-          includeSubquery
+          getRequest
         });
         const from = columns.find(c => !used.has(toKey(c)));
         const table = from.table || from.tableAlias;
@@ -998,4 +961,7 @@ const processQuery = (db, expression, firstResult) => {
   }
 }
 
-export default processQuery;
+export {
+  processQuery,
+  functions
+}

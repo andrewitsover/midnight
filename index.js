@@ -12,6 +12,7 @@ import {
   pick,
   omit
 } from './src/utils.js';
+import { functions } from './src/symbols.js';
 
 export {
   Database,
@@ -23,5 +24,6 @@ export {
   Ascii,
   Trigram,
   pick,
-  omit
+  omit,
+  functions
 }

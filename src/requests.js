@@ -54,17 +54,9 @@ const processArg = (options) => {
     inJson,
     getPlaceholder,
     root,
-    includeSubquery
+    getRequest
   } = options;
-  let request = requests.get(arg);
-  if (!request) {
-    if (includeSubquery) {
-      request = includeSubquery(arg);
-    }
-    else {
-      request = Table.requests.get(arg);
-    }
-  }
+  const request = getRequest(arg);
   if (request && !isColumn(request)) {
     return processMethod({
       db,
@@ -73,7 +65,7 @@ const processArg = (options) => {
       requests,
       getPlaceholder,
       root,
-      includeSubquery
+      getRequest
     });
   }
   else if (request && isColumn(request)) {
@@ -124,7 +116,7 @@ const getObjectBody = (options) => {
     requests,
     getPlaceholder,
     root,
-    includeSubquery
+    getRequest
   } = options;
   const items = [];
   const types = [];
@@ -138,7 +130,7 @@ const getObjectBody = (options) => {
         inJson: true,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       types.push(valueArg.type);
       items.push(valueArg.sql);
@@ -151,7 +143,7 @@ const getObjectBody = (options) => {
         requests,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       types.push(result.type);
       items.push(`json_object(${result.sql})`);
@@ -174,7 +166,7 @@ const processWindow = (options) => {
     requests,
     getPlaceholder,
     root,
-    includeSubquery
+    getRequest
   } = options;
   let sql = '';
   const { 
@@ -191,7 +183,7 @@ const processWindow = (options) => {
       params,
       requests,
       getPlaceholder,
-      includeSubquery
+      getRequest
     });
     sql += `filter (where ${clause})`;
   }
@@ -205,7 +197,7 @@ const processWindow = (options) => {
           requests,
           getPlaceholder,
           root,
-          includeSubquery
+          getRequest
         }));
       const mapped = args.map(arg => {
         if (arg.type === 'zonedDateTime') {
@@ -272,7 +264,7 @@ const processMethod = (options) => {
     requests,
     getPlaceholder,
     left,
-    includeSubquery
+    getRequest
   } = options;
   if (method.alias) {
     return {
@@ -296,7 +288,7 @@ const processMethod = (options) => {
       requests,
       getPlaceholder,
       root,
-      includeSubquery
+      getRequest
     });
     if (result.type === 'zonedDateTime' && args.length === 2) {
       const second = processArg({
@@ -306,7 +298,7 @@ const processMethod = (options) => {
         requests,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       return {
         sql: `temporal_compare(${result.sql}, ${second.sql}) ${operator} 0`,
@@ -351,7 +343,7 @@ const processMethod = (options) => {
       requests,
       getPlaceholder,
       root,
-      includeSubquery
+      getRequest
     });
     return {
       sql: `${selector} ${operator} ${toResult.sql}`,
@@ -402,7 +394,7 @@ const processMethod = (options) => {
       requests,
       getPlaceholder,
       root,
-      includeSubquery
+      getRequest
     });
     const match = /^json\((?<selector>.+)\)$/.exec(result.sql);
     const selector = match ? match.groups.selector : result.sql;
@@ -415,7 +407,7 @@ const processMethod = (options) => {
   }
   if (name === 'highlight') {
     const [symbol, before, after] = args;
-    const column = requests.get(symbol);
+    const column = getRequest(symbol);
     const index = Object
       .keys(db.columns[column.table])
       .filter(k => k !== 'rowid')
@@ -433,7 +425,7 @@ const processMethod = (options) => {
       requests,
       getPlaceholder,
       root,
-      includeSubquery
+      getRequest
     });
     const type = args.at(1);
     if (!['real', 'integer'].includes(type)) {
@@ -453,7 +445,7 @@ const processMethod = (options) => {
       let valueArg;
       let selectArg;
       const select = isWindow ? arg.select : arg;
-      const request = requests.get(select);
+      const request = getRequest(select);
       if (request && request.isProxy) {
         selectArg = { ...select };
       }
@@ -474,7 +466,7 @@ const processMethod = (options) => {
           inJson: true,
           getPlaceholder,
           root,
-          includeSubquery
+          getRequest
         });
         otherTypes = [result.type];
         sql = `${name}(${result.sql})`;
@@ -486,7 +478,7 @@ const processMethod = (options) => {
           params,
           requests,
           root,
-          includeSubquery
+          getRequest
         });
         otherTypes = result.types;
         sql = `${name}(json_object(${result.sql}))`;
@@ -499,7 +491,7 @@ const processMethod = (options) => {
           requests,
           getPlaceholder,
           root,
-          includeSubquery
+          getRequest
         });
         sql += ` ${clause}`;
       }
@@ -538,7 +530,7 @@ const processMethod = (options) => {
         requests,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       const valueArg = processArg({
         db,
@@ -547,7 +539,7 @@ const processMethod = (options) => {
         requests,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       otherTypes = [keyArg.type, valueArg.type];
       let windowClause = '';
@@ -559,7 +551,7 @@ const processMethod = (options) => {
           requests,
           getPlaceholder,
           root,
-          includeSubquery
+          getRequest
         });
       }
       const sql = `${name}(${keyArg.sql}, ${valueArg.sql})${windowClause}`;
@@ -577,7 +569,7 @@ const processMethod = (options) => {
         requests,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       otherTypes = result.types;
       const sql = `${name}(${result.sql})`;
@@ -609,7 +601,7 @@ const processMethod = (options) => {
           requests,
           getPlaceholder,
           root,
-          includeSubquery
+          getRequest
         }));
       if (parsed.length === 1) {
         type = parsed.at(0).type;
@@ -633,7 +625,7 @@ const processMethod = (options) => {
           requests,
           getPlaceholder,
           root,
-          includeSubquery
+          getRequest
         }));
       type = parsed.at(0).type;
       sql = `${name}(${parsed.map(a => a.sql).join(', ')})`;
@@ -646,7 +638,7 @@ const processMethod = (options) => {
         requests,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       const sql = `${name}(${bodyArg.sql})`;
       if (['min', 'max'].includes(name)) {
@@ -674,7 +666,7 @@ const processMethod = (options) => {
         requests,
         getPlaceholder,
         root,
-        includeSubquery
+        getRequest
       });
       if (['min', 'max'].includes(name)) {
         type = bodyArg.type;
@@ -691,7 +683,7 @@ const processMethod = (options) => {
       requests,
       getPlaceholder,
       root,
-      includeSubquery
+      getRequest
     });
     if (clause) {
       sql += ` ${clause}`;
@@ -708,9 +700,9 @@ const processMethod = (options) => {
     requests,
     getPlaceholder,
     root,
-    includeSubquery
+    getRequest
   }));
-  if (method.name === 'if') {
+  if (method.name === 'iif') {
     const length = args.length;
     if (length <= 13) {
       const types = [];
@@ -766,7 +758,7 @@ const toWhere = (options) => {
     requests,
     getPlaceholder,
     internal,
-    includeSubquery
+    getRequest
   } = options;
   const type = options.type || 'and';
   const statements = [];
@@ -779,15 +771,7 @@ const toWhere = (options) => {
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
     let selector;
-    let request = requests.get(symbol);
-    if (!request) {
-      if (includeSubquery) {
-        request = includeSubquery(symbol);
-      }
-      else {
-        request = Table.requests.get(symbol);
-      }
-    }
+    const request = getRequest(symbol);
     if (request && !isColumn(request)) {
       if (request.alias) {
         selector = request.alias;
@@ -799,7 +783,7 @@ const toWhere = (options) => {
           params,
           requests,
           getPlaceholder,
-          includeSubquery
+          getRequest
         });
         selector = keyArg.sql;
       }
@@ -808,7 +792,7 @@ const toWhere = (options) => {
       selector = request.selector || request.sql || nameToSql(request.name);
     }
     const value = where[symbol];
-    const valueRequest = requests.get(value);
+    const valueRequest = getRequest(value);
     if (valueRequest && valueRequest.subcategory === 'Compare') {
       const { name, args } = valueRequest;
       const param = args.at(0);
@@ -820,7 +804,7 @@ const toWhere = (options) => {
             params,
             requests,
             getPlaceholder,
-            includeSubquery
+            getRequest
           });
           const operator = compareOperators.get(name);
           statements.push(`temporal_compare(${selector}, ${result.sql}) ${operator} 0`);
@@ -832,7 +816,7 @@ const toWhere = (options) => {
             params,
             requests,
             getPlaceholder,
-            includeSubquery
+            getRequest
           });
           const second = processArg({
             db,
@@ -840,7 +824,7 @@ const toWhere = (options) => {
             params,
             requests,
             getPlaceholder,
-            includeSubquery
+            getRequest
           });
           const operator = compareOperators.get(name);
           statements.push(`${selector} = temporal_compare(${first.sql}, ${second.sql}) ${operator} 0`);
@@ -865,7 +849,7 @@ const toWhere = (options) => {
             params,
             requests,
             getPlaceholder,
-            includeSubquery
+            getRequest
           });
           const source = getPlaceholder();
           const flags = getPlaceholder();
@@ -876,11 +860,11 @@ const toWhere = (options) => {
       }
       else {
         if (name === 'not') {
-          const found = Table.requests.get(param);
+          const found = getRequest(param);
           if (found && found.isProxy) {
             const column = Object.keys(param).at(0);
             const symbol = param[column];
-            const request = includeSubquery(symbol, false);
+            const request = getRequest(symbol, false);
             statements.push(`${selector} not in (select ${request.selector} from ${request.tableAlias})`);
             continue;
           }
@@ -892,7 +876,7 @@ const toWhere = (options) => {
           params,
           requests,
           getPlaceholder,
-          includeSubquery
+          getRequest
         });
         if (name === 'not' && Array.isArray(param)) {
           statements.push(`${selector} not in (select json_each.value from json_each(${result.sql}))`);
@@ -902,29 +886,28 @@ const toWhere = (options) => {
         }
       }
     }
-    else if (valueRequest && !isColumn(valueRequest)) {
+    else if (valueRequest && !valueRequest.isProxy && !isColumn(valueRequest)) {
       const methodArg = processMethod({
         db,
         method: valueRequest,
         params,
         requests,
         getPlaceholder,
-        includeSubquery
+        getRequest
       });
       statements.push(`${selector} = ${methodArg.sql}`);
     }
-    else if (valueRequest && isColumn(valueRequest)) {
+    else if (valueRequest && !valueRequest.isProxy && isColumn(valueRequest)) {
       statements.push(`${selector} = ${valueRequest.selector}`);
     }
     else if (value === null) {
       statements.push(`${selector} is null`);
     }
     else {
-      const found = Table.requests.get(value);
-      if (found && found.isProxy) {
+      if (valueRequest && valueRequest.isProxy) {
         const column = Object.keys(value).at(0);
         const symbol = value[column];
-        const request = includeSubquery(symbol);
+        const request = getRequest(symbol);
         statements.push(`${selector} in (select ${request.selector} from ${request.tableAlias})`);
       }
       else if (params) {
@@ -933,7 +916,7 @@ const toWhere = (options) => {
           params,
           value,
           getPlaceholder,
-          includeSubquery
+          getRequest
         });
         if (Array.isArray(value)) {
           statements.push(`${selector} in (select json_each.value from json_each(${result.sql}))`);
@@ -978,7 +961,7 @@ const toWhere = (options) => {
           requests,
           getPlaceholder,
           internal: true,
-          includeSubquery
+          getRequest
         }))
         .join(` ${type} `);
       statements.push(`(${statement})`);

@@ -467,7 +467,7 @@ const compare = database.createFunction({
 const now = Temporal.Now.zonedDateTimeISO();
 
 const rangers = db.query(c => {
-  const { rangers: r, gte } = c;
+  const { rangers: r } = c;
   const compared = compare(r.createdAt, now);
   return {
     select: r,
@@ -619,32 +619,40 @@ const trees = db.query(c => {
     select: {
       id,
       name,
-      rank: c.rowNumber({
+      rank: rowNumber({
         orderBy: height,
         desc: true
       })
     },
     where: {
-      [height]: c.gt(1)
+      [height]: gt(1)
     }
   }
 });
 ```
 
-The built-in SQLite functions are just JavaScript functions. This query gets the tree planted the furthest time away from the supplied date.
+The built-in SQLite functions are just JavaScript functions. You can import them from the ```functions``` object like this:
+
+```js
+import { functions } from '@andrewitsover/midnight';
+
+const { lt, gt, max, timeDiff } = functions;
+```
+
+This query gets the tree planted the furthest time away from the supplied date.
 
 ```js
 const tree = db.first(c => {
   const { id, name, planted } = c.trees;
   const now = Temporal.Now.plainDateISO();
-  const max = c.max(c.timeDiff(planted, now));
+  const orderBy = max(timeDiff(planted, now));
   return {
     select: {
       id,
       name,
-      max
+      max: orderBy
     },
-    orderBy: max,
+    orderBy,
     desc: true
   }
 });
@@ -666,7 +674,7 @@ const moons = db.subquery(c => {
       }]
     },
     having: {
-      [c.count()]: c.gt(1)
+      [count()]: gt(1)
     }
   }
 });
@@ -699,8 +707,8 @@ const trees = db.query(c => {
   return {
     select: t,
     where: {
-      [t.planted]: c.gte(start),
-      [t.planted]: c.lt(now)
+      [t.planted]: gte(start),
+      [t.planted]: lt(now)
     }
   }
 });
@@ -733,7 +741,7 @@ const animals = db.query(c => {
       sightedBy: sighted.by
     },
     where: {
-      [c.length(a.name)]: c.gt(10)
+      [length(a.name)]: gt(10)
     }
   }
 });
@@ -769,7 +777,7 @@ In the above example, ```moon``` will be of type ```string``` or ```null``` even
 
 ```js
 const user = db.first(c => {
-  const { forests: f, not } = c;
+  const { forests: f } = c;
   return {
     certain: {
       density: f.density
@@ -847,7 +855,7 @@ const animals = db.query(c => {
       name: a.name
     },
     having: {
-      [c.count(f.id)]: 2
+      [count(f.id)]: 2
     }
   }
 });
