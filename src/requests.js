@@ -793,7 +793,9 @@ const toWhere = (options) => {
     }
     const value = where[symbol];
     const valueRequest = getRequest(value);
-    if (valueRequest && valueRequest.subcategory === 'Compare') {
+    const exists = valueRequest !== undefined;
+    const isProxy = exists && valueRequest.isProxy;
+    if (exists && valueRequest.subcategory === 'Compare') {
       const { name, args } = valueRequest;
       const param = args.at(0);
       if (request.type === 'zonedDateTime') {
@@ -886,7 +888,7 @@ const toWhere = (options) => {
         }
       }
     }
-    else if (valueRequest && !valueRequest.isProxy && !isColumn(valueRequest)) {
+    else if (exists && !isProxy && !isColumn(valueRequest)) {
       const methodArg = processMethod({
         db,
         method: valueRequest,
@@ -897,14 +899,14 @@ const toWhere = (options) => {
       });
       statements.push(`${selector} = ${methodArg.sql}`);
     }
-    else if (valueRequest && !valueRequest.isProxy && isColumn(valueRequest)) {
+    else if (exists && !isProxy && isColumn(valueRequest)) {
       statements.push(`${selector} = ${valueRequest.selector}`);
     }
     else if (value === null) {
       statements.push(`${selector} is null`);
     }
     else {
-      if (valueRequest && valueRequest.isProxy) {
+      if (exists && isProxy) {
         const column = Object.keys(value).at(0);
         const symbol = value[column];
         const request = getRequest(symbol);
