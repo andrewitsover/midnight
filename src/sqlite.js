@@ -5,7 +5,6 @@ import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
 import functions from './functions.js';
 import DbApi from './proxy.js';
-import { methodNames } from './methods.js';
 
 const dbTypes = {
   integer: true,
@@ -109,9 +108,6 @@ class Database {
     const classTable = {};
     const entries = Object.entries(schema);
     for (const [key, type] of entries) {
-      if (methodNames.has(key.toLowerCase())) {
-        throw Error(`"${key}" is the name of a built-in function and cannot be used as a table name.`);
-      }
       classTable[type.name] = removeCapital(key);
     }
     for (const [key, type] of entries) {
