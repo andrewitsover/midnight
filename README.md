@@ -251,7 +251,7 @@ const trees = db.trees.query({
   where: {
     category: 'Evergreen'
   },
-  orderBy: (c, f) => f.lower(c.name)
+  orderBy: c => lower(c.name)
 });
 ```
 
@@ -280,10 +280,10 @@ For example:
 
 ```js
 const excluded = [1, 2, 3];
-const moons = db.moons.many({ id: c => c.not(excluded) });
+const moons = db.moons.many({ id: not(excluded) });
 const count = db.moons.count({
   where: {
-    id: c => c.gt(10)
+    id: gt(10)
   }
 });
 ```
@@ -296,12 +296,12 @@ If you need to perform complex logic in the ```where``` clause, you can use the 
 const wolves = db.animals.query({
   where: {
     or: [
-      { name: c => c.like('Gray%') },
-      { id: c => c.lt(10) },
+      { name: like('Gray%') },
+      { id: lt(10) },
       {
         and: [
-          { tagged: c => c.gt(time) },
-          { name: c => c.like('Red%') }
+          { tagged: gt(time) },
+          { name: like('Red%') }
         ]
       }
     ]
@@ -358,7 +358,7 @@ try {
     name: 'Gray Wolf',
     speed: 73
   });
-  const personId = db.people.get({ name: c => c.like('Andrew%') }, 'id');
+  const personId = db.people.get({ name: like('Andrew%') }, 'id');
   db.sightings.insert({
     personId,
     animalId

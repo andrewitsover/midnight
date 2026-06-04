@@ -4,7 +4,7 @@ import { FunctionOptions, Session, ApplyChangesetOptions } from 'node:sqlite';
 type ExtractKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
 
 interface Keywords<T, K> {
-  orderBy?: K | ((column: T, method: ComputeMethods) => void);
+  orderBy?: K | ((column: T) => symbol);
   desc?: boolean;
   limit?: number | bigint;
   offset?: number | bigint;
@@ -614,7 +614,7 @@ type JsonMap<T> = {
 
 type Json = JsonValue | JsonObject | JsonArray;
 
-type WhereField<T> = T | Array<NonNullable<T>> | WhereFunction<T> | null;
+type WhereField<T> = T | Array<NonNullable<T>> | symbol | null;
 
 type OptionalToNull<T> = {
   [K in keyof T]-?: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K];

@@ -40,78 +40,89 @@ class Structured {
   }
 }
 
-const makeProxy = (options) => {
-  const {
-    db,
-    requests,
-    subqueries,
-    makeAlias
-  } = options;
-  const makeTableHandler = (table) => {
-    const tableAlias = makeAlias(table);
+const makeTableProxy = (args) => {
+  const { table, db, requests, makeAlias } = args;
+  let tableAlias;
+  if (makeAlias) {
+    tableAlias = makeAlias ? makeAlias(table) : undefined;
     const symbol = Symbol();
     requests.set(symbol, {
       category: 'Table',
       name: table,
       alias: tableAlias
     });
-    const keys = Object.keys(db.columns[table]);
-    const handler = {
-      get: function(target, property) {
-        const isVirtualColumn = db.virtualSet.has(table) && property === `${table[0].toLowerCase()}${table.substring(1)}`;
-        if ((!db.tables[table] || !db.columns[table][property]) && !isVirtualColumn) {
-          throw Error(`table or column does not exist: ${table}.${property}`);
-        }
-        const symbol = Symbol();
-        const type = db.columns[table][property];
-        const computed = db.computed[table][property];
-        const sql = nameToSql(property, tableAlias);
-        let selector;
-        if (type === 'json') {
-          selector = `json(${sql})`;
-        }
-        else if (computed === undefined) {
-          selector = sql;
-        }
-        else {
-          selector = addAlias(computed, tableAlias);
-        }
-        const request = {
-          category: 'Column',
-          table,
-          name: property,
-          selector,
-          type,
-          tableAlias
-        };
-        requests.set(symbol, request);
-        if (db.structured[table][property]) {
-          return new Structured(symbol);
-        }
-        return symbol;
-      },
-      ownKeys: function(target) {
-        return keys;
-      },
-      getOwnPropertyDescriptor: function(target, property) {
-        if (keys.includes(property)) {
-          return {
-            enumerable: true,
-            configurable: true
-          };
-        }
-        return undefined;
+  }
+  const keys = Object.keys(db.columns[table]);
+  const handler = {
+    get: function(target, property) {
+      const isVirtualColumn = db.virtualSet.has(table) && property === removeCapital(table);
+      if ((!db.tables[table] || !db.columns[table][property]) && !isVirtualColumn) {
+        throw Error(`table or column does not exist: ${table}.${property}`);
       }
-    };
-    const proxy = new Proxy({}, handler);
+      const symbol = Symbol();
+      const type = db.columns[table][property];
+      const computed = db.computed[table][property];
+      const sql = nameToSql(property, tableAlias);
+      let selector;
+      if (type === 'json') {
+        selector = `json(${sql})`;
+      }
+      else if (computed === undefined) {
+        selector = sql;
+      }
+      else {
+        selector = tableAlias ? addAlias(computed, tableAlias) : computed;
+      }
+      const request = {
+        category: 'Column',
+        table,
+        name: property,
+        selector,
+        type,
+        tableAlias
+      };
+      requests.set(symbol, request);
+      if (db.structured[table][property]) {
+        return new Structured(symbol);
+      }
+      return symbol;
+    },
+    ownKeys: function(target) {
+      return keys;
+    },
+    getOwnPropertyDescriptor: function(target, property) {
+      if (keys.includes(property)) {
+        return {
+          enumerable: true,
+          configurable: true
+        };
+      }
+      return undefined;
+    }
+  };
+  const proxy = new Proxy({}, handler);
+  if (makeAlias) {
     const tableKey = `${table} ${tableAlias}`;
     requests.set(proxy, { isProxy: true, tableKey });
-    return proxy;
   }
+  return proxy;
+}
+
+const makeProxy = (options) => {
+  const {
+    db,
+    requests,
+    makeAlias
+  } = options;
   const handler = {
     get: function(target, property) {
       const symbol = Symbol();
-      const proxy = makeTableHandler(property);
+      const proxy = makeTableProxy({
+        table: property,
+        db,
+        requests,
+        makeAlias
+      });
       requests.set(symbol, {
         category: 'TableProxy',
         proxy
@@ -290,7 +301,6 @@ const processQuery = (db, expression, firstResult) => {
   const proxy = makeProxy({
     db,
     requests,
-    subqueries,
     makeAlias
   });
   const params = {};
@@ -368,6 +378,7 @@ const processQuery = (db, expression, firstResult) => {
     const request = Table.requests.get(symbol);
     if (request) {
       requests.set(symbol, request);
+      Table.requests.delete(symbol);
     }
     if (request && request.category === 'SubqueryColumn') {
       request.join = join;
@@ -963,5 +974,6 @@ const processQuery = (db, expression, firstResult) => {
 
 export {
   processQuery,
-  functions
+  functions,
+  makeTableProxy
 }

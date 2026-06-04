@@ -5,6 +5,9 @@ import {
   nameToSql
 } from './utils.js';
 import { compareOperators } from './methods.js';
+import { Table } from './tables.js';
+import { makeTableProxy } from './symbols.js';
+import { processMethod } from './requests.js';
 
 const getConditions = (args) => {
   const {
@@ -13,49 +16,18 @@ const getConditions = (args) => {
     params,
     getPlaceholder
   } = args;
-  const operatorHandler = {
-    get: function(target, property) {
-      target.push(property);
-      if (compareOperators.has(property)) {
-        return (value) => {
-          target.push(value);
-          return target;
-        }
-      }
-      return operatorProxy;
-    }
-  }
-  const operatorProxy = new Proxy([], operatorHandler);
-  const columnHandler = {
-    get: function(target, property) {
-      target.name = property;
-      return columnProxy;
-    }
-  }
-  const columnTarget = {};
-  const columnProxy = new Proxy(columnTarget, columnHandler);
-  const chain = query(operatorProxy, columnProxy);
-  if (columnTarget.name) {
-    verify(columnTarget.name);
-  }
-  const value = chain.pop();
-  const method = chain.pop();
+  const value = query.arg;
+  const method = query.method;
   if (!compareOperators.has(method)) {
     throw Error(`invalid operator: ${method}`);
   }
-  const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
-  const placeholder = getPlaceholder();
-  if (path) {
-    params[placeholder] = path;
-  }
-  const selector = path ? `json_extract(${column.name}, $${placeholder})` : column.name;
+  const selector = column.name;
   const conditions = [];
-  const expression = columnTarget.name;
   if (column.type === 'zonedDateTime') {
     const operator = compareOperators.get(method);
     const placeholder = getPlaceholder();
     params[placeholder] = value;
-    const param = value === columnProxy ? expression : `$${placeholder}`;
+    const param = `$${placeholder}`;
     const sql = `temporal_compare(${selector}, ${param}) ${operator} 0`;
     conditions.push(sql);
   }
@@ -67,9 +39,6 @@ const getConditions = (args) => {
     }
     else if (value === null) {
       conditions.push(`${selector} is not null`);
-    }
-    else if (value === columnProxy) {
-      conditions.push(`${selector} != ${expression}`);
     }
     else {
       const placeholder = getPlaceholder();
@@ -86,14 +55,9 @@ const getConditions = (args) => {
   }
   else {
     const operator = compareOperators.get(method);
-    if (value === columnProxy) {
-      conditions.push(`${selector} ${operator} ${expression}`);
-    }
-    else {
-      const placeholder = getPlaceholder();
-      params[placeholder] = value;
-      conditions.push(`${selector} ${operator} $${placeholder}`);
-    }
+    const placeholder = getPlaceholder();
+    params[placeholder] = value;
+    conditions.push(`${selector} ${operator} $${placeholder}`);
   }
   return conditions;
 }
@@ -452,13 +416,19 @@ const toWhere = (options) => {
       }
       conditions.push(`(${filters.join(` ${column} `)})`);
     }
-    else if (typeof param === 'function') {
+    else if (typeof param === 'symbol') {
+      const request = Table.requests.get(param);
+      Table.requests.delete(param);
+      const query = {
+        method: request.name,
+        arg: request.args.at(0)
+      };
       const result = getConditions({
         column: {
           name: adjusted,
           type: columnTypes[column]
         },
-        query: param,
+        query,
         params,
         getPlaceholder
       });
@@ -490,6 +460,42 @@ const toWhere = (options) => {
   return sql;
 }
 
+const processFunction = (args) => {
+  const {
+    db,
+    table,
+    params,
+    getPlaceholder,
+    lambda
+  } = args;
+  const requests = new Map();
+  const proxy = makeTableProxy({
+    db,
+    table,
+    requests
+  });
+  const symbol = lambda(proxy);
+  const request = Table.requests.get(symbol);
+  Table.requests.delete(symbol);
+  const getRequest = (symbol) => {
+    let request = requests.get(symbol);
+    if (!request) {
+      request = Table.requests.get(symbol);
+      Table.requests.delete(symbol);
+    }
+    return request;
+  }
+  const result = processMethod({
+    db,
+    method: request,
+    params,
+    requests,
+    getRequest,
+    getPlaceholder
+  });
+  return result.sql;
+}
+
 const createSetClause = (args) => {
   const {
     db, 
@@ -502,9 +508,14 @@ const createSetClause = (args) => {
   const columnTypes = db.columns[table];
   for (const [column, param] of Object.entries(query)) {
     if (typeof param === 'function') {
-      const { createClause } = expressionHandler(param, getPlaceholder);
-      const clause = createClause(params);
-      statements.push(`${column} = ${clause}`);
+      const sql = processFunction({
+        db,
+        table,
+        params,
+        getPlaceholder,
+        lambda: param
+      });
+      statements.push(`${column} = ${sql}`);
       continue;
     }
     const placeholder = getPlaceholder();
@@ -560,6 +571,7 @@ const update = (args) => {
 
 const toKeywords = (args) => {
   const {
+    db,
     keywords,
     params,
     table,
@@ -591,8 +603,13 @@ const toKeywords = (args) => {
     if (orderBy) {
       let clause;
       if (typeof orderBy === 'function') {
-        const { createClause } = expressionHandler(orderBy, getPlaceholder);
-        clause = createClause(params);
+        clause = processFunction({
+          db,
+          table,
+          params,
+          getPlaceholder,
+          lambda: orderBy
+        });
       }
       else {
         const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
@@ -1043,6 +1060,8 @@ const match = (config) => {
     params[placeholder] = parse(query);
   }
   sql += toKeywords({
+    db,
+    table,
     keywords: query,
     params,
     getPlaceholder,
@@ -1156,6 +1175,7 @@ const all = (config) => {
     sql += ` where ${clause}`;
   }
   sql += toKeywords({
+    db,
     keywords,
     params,
     table,
