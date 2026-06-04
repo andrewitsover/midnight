@@ -23,111 +23,6 @@ const createPlaceholder = () => {
   }
 }
 
-const expressionHandler = (expression, getPlaceholder) => {
-  const columnHandler = {
-    get: function(target, property) {
-      const request = {
-        name: property,
-        path: [],
-        proxy: null
-      };
-      const pathHandler = {
-        get: function(target, property) {
-          const path = target.path;
-          path.push(property);
-          return pathProxy;
-        }
-      };
-      const pathProxy = new Proxy(request, pathHandler);
-      request.proxy = pathProxy;
-      columnRequests.push(request);
-      return pathProxy;
-    }
-  }
-  const columnTarget = {};
-  const columnProxy = new Proxy(columnTarget, columnHandler);
-  const columnRequests = [];
-  const methodHandler = {
-    get: function(target, property) {
-      const request = {
-        name: property,
-        args: null
-      };
-      methodRequests.push(request);
-      return (...args) => {
-        request.args = args;
-        return request;
-      };
-    }
-  }
-  const methodTarget = {};
-  const methodProxy = new Proxy(methodTarget, methodHandler);
-  const methodRequests = [];
-  expression(columnProxy, methodProxy);
-  const method = methodRequests.at(0);
-  const operators = new Map([
-    ['plus', '+'],
-    ['minus', '-'],
-    ['divide', '/'],
-    ['multiply', '*']
-  ]);
-  for (const [key, value] of compareOperators) {
-    operators.set(key, value);
-  }
-  const createClause = (params) => {
-    const processColumn = (column) => {
-      if (column.path.length === 0) {
-        return column.name;
-      }
-      const placeholder = getPlaceholder();
-      const path = `$.${column.path.join('.')}`;
-      params[placeholder] = path;
-      return `json_extract(${column.name}, $${placeholder})`;
-    }
-    const processMethod = (method) => {
-      const statements = [];
-      for (const arg of method.args) {
-        const subMethod = methodRequests.find(r => r === arg);
-        if (subMethod) {
-          const statement = processMethod(subMethod);
-          statements.push(statement);
-          continue;
-        }
-        const column = columnRequests.find(r => r.proxy === arg);
-        if (column) {
-          const statement = processColumn(column);
-          statements.push(statement);
-        }
-        else {
-          const placeholder = getPlaceholder();
-          params[placeholder] = arg;
-          statements.push(`$${placeholder}`);
-        }
-      }
-      const operator = operators.get(method.name);
-      if (operator) {
-        return statements.join(` ${operator} `);
-      }
-      return `${method.name}(${statements.join(', ')})`;
-    }
-    let statement;
-    if (!method) {
-      const column = columnRequests.at(0);
-      statement = processColumn(column);
-    }
-    else {
-      statement = processMethod(method);
-    }
-    return statement;
-  }
-  return {
-    operators,
-    columnRequests,
-    methodRequests,
-    createClause
-  };
-}
-
 const addAlias = (clause, alias) => {
   const chars = clause.split('');
   let inside = false;
@@ -259,7 +154,6 @@ export {
   nameToSql,
   jsonSelector,
   createPlaceholder,
-  expressionHandler,
   removeCapital,
   temporal,
   toLiteral,

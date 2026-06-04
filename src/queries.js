@@ -1,6 +1,5 @@
 import { 
   createPlaceholder, 
-  expressionHandler, 
   jsonSelector,
   nameToSql
 } from './utils.js';
