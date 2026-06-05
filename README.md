@@ -629,12 +629,10 @@ const trees = db.query(c => {
 });
 ```
 
-The built-in SQLite functions are just JavaScript functions. You can import them from the ```functions``` object like this:
+The built-in SQLite functions are just JavaScript functions that can be imported like this:
 
 ```js
-import { functions } from '@andrewitsover/midnight';
-
-const { lt, gt, max, timeDiff } = functions;
+import { lt, gt, max, timeDiff } from '@andrewitsover/midnight';
 ```
 
 This query gets the tree planted the furthest time away from the supplied date.

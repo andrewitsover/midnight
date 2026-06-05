@@ -108,8 +108,8 @@ class Trigram {
 }
 
 class BaseTable {
-  static requests = new Map();
-  static classes = new Map();
+  static requests = new WeakMap();
+  static classes = new WeakMap();
 
   get Null() {
     if (!this.Proxy) {
