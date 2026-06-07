@@ -492,7 +492,7 @@ class Trees extends Table {
 }
 ```
 
-Constraints can also be defined in the ```Attributes``` function and span across multiple columns.
+Constraints can also be defined in the ```Attributes``` function and span across multiple columns. If there is more than one constraint or index, the function should return an array.
 
 ```js
 class Rangers extends Table {

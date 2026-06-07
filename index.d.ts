@@ -997,15 +997,8 @@ type RemoveUpperCase<T> = {
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 type ExtractColumns<T> = {
-  [K in keyof T as K extends string
-    ? K extends `${infer First}${infer Second}${string}`
-      ? First extends Uppercase<First>
-        ? Second extends Lowercase<Second>
-          ? never
-          : K
-        : K
-      : K
-    : never]: IsAny<ToDbType<T[K]>> extends true
+  [K in StringKeys<T>]:
+    IsAny<ToDbType<T[K]>> extends true
       ? DbString
       : ToDefaultType<T[K]>;
 };
@@ -1081,6 +1074,8 @@ type MakeOptional<T> = {
       ? T[K]
       : T[K] | DbNull;
 };
+
+type StringKeys<T> = Exclude<keyof T, symbol>;
 
 type SymbolWhere = {
   [key: symbol]: any;
@@ -1239,13 +1234,12 @@ export class Trigram {
 
 export class FTSTable extends BaseTable {
   rowid: PkNumber;
-  Prefix?: number | number[];
-  Tokenizer?: Unicode61 | Ascii | Trigram;
-  Unindexed: DbString;
+  [prefix]?: number | number[];
+  [tokenizer]?: Unicode61 | Ascii | Trigram;
 }
 
 export class ExternalFTSTable extends FTSTable {
-  ExternalRowId?: PkNumber | DbNumber;
+  [externalRowId]?: PkNumber | DbNumber;
 }
 
 interface FunctionArgs<T, A> {
@@ -1354,7 +1348,7 @@ export function tan(value: NumericParam): DbNumber | DbNull;
 export function tanh(value: NumericParam): DbNumber | DbNull;
 export function trunc<T extends NumericParam>(value: T): ToDbType<T>;
 export function toJson(param: JsonParam | any[]): DbString | DbNull;
-export function extract(json: JsonParam | any[], path: string): any;
+export function extract(json: JsonParam | any[], path: string): DbString | DbNumber | DbNull;
 export function extract<T, S extends (json: T) => any>(json: T, extractor: S): ReturnType<S>;
 export function each<T extends unknown[], S extends (json: T[number]) => EachSelector>(json: T, extractor: S): ReturnType<S>['select'][];
 export function plus<T extends Numeric>(first: T, ...rest: Numeric[]): ToDbType<T>;
