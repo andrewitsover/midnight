@@ -582,7 +582,9 @@ class Trees extends Table {
 
   [attributes] = () => {
     return index(this.name, {
-      [this.alive]: true
+      where: {
+        [this.alive]: true
+      }
     });
   }
 }
