@@ -429,7 +429,13 @@ User-defined functions can be defined in JavaScript and used in the same way as 
 They can be used as default values
 
 ```js
-import { Database, Table } from '@andrewitsover/midnight';
+import {
+  Database,
+  Table,
+  primary,
+  text,
+  zonedDateTime
+} from '@andrewitsover/midnight';
 
 const database = new Database(':memory:');
 const uuid = database.createFunction({
@@ -495,7 +501,7 @@ class Rangers extends Table {
   createdAt = now.instant;
 
   [attributes] = () => {
-    check({
+    return check({
       or: [
         { [this.admin]: true },
         { [this.staffLimit]: gt(0) }
@@ -543,8 +549,10 @@ class Trees extends Table {
 
   [attributes] = () => {
     const computed = cast(strfTime('%Y', this.planted), 'integer');
-    index(computed);
-    unique(this.name, this.category);
+    return [
+      index(computed),
+      unique(this.name, this.category)
+    ];
   }
 }
 ```
@@ -573,7 +581,7 @@ class Trees extends Table {
   alive = init(true);
 
   [attributes] = () => {
-    index(this.name, {
+    return index(this.name, {
       [this.alive]: true
     });
   }
