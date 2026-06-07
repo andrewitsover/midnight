@@ -391,7 +391,7 @@ In addition to the built-in SQLite types of ```int```, ```real```, ```text```, a
 
 All of the Temporal date types are also available and stored as strings internally. This includes ```duration```, ```instant```, ```plainDate```, ```plainDateTime```, ```plainMonthDay```, ```plainTime```, ```plainYearMonth```, and ```zonedDateTime```.
 
-To create a table, you simply extend either ```Table```, ```FTSTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ```FTSTable``` is used for defining fts5 tables. Columns start with a lowercase letter.
+To create a table, you simply extend either ```Table```, ```FTSTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ```FTSTable``` is used for defining fts5 tables.
 
 ```js
 class Moons extends BaseTable {
