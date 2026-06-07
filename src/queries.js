@@ -4,7 +4,7 @@ import {
   nameToSql
 } from './utils.js';
 import { compareOperators } from './methods.js';
-import { Table } from './tables.js';
+import { tableRequests } from './tables.js';
 import { makeTableProxy } from './symbols.js';
 import { processMethod } from './requests.js';
 
@@ -416,8 +416,8 @@ const toWhere = (options) => {
       conditions.push(`(${filters.join(` ${column} `)})`);
     }
     else if (typeof param === 'symbol') {
-      const request = Table.requests.get(param);
-      Table.requests.delete(param);
+      const request = tableRequests.get(param);
+      tableRequests.delete(param);
       const query = {
         method: request.name,
         arg: request.args.at(0)
@@ -474,13 +474,13 @@ const processFunction = (args) => {
     requests
   });
   const symbol = lambda(proxy);
-  const request = Table.requests.get(symbol);
-  Table.requests.delete(symbol);
+  const request = tableRequests.get(symbol);
+  tableRequests.delete(symbol);
   const getRequest = (symbol) => {
     let request = requests.get(symbol);
     if (!request) {
-      request = Table.requests.get(symbol);
-      Table.requests.delete(symbol);
+      request = tableRequests.get(symbol);
+      tableRequests.delete(symbol);
     }
     return request;
   }

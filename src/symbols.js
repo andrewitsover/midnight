@@ -1,7 +1,7 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
 import { addAlias, nameToSql, createPlaceholder, temporal, removeCapital, isColumn } from './utils.js';
-import { Table } from './tables.js';
+import { tableRequests } from './tables.js';
 import reserved from './reserved.js';
 
 const dateParsers = temporal.map(type => {
@@ -171,7 +171,7 @@ const handler = {
         args,
         alias: null
       }
-      Table.requests.set(symbol, request);
+      tableRequests.set(symbol, request);
       if (['min', 'max'].includes(property) && args.length === 1) {
         request.subcategory = 'Window';
       }
@@ -375,10 +375,10 @@ const processQuery = (db, expression, firstResult) => {
   const columnTypes = {};
   const original = {};
   const includeSubquery = (symbol, join = true) => {
-    const request = Table.requests.get(symbol);
+    const request = tableRequests.get(symbol);
     if (request) {
       requests.set(symbol, request);
-      Table.requests.delete(symbol);
+      tableRequests.delete(symbol);
     }
     if (request && request.category === 'SubqueryColumn') {
       request.join = join;

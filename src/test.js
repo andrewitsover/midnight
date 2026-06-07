@@ -19,14 +19,14 @@ const toHash = (table, sql) => {
 }
 
 const types = [
-  'int',
-  'bigInt',
-  'real',
-  'text',
-  'blob',
-  'json',
-  'bool',
-  ...temporal.map(t => removeCapital(t.name))
+  'Int',
+  'BigInt',
+  'Real',
+  'Text',
+  'Blob',
+  'Json',
+  'Bool',
+  ...temporal.map(t => t.name)
 ];
 const modifiers = [
   ['', {}],
@@ -37,41 +37,38 @@ const addCapital = (name) => {
   return name.at(0).toUpperCase() + name.substring(1);
 }
 
-const toColumn = (literal) => {
+const toColumn = (literal, instance) => {
   const type = typeof literal;
   let symbol;
   if (type === 'string') {
-    symbol = symbols.text;
+    symbol = instance.Text;
   }
   else if (type === 'number') {
     if (Number.isInteger(literal)) {
-      symbol = symbols.int;
+      symbol = instance.Int;
     }
     else {
-      symbol = symbols.real;
+      symbol = instance.Real;
     }
   }
   else if (type === 'boolean') {
-    symbol = symbols.bool;
+    symbol = instance.Bool;
   }
   else {
     const type = temporal.find(type => literal instanceof type);
     if (type) {
-      const name = removeCapital(type.name);
-      symbol = symbols[name];
+      symbol = instance[type.name];
     }
     else {
       throw Error(`invalid default value: ${literal}`);
     }
   }
-  const request = { ...tableRequests.get(symbol) };
-  request.default = toLiteral(literal);
-  const updated = Symbol();
-  tableRequests.set(updated, request);
+  const column = Table.requests.get(symbol);
+  column.default = toLiteral(literal);
   return {
-    symbol: updated,
-    column: request
-  }
+    symbol,
+    column
+  };
 }
 
 class Unicode61 {
@@ -110,280 +107,366 @@ class Trigram {
   }
 }
 
-const attributes = Symbol();
-const prefix = Symbol();
-const tokenizer = Symbol();
-const externalRowId = Symbol();
-const transform = Symbol();
-const hasTransformed = Symbol();
-
-const tableRequests = new WeakMap();
-const classes = new WeakMap();
-
 class BaseTable {
-  [hasTransformed] = false;
+  static requests = new WeakMap();
+  static classes = new WeakMap();
+
+  get Null() {
+    if (!this.Proxy) {
+      this.Proxy = new Proxy(this, {
+        get(target, prop, receiver) {
+          const value = Reflect.get(target, prop, receiver);
+          if ([...types, 'True', 'False'].includes(prop)) {
+            const request = BaseTable.requests.get(value);
+            request.notNull = false;
+            return value;
+          }
+          else if (['References', 'Cascade'].includes(prop)) {
+            return (...args) => {
+              const result = value.apply(target, args);
+              const request = BaseTable.requests.get(result);
+              request.column.notNull = false;
+              return result;
+            }
+          }
+          else if (prop === 'Default') {
+            return (...args) => {
+              const result = value.apply(target, args);
+              const request = BaseTable.requests.get(result);
+              request.notNull = false;
+              return result;
+            }
+          }
+          return value;
+        }
+      });
+    }
+    return this.Proxy;
+  }
+  Called = [];
 
   constructor() {
-    return new Proxy(this, {
-      get: function(target, property, receiver) {
-        if (!target[hasTransformed]) {
-          target[transform]();
+    const cls = this.constructor;
+    const methods = [...compareMethods, ...computeMethods];
+    for (const method of methods) {
+      let name = addCapital(method);
+      if (['Date', 'Json'].includes(name)) {
+        name = `To${name}`;
+      }
+      const subcategory = compareMethods.includes(method) ? 'Compare' : 'Compute';
+      Object.defineProperty(this, name, {
+        get: function() {
+          const symbol = Symbol();
+          const request = {
+            category: 'Method',
+            subcategory,
+            name: method,
+            type: null,
+            args: null
+          };
+          Table.requests.set(symbol, request);
+          return (...args) => {
+            request.args = args;
+            return symbol;
+          }
         }
-        return Reflect.get(target, property, receiver);
+      });
+    }
+    for (const type of types) {
+      for (const modifier of modifiers) {
+        const [word, props] = modifier;
+        let dbType = removeCapital(type);
+        if (dbType === 'bool') {
+          dbType = 'boolean';
+        }
+        else if (dbType === 'int') {
+          dbType = 'integer';
+        }
+        const key = `${type}${word}`;
+        Object.defineProperty(this, key, {
+          get: function() {
+            const symbol = Symbol();
+            Table.classes.set(symbol, cls);
+            Table.requests.set(symbol, {
+              category: 'Column',
+              type: dbType,
+              notNull: true,
+              ...props
+            });
+            return symbol;
+          }
+        });
+      }
+    }
+    for (const key of ['TypedArray', 'TypedObject']) {
+      Object.defineProperty(this, key, {
+        get: function() {
+          const symbol = Symbol();
+          Table.classes.set(symbol, cls);
+          const request = {
+            category: 'Column',
+            type: 'json',
+            notNull: true
+          };
+          Table.requests.set(symbol, request);
+          return () => {
+            request.structure = true;
+            return symbol;
+          }
+        }
+      });
+    }
+    return new Proxy(this, {
+      get(target, prop, receiver) {
+        if (typeof prop === 'string' && Reflect.has(target, prop)) {
+          if (target[prop] === undefined) {
+            target[prop] = target.Text;
+          }
+        }
+        return Reflect.get(target, prop, receiver);
       }
     });
   }
 
-  [transform]() {
-    this[hasTransformed] = true;
-    for (const [key, value] of Object.entries(this)) {
-      if (typeof value === 'function') {
-        continue;
+  get Now() {
+    return new Proxy(this, {
+      get(target, prop, receiver) {
+        const symbol = target[prop];
+        const column = Table.requests.get(symbol);
+        const type = column.type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+        column.default = `(temporal_now_${type}())`;
+        return symbol;
       }
-      let adjusted = value;
-      if (typeof value !== 'symbol') {
-        adjusted = symbols.init(value);
-      }
-      const request = tableRequests.get(adjusted);
-      const symbol = Symbol();
-      const updated = { ...request };
-      this[key] = symbol;
-      tableRequests.set(symbol, updated);
-      if (request.category === 'Column') {
-        classes.set(symbol, this.constructor);
-      }
-      if (request.category === 'ForeignKey' && request.instance) {
-        const { instance, options, notNull } = request;
-        const { 
-          column,
-          onDelete,
-          onUpdate,
-          index
-        } = options || {};
-        const updated = {
-          category: 'ForeignKey',
-          column: null,
-          references: instance.name,
-          actions: [],
-          index: index === false ? false : true
-        };
-        const columns = getColumns(instance)
-          .filter(c => column ? c.name === column : c.primaryKey);
-        if (columns.length !== 1) {
-          throw Error('the foreign key options are not valid');
-        }
-        const target = { ...columns.at(0) };
-        target.primaryKey = false;
-        target.notNull = notNull;
-        updated.column = target;
-        if (onDelete) {
-          updated.actions.push(`on delete ${onDelete}`);
-        }
-        if (onUpdate) {
-          updated.actions.push(`on update ${onUpdate}`);
-        }
-        tableRequests.set(symbol, updated);
-      }
+    });
+  }
+
+  get True() {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Column',
+      type: 'boolean',
+      notNull: true,
+      default: true
+    });
+    return symbol;
+  }
+
+  get False() {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Column',
+      type: 'boolean',
+      notNull: true,
+      default: false
+    });
+    return symbol;
+  }
+
+  Default(value) {
+    const { symbol, column } = toColumn(value, this);
+    Table.requests.set(symbol, column);
+    return symbol;
+  }
+
+  Primary(symbol) {
+    const request = Table.requests.get(symbol);
+    let column;
+    if (request.category === 'Column') {
+      column = request;
     }
+    else if (request.category === 'Function') {
+      column = request.column;
+    }
+    column.primaryKey = true;
+    column.notNull = true;
+    return symbol;
+  }
+
+  get Unindexed() {
+    const symbol = this.Text;
+    const column = Table.requests.get(symbol);
+    column.unindexed = true;
+    return symbol;
+  }
+
+  ReplaceFields() {
+    const keys = Object.getOwnPropertyNames(this).filter(k => /^[a-z]/.test(k));
+    for (const key of keys) {
+      const symbol = this[key];
+      const request = Table.requests.get(symbol);
+      Object.defineProperty(this, key, {
+        get: function() {
+          const symbol = Symbol();
+          Table.requests.set(symbol, request);
+          return symbol;
+        }
+      });
+    }
+  }
+
+  MakeIndex(args, category) {
+    const symbol = Symbol();
+    const last = args.at(-1);
+    let expression;
+    let columns = args;
+    const type = typeof last;
+    const isDate = last instanceof Date;
+    const isBlob = last instanceof Uint8Array;
+    if (!isDate && !isBlob && ['function', 'object'].includes(type)) {
+      expression = args.pop();
+    }
+    Table.requests.set(symbol, {
+      category,
+      columns,
+      expression
+    });
+    this.Called.push(symbol);
+    return symbol;
+  }
+
+  Index(...args) {
+    return this.MakeIndex(args, 'Index');
+  }
+
+  Unique(...args) {
+    return this.MakeIndex(args, 'Unique');
+  }
+
+  Check(column, ...checks) {
+    const symbol = Symbol();
+    if (typeof column === 'object' && checks.length === 0) {
+      Table.requests.set(symbol, {
+        category: 'Check',
+        checks: column
+      });
+    }
+    else {
+      Table.requests.set(symbol, {
+        category: 'Check',
+        column,
+        checks
+      });
+    }
+    this.Called.push(symbol);
+    return symbol;
+  }
+
+  Cascade(instance, options) {
+    options = options || {};
+    options.onDelete = 'cascade';
+    return this.References(instance, options);
+  }
+
+  References(instance, options) {
+    const { 
+      column,
+      onDelete,
+      onUpdate,
+      index
+    } = options || {};
+    const request = {
+      category: 'ForeignKey',
+      column: null,
+      references: instance.name,
+      actions: [],
+      index: index === false ? false : true
+    };
+    const columns = getColumns(instance)
+      .filter(c => column ? c.name === column : c.primaryKey);
+    if (columns.length !== 1) {
+      throw Error('the foreign key options are not valid');
+    }
+    const target = columns.at(0);
+    target.primaryKey = false;
+    target.notNull = true;
+    request.column = target;
+    if (onDelete) {
+      request.actions.push(`on delete ${onDelete}`);
+    }
+    if (onUpdate) {
+      request.actions.push(`on update ${onUpdate}`);
+    }
+    const symbol = Symbol();
+    Table.requests.set(symbol, request);
+    return symbol;
   }
 }
 
-const symbols = {
-  nil: {},
-  primary: {}
-};
-
-symbols.attributes = attributes;
-symbols.prefix = prefix;
-symbols.tokenizer = tokenizer;
-symbols.externalRowId = externalRowId;
-
-const addTypes = (target, props) => {
-  for (const type of types) {
-    let dbType = type;
+for (const type of types) {
+  for (const modifier of modifiers) {
+    const [word, props] = modifier;
+    let dbType = removeCapital(type);
     if (dbType === 'bool') {
       dbType = 'boolean';
     }
     else if (dbType === 'int') {
       dbType = 'integer';
     }
-    const request = {
-      category: 'Column',
-      type: dbType,
-      notNull: true,
-      primaryKey: false,
-      ...props
-    };
-    const symbol = Symbol();
-    target[type] = symbol;
-    tableRequests.set(symbol, request);
-  }
-}
-
-addTypes(symbols);
-addTypes(symbols.nil, { notNull: false });
-addTypes(symbols.primary, { notNull: true, primaryKey: true });
-
-symbols.references = (instance, options) => {
-  const request = {
-    category: 'ForeignKey',
-    instance,
-    options,
-    notNull: true
-  };
-  const symbol = Symbol();
-  tableRequests.set(symbol, request);
-  return symbol;
-}
-
-symbols.cascade = (instance, options) => {
-  return symbols.references(instance, { ...options, onDelete: 'cascade' });
-}
-
-const typed = () => {
-  const symbol = Symbol();
-  const request = {
-    category: 'Column',
-    type: 'json',
-    notNull: true,
-    structure: true
-  };
-  tableRequests.set(symbol, request);
-  return symbol;
-}
-
-symbols.typedArray = typed;
-symbols.typedObject = typed;
-
-symbols.now = new Proxy(symbols, {
-  get(target, prop, receiver) {
-    const symbol = target[prop];
-    const column = tableRequests.get(symbol);
-    const type = column.type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
-    column.default = `(temporal_now_${type}())`;
-    return symbol;
-  }
-});
-
-symbols.init = (value) => {
-  const result = toColumn(value);
-  tableRequests.set(result.symbol, result.column);
-  return result.symbol;
-}
-
-const reflect = ['references', 'cascade', 'typedArray', 'typedObject', 'now', 'init'];
-for (const key of reflect) {
-  symbols.nil[key] = (...args) => {
-    const symbol = symbols[key](...args);
-    const request = tableRequests.get(symbol);
-    request.notNull = false;
-    return symbol;
-  }
-}
-
-const makeIndex = (args, category) => {
-  const symbol = Symbol();
-  const last = args.at(-1);
-  let expression;
-  let columns = args;
-  const type = typeof last;
-  const isDate = last instanceof Date;
-  const isBlob = last instanceof Uint8Array;
-  if (!isDate && !isBlob && ['function', 'object'].includes(type)) {
-    expression = args.pop();
-  }
-  tableRequests.set(symbol, {
-    category,
-    columns,
-    expression
-  });
-  return symbol;
-}
-
-symbols.index = (...args) => makeIndex(args, 'Index');
-symbols.unique = (...args) => makeIndex(args, 'Unique');
-
-symbols.check = (column, ...checks) => {
-  const symbol = Symbol();
-  if (typeof column === 'object' && checks.length === 0) {
-    tableRequests.set(symbol, {
-      category: 'Check',
-      checks: column
+    const key = `${type}${word}`;
+    Object.defineProperty(BaseTable, key, {
+      get: function() {
+        const symbol = Symbol();
+        Table.requests.set(symbol, {
+          category: 'FunctionType',
+          type: dbType,
+          notNull: true,
+          ...props
+        });
+        return symbol;
+      }
     });
   }
-  else {
-    tableRequests.set(symbol, {
-      category: 'Check',
-      column,
-      checks
-    });
-  }
-  return symbol;
 }
-
-const makeUnindexed = () => {
-  const request = tableRequests.get(symbols.text);
-  const updated = { ...request, unindexed: true };
-  const symbol = Symbol();
-  tableRequests.set(symbol, updated);
-  return symbol;
-}
-
-symbols.unindexed = makeUnindexed();
 
 class Table extends BaseTable {
-  id = symbols.primary.int;
+  id = this.IntPrimary;
 }
 
 class FTSTable extends BaseTable {
-  rowid = symbols.primary.int;
-  [tokenizer] = new Unicode61({ removeDiacritics: true });
+  rowid = this.IntPrimary;
+  Tokenizer = new Unicode61({ removeDiacritics: true });
 }
 
 class ExternalFTSTable extends FTSTable {
-  [externalRowId] = null;
+  rowid = this.IntPrimary;
+  ExternalRowId = null;
+}
 
-  [transform]() {
-    const value = this.rowid;
-    const request = tableRequests.get(value);
-    const symbol = Symbol();
-    const updated = { ...request };
-    this.rowid = symbol;
-    tableRequests.set(symbol, updated);
-    classes.set(symbol, this.constructor);
-  }
+const getKeys = (instance) => {
+  return Object
+    .getOwnPropertyNames(instance)
+    .filter(k => /[a-z]/.test(k.at(0)));
 }
 
 const getColumns = (constructor) => {
   const instance = new constructor();
-  instance[transform]();
-  const columns = [];
-  for (const [key, value] of Object.entries(instance)) {
-    if (typeof value === 'function') {
-      continue;
-    }
+  const keys = getKeys(instance);
+  return keys.map(key => {
+    const value = instance[key];
     let request;
     if (typeof value === 'symbol') {
-      request = tableRequests.get(value);
+      request = Table.requests.get(value);
+    }
+    else if (value === undefined) {
+      const symbol = instance.Text;
+      request = Table.requests.get(symbol);
     }
     else {
-      const result = toColumn(value);
+      const result = toColumn(value, instance);
       request = result.column;
     }
     const clone = { ...request };
     clone.name = key;
-    columns.push(clone);
-  }
-  return columns;
+    return clone;
+  });
 }
 
 const process = (Custom, key, classTable) => {
   const instance = new Custom();
-  instance[transform]();
   const name = removeCapital(key);
   const type = Custom.prototype instanceof FTSTable ? 'fts5' : 'base';
   const external = Custom.prototype instanceof ExternalFTSTable;
-  const getRequest = (symbol) => tableRequests.get(symbol);
+  const getRequest = (symbol) => Table.requests.get(symbol);
   const table = {
     name,
     type,
@@ -396,21 +479,12 @@ const process = (Custom, key, classTable) => {
     structured: {}
   };
   if (type === 'fts5') {
-    table.tokenizer = toString(instance[tokenizer]);
-    if (instance[prefix] !== undefined) {
-      table.prefix = instance[prefix];
+    table.tokenizer = toString(instance.Tokenizer);
+    if (instance.Prefix !== undefined) {
+      table.prefix = instance.Prefix;
     }
   }
-  const keys = [];
-  const computedKeys = [];
-  for (const [key, value] of Object.entries(instance)) {
-    if (typeof value === 'function') {
-      computedKeys.push(key);
-    }
-    else {
-      keys.push(key);
-    }
-  }
+  const keys = getKeys(instance);
   const virtualColumns = new Map();
   let virtualTable;
   if (table.type === 'fts5') {
@@ -426,16 +500,15 @@ const process = (Custom, key, classTable) => {
     table.columns.push(rowId);
     if (external) {
       const constructor = keys
-        .map(k => classes.get(instance[k]))
+        .map(k => Table.classes.get(instance[k]))
         .find(c => c.name !== Custom.name);
       const parent = new constructor();
-      parent[transform]();
       virtualTable = removeCapital(parent.constructor.name);
-      const parentKeys = Object.keys(parent);
+      const parentKeys = getKeys(parent);
       const mapped = parentKeys
         .map(key => {
           const symbol = parent[key];
-          const request = tableRequests.get(symbol);
+          const request = Table.requests.get(symbol);
           const column = { name: key, ...request };
           return {
             key,
@@ -458,14 +531,14 @@ const process = (Custom, key, classTable) => {
     for (const check of checks) {
       if (check.is !== undefined) {
         if (typeof check.is === 'symbol') {
-          const method = tableRequests.get(check.is);
+          const method = Table.requests.get(check.is);
           if (method.category === 'Column') {
             statements.push(`${sql} = ${method.name}`);
           }
           else {
             const result = processMethod({
               method,
-              requests: tableRequests,
+              requests: Table.requests,
               getRequest
             });
             statements.push(`${sql} ${result.sql}`);
@@ -490,9 +563,12 @@ const process = (Custom, key, classTable) => {
     });
   }
   const getColumn = (key, value) => {
+    if (value === undefined) {
+      value = instance.Text;
+    }
     const type = typeof value;
     if (type !== 'symbol') {
-      const result = toColumn(value);
+      const result = toColumn(value, instance);
       result.column.name = key;
       return {
         category: 'Literal',
@@ -500,7 +576,7 @@ const process = (Custom, key, classTable) => {
         ...result
       };
     }
-    const request = tableRequests.get(value);
+    const request = Table.requests.get(value);
     const { category, subcategory } = request;
     if (subcategory === 'User-Defined Function') {
       const column = { ...request.column, name: key };
@@ -565,7 +641,7 @@ const process = (Custom, key, classTable) => {
         }
         where = toWhere({
           where: result.where,
-          requests: tableRequests,
+          requests: Table.requests,
           getRequest
         });
       }
@@ -579,7 +655,7 @@ const process = (Custom, key, classTable) => {
     if (category === 'Method') {
       const { type, sql } = processMethod({
         method: request,
-        requests: tableRequests,
+        requests: Table.requests,
         getRequest
       });
       return {
@@ -596,36 +672,29 @@ const process = (Custom, key, classTable) => {
     if (result.primaryKey) {
       table.primaryKeys.push(result.name);
     }
-    if (result.category === 'Literal') {
+    if (result.category === 'Computed') {
+      result.category = 'Column';
+      table.computed.push(result);
+      Table.requests.set(value, result);
+    }
+    else if (result.category === 'Literal') {
       table.columns.push(result.column);
-      tableRequests.set(result.symbol, result.column);
+      Table.requests.set(result.symbol, result.column);
     }
     else {
       if (result.name !== 'rowid') {
         table.columns.push(result);
-        tableRequests.set(value, result);
+        Table.requests.set(value, result);
       }
     }
   }
-  for (const key of computedKeys) {
-    const value = instance[key]();
-    const result = getColumn(key, value);
-    result.category = 'Column';
-    table.computed.push(result);
-    tableRequests.set(value, result);
+  if (instance.Attributes) {
+    instance.ReplaceFields();
+    instance.Called = [];
+    instance.Attributes();
   }
-  const found = [];
-  if (instance[attributes]) {
-    const result = instance[attributes]();
-    if (Array.isArray(result)) {
-      found.push(...result);
-    }
-    else {
-      found.push(result);
-    }
-  }
-  for (const symbol of found) {
-    const request = tableRequests.get(symbol);
+  for (const symbol of instance.Called) {
+    const request = Table.requests.get(symbol);
     const category = request.category;
     if (['Index', 'Unique'].includes(category)) {
       const type = category === 'Unique' ? 'unique' : undefined;
@@ -633,7 +702,7 @@ const process = (Custom, key, classTable) => {
         .columns
         .map(arg => processArg({
           arg,
-          requests: tableRequests,
+          requests: Table.requests,
           getRequest
         }))
         .map(r => r.sql || r.name)
@@ -652,7 +721,7 @@ const process = (Custom, key, classTable) => {
         }
         where = toWhere({
           where: result.where,
-          requests: tableRequests,
+          requests: Table.requests,
           getRequest
         });
       }
@@ -666,7 +735,7 @@ const process = (Custom, key, classTable) => {
       if (!request.column) {
         const where = toWhere({
           where: request.checks,
-          requests: tableRequests,
+          requests: Table.requests,
           getRequest
         });
         table.checks.push({
@@ -875,7 +944,5 @@ export {
   toHash,
   process,
   indexToSql,
-  columnToSql,
-  symbols,
-  tableRequests
+  columnToSql
 }

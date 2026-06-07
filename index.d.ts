@@ -1196,302 +1196,9 @@ type ToComputed<T> =
 
 type ForeignActions = 'no action' | 'restrict' | 'set null' | 'set default' | 'cascade';
 
-interface StaticNull {
-  Int: DbNumber | DbNull;
-  BigInt: DbBigInt | DbNull;
-  Real: DbNumber | DbNull;
-  Text: DbString | DbNull;
-  Blob: DbBlob | DbNull;
-  Json: DbJson | DbNull;
-  Bool: DbBoolean | DbNull;
-  Duration: DbDuration | DbNull;
-  Instant: DbInstant | DbNull;
-  PlainDate: DbPlainDate | DbNull;
-  PlainDateTime: DbPlainDateTime | DbNull;
-  PlainMonthDay: DbPlainMonthDay | DbNull;
-  PlainTime: DbPlainTime | DbNull;
-  PlainYearMonth: DbPlainYearMonth | DbNull;
-  ZonedDateTime: DbZonedDateTime | DbNull;
-}
-
-interface Null {
-  Int: DbNumber | DbNull;
-  BigInt: DbBigInt | DbNull;
-  Real: DbNumber | DbNull;
-  Text: DbString | DbNull;
-  Blob: DbBlob | DbNull;
-  Json: DbJson | DbNull;
-  Bool: DbBoolean | DbNull;
-  Duration: DbDuration | DbNull;
-  Instant: DbInstant | DbNull;
-  PlainDate: DbPlainDate | DbNull;
-  PlainDateTime: DbPlainDateTime | DbNull;
-  PlainMonthDay: DbPlainMonthDay | DbNull;
-  PlainTime: DbPlainTime | DbNull;
-  PlainYearMonth: DbPlainYearMonth | DbNull;
-  ZonedDateTime: DbZonedDateTime | DbNull;
-
-  Now: NullNow;
-  True: DefaultBoolean | DbNull;
-  False: DefaultBoolean | DbNull;
-
-  References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
-    onDelete?: ForeignActions,
-    onUpdate?: ForeignActions,
-    index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
-  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
-    column: K,
-    onDelete?: ForeignActions,
-    onUpdate?: ForeignActions,
-    index?: false
-  }): PkToDbType<InstanceType<T>[K]> | DbNull;
-  Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
-    index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
-  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
-    column: K,
-    index?: false
-  }): PkToDbType<InstanceType<T>[K]> | DbNull;
-
-  Default<T extends PrimitiveNull>(value: T): ToDefaultType<T> | DbNull;
-
-  TypedArray<T extends TypedJson>(type: T): T[] | DbNull;
-  TypedObject<T extends TypedJson>(type: T): T | DbNull;
-}
-
-interface Now {
-  Instant: DefaultInstant;
-  PlainDate: DefaultPlainDate;
-  PlainDateTime: DefaultPlainDateTime;
-  PlainTime: DefaultPlainTime;
-  ZonedDateTime: DefaultZonedDateTime;
-}
-
-interface NullNow {
-  Instant: DefaultInstant | DbNull;
-  PlainDate: DefaultPlainDate | DbNull;
-  PlainDateTime: DefaultPlainDateTime | DbNull;
-  PlainTime: DefaultPlainTime | DbNull;
-  ZonedDateTime: DefaultZonedDateTime | DbNull;
-}
-
 type TypedJson = AnyParam | { [key: string]: AnyParam | TypedJson | TypedJson[] };
 
-export class BaseTable {
-  static Int: DbNumber;
-  static IntPrimary: PkNumber;
-  static BigInt: DbBigInt;
-  static BigIntPrimary: PkBigInt;
-  static Real: DbNumber;
-  static RealPrimary: PkNumber;
-  static Text: DbString;
-  static TextPrimary: PkString;
-  static Blob: DbBlob
-  static BlobPrimary: PkBlob;
-  static Json: DbJson;
-  static Duration: DbDuration;
-  static Instant: DbInstant;
-  static PlainDate: DbPlainDate;
-  static PlainDateTime: DbPlainDateTime;
-  static PlainMonthDay: DbPlainMonthDay;
-  static PlainTime: DbPlainTime;
-  static PlainYearMonth: DbPlainYearMonth;
-  static ZonedDateTime: DbZonedDateTime;
-  static DurationPrimary: PkDuration;
-  static InstantPrimary: PkInstant;
-  static PlainDatePrimary: PkPlainDate;
-  static PlainDateTimePrimary: PkPlainDateTime;
-  static PlainMonthDayPrimary: PkPlainMonthDay;
-  static PlainTimePrimary: PkPlainTime;
-  static PlainYearMonthPrimary: PkPlainYearMonth;
-  static ZonedDateTimePrimary: PkZonedDateTime;
-  static Bool: DbBoolean;
-  static Null: StaticNull;
-
-  Int: DbNumber;
-  IntPrimary: PkNumber;
-  BigInt: DbBigInt;
-  BigIntPrimary: PkBigInt;
-  Real: DbNumber;
-  RealPrimary: PkNumber;
-  Text: DbString;
-  TextPrimary: PkString;
-  Blob: DbBlob
-  BlobPrimary: PkBlob;
-  Json: DbJson;
-  Duration: DbDuration;
-  Instant: DbInstant;
-  PlainDate: DbPlainDate;
-  PlainDateTime: DbPlainDateTime;
-  PlainMonthDay: DbPlainMonthDay;
-  PlainTime: DbPlainTime;
-  PlainYearMonth: DbPlainYearMonth;
-  ZonedDateTime: DbZonedDateTime;
-  DurationPrimary: PkDuration;
-  InstantPrimary: PkInstant;
-  PlainDatePrimary: PkPlainDate;
-  PlainDateTimePrimary: PkPlainDateTime;
-  PlainMonthDayPrimary: PkPlainMonthDay;
-  PlainTimePrimary: PkPlainTime;
-  PlainYearMonthPrimary: PkPlainYearMonth;
-  ZonedDateTimePrimary: PkZonedDateTime;
-  Bool: DbBoolean;
-
-  Now: Now;
-  True: DefaultBoolean;
-  False: DefaultBoolean;
-
-  Primary<T extends DbAny>(type: T): ToPrimaryKey<T>;
-
-  References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
-    onDelete?: ForeignActions,
-    onUpdate?: ForeignActions,
-    index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
-  References<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
-    column: K,
-    onDelete?: ForeignActions,
-    onUpdate?: ForeignActions,
-    index?: false
-  }): PkToDbType<InstanceType<T>[K]>;
-  Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
-    index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
-  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
-    column: K,
-    index?: false
-  }): PkToDbType<InstanceType<T>[K]>;
-
-  Index<T>(type: T): ToDbType<T>;
-  Index<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
-  Index(...args: [any, ...any[]]): void;
-  Index(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
-  Unique<T>(type: T): ToDbType<T>;
-  Unique<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
-  Unique(...args: [any, ...any[]]): void;
-  Unique(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
-  Check(where: SymbolWhere): void;
-  Check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDbType<T>;
-  Null: Null;
-  Default<T extends PrimitiveNull>(value: T): ToDefaultType<T>;
-
-  TypedArray<T extends TypedJson>(type: T): T[];
-  TypedObject<T extends TypedJson>(type: T): T;
-
-  Symbol<T>(json: T): T extends DbNull ? DbJson | DbNull : DbJson;
-
-  Abs<T extends Numeric>(n: T): ToNumericResult<T>;
-  Cast(value: any, to: 'real' | 'integer'): ComputedNumber;
-  Coalesce<T extends (AnyParam | DbTypes)[]>(...args: T): ToComputed<T[number]>;
-  Concat(...args: any[]): ComputedString;
-  ConcatWs(...args: any[]): ComputedString;
-  Format<T extends StringParam>(format: T, ...args: any[]): ToComputed<T>;
-  Iif<A extends DbTypes | AnyParam>(when: BooleanParam, then: A): ToComputed<ToDbType<A | null>>;
-  Iif<A extends DbTypes | AnyParam, B extends DbTypes | AnyParam>(when1: BooleanParam, then1: A, when2: BooleanParam, then2: B): ToComputed<ToDbType<A | B | null>>;
-  Iif<A extends DbTypes | AnyParam, B extends DbTypes | AnyParam>(when: BooleanParam, then: A, otherwise: B): ToComputed<ToDbType<A | B>>;
-  Iif<A extends DbTypes | AnyParam, B extends DbTypes | AnyParam, C extends DbTypes | AnyParam, D extends DbTypes | AnyParam>(when1: BooleanParam, then1: A, otherwise1: B, when2: BooleanParam, then2: C, otherwise2: D): ToComputed<ToDbType<A | B | C | D>>;
-  Iif(...args: any[]): ToComputed<AnyResult>;
-  Instr(a: OnlyStrings, b: OnlyStrings): ComputedNumber;
-  Instr(a: StringBlobParam, b: StringBlobParam): ComputedNumber | ComputedNull;
-  Length(value: any): ComputedNumber | ComputedNull;
-  Lower(value: OnlyStrings): ComputedString;
-  Lower(value: StringParam): ComputedString | ComputedNull;
-  Ltrim(value: StringParam, remove?: StringParam): ComputedString | ComputedNull;
-  Max<A extends DbTypes | AnyParam, B extends DbTypes | AnyParam, T extends readonly (DbTypes | AnyParam)[]>(a: A, b: B, ...rest: T): ToComputed<A | B | T[number]>;
-  Min<A extends DbTypes | AnyParam, B extends DbTypes | AnyParam, T extends readonly (DbTypes | AnyParam)[]>(a: A, b: B, ...rest: T): ToComputed<A | B | T[number]>;
-  Nullif<T extends AnyParam>(a: T, b: any): ToComputed<T | DbNull>;
-  OctetLength(value: any): ComputedNumber | ComputedNull;
-  Replace<T extends StringParam>(value: T, occurrences: T, substitute: T): ToComputed<T>;
-  Round<T extends NumericParam>(value: T, places?: T): ToComputed<T>;
-  Rtrim<T extends StringParam>(value: T, remove?: StringParam): ToComputed<T>;
-  Sign(value: Numeric): ToComputed<-1 | 0 | 1>;
-  Sign(value: any): ComputedNumber | ComputedNull;
-  Substring<T extends StringParam>(value: T, start: NumericParam, length?: NumericParam): ToComputed<T>;
-  Trim<T extends StringParam>(value: T, remove?: StringParam): ToComputed<T>;
-  Unhex(hex: StringParam, ignore?: StringParam): ToComputed<DbBlob | DbNull>;
-  Unicode(value: OnlyStrings): ComputedNumber;
-  Unicode(value: StringParam): ComputedNumber | ComputedNull;
-  Upper(value: OnlyStrings): ComputedString;
-  Upper(value: StringParam): ComputedString | ComputedNull;
-  ToDate(): ComputedString;
-  ToDate(time: CompatibleDate): ComputedString;
-  ToDate(time: DateParam, ...modifiers: StringParam[]): ComputedString | ComputedNull;
-  Time(): ComputedString;
-  Time(time: CompatibleDate): ComputedString;
-  Time(time: DateParam, ...modifiers: StringParam[]): ComputedString | ComputedNull;
-  DateTime(): ComputedString;
-  DateTime(time: CompatibleDate): ComputedString;
-  DateTime(time: DateParam, ...modifiers: StringParam[]): ComputedString | ComputedNull;
-  JulianDay(): ComputedNumber;
-  JulianDay(time: CompatibleDate): ComputedNumber;
-  JulianDay(time: DateParam, ...modifiers: StringParam[]): ComputedNumber | ComputedNull;
-  UnixEpoch(): ComputedNumber;
-  UnixEpoch(time: CompatibleDate): ComputedNumber;
-  UnixEpoch(time: DateParam, ...modifiers: StringParam[]): ComputedString | ComputedNull;
-  StrfTime(format: StringParam, time: DateParam, ...modifiers: StringParam[]): ComputedString | ComputedNull;
-  TimeDiff(start: CompatibleDate, end: CompatibleDate): ComputedString;
-  TimeDiff(start: DateParam, end: DateParam): ComputedString | ComputedNull;
-  Acos(value: NumericParam): ComputedNumber | ComputedNull;
-  Acosh(value: NumericParam): ComputedNumber | ComputedNull;
-  Asin(value: NumericParam): ComputedNumber | ComputedNull;
-  Asinh(value: NumericParam): ComputedNumber | ComputedNull;
-  Atan(value: NumericParam): ComputedNumber | ComputedNull;
-  Atan2(b: NumericParam, a: NumericParam): ComputedNumber | ComputedNull;
-  Atanh(value: NumericParam): ComputedNumber | ComputedNull;
-  Ceil<T extends NumericParam>(value: T): ToComputed<T>;
-  Cos<T extends NumericParam>(value: T): ToComputed<T>;
-  Cosh(value: NumericParam): ComputedNumber | ComputedNull;
-  Degrees(value: NumericParam): ComputedNumber | ComputedNull;
-  Exp(value: NumericParam): ComputedNumber | ComputedNull;
-  Floor<T extends NumericParam>(value: T): ToComputed<T>;
-  Ln(value: NumericParam): ComputedNumber | ComputedNull;
-  Log(base: NumericParam, value: NumericParam): ComputedNumber | ComputedNull;
-  Mod(value: NumericParam, divider: NumericParam): ComputedNumber | ComputedNull;
-  Pi(): ComputedNumber;
-  Power(value: NumericParam, exponent: NumericParam): ComputedNumber | ComputedNull;
-  Radians(value: NumericParam): ComputedNumber | ComputedNull;
-  Sin(value: Numeric): ComputedNumber;
-  Sin(value: NumericParam): ComputedNumber | ComputedNull;
-  Sinh(value: NumericParam): ComputedNumber | ComputedNull;
-  Sqrt(value: NumericParam): ComputedNumber | ComputedNull;
-  Tan(value: NumericParam): ComputedNumber | ComputedNull;
-  Tanh(value: NumericParam): ComputedNumber | ComputedNull;
-  Trunc<T extends NumericParam>(value: T): ToComputed<T>;
-  ToJson(param: JsonParam | any[]): ComputedString | ComputedNull;
-  Extract(json: JsonParam | any[], path: string): any;
-  Extract<T, S extends (T) => any>(json: T, extractor: S): ToComputed<ReturnType<S>>;
-  Object<T extends { [key: string]: AllowedJson }>(select: T): ToComputed<ToJson<T>>;
-  ArrayLength(param: JsonParam | any[]): ComputedNumber | ComputedNull;
-
-  Plus<T extends Numeric>(first: T, ...rest: Numeric[]): ToComputed<T>;
-  Plus<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToComputed<T | null>;
-  Minus<T extends Numeric>(first: T, ...rest: Numeric[]): ToComputed<T>;
-  Minus<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToComputed<T | null>;
-  Divide<T extends Numeric>(first: T, ...rest: Numeric[]): ToComputed<T>;
-  Divide<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToComputed<T | null>;
-  Multiply<T extends Numeric>(first: T, ...rest: Numeric[]): ToComputed<T>;
-  Multiply<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToComputed<T | null>;
-
-  Not(value: symbol | QueryCompareTypes | QueryCompareTypes[]): ComputedBoolean;
-  Not(column: symbol, value: QueryCompareTypes | QueryCompareTypes[]): ComputedBoolean;
-  Gt(value: symbol | QueryCompareTypes): ComputedBoolean;
-	Gt(column: symbol, value: QueryCompareTypes): ComputedBoolean;
-  Gte(value: symbol | QueryCompareTypes): ComputedBoolean;
-	Gte(column: symbol, value: QueryCompareTypes): ComputedBoolean;
-  Lt(value: symbol | QueryCompareTypes): ComputedBoolean;
-	Lt(column: symbol, value: QueryCompareTypes): ComputedBoolean;
-  Lte(value: symbol | QueryCompareTypes): ComputedBoolean;
-	Lte(column: symbol, value: QueryCompareTypes): ComputedBoolean;
-  Like(pattern: DbString | ComputedString | string): ComputedBoolean;
-	Like(column: symbol, pattern: QueryCompareTypes): ComputedBoolean;
-  Match(pattern: DbString | ComputedString | string): ComputedBoolean;
-	Match(column: symbol, pattern: QueryCompareTypes): ComputedBoolean;
-  Glob(pattern: DbString | ComputedString | string): ComputedBoolean;
-	Glob(column: symbol, pattern: QueryCompareTypes): ComputedBoolean;
-  Eq(value: symbol | QueryCompareTypes): ComputedBoolean;
-	Eq(column: symbol, value: QueryCompareTypes): ComputedBoolean;
-}
+export class BaseTable {}
 
 export class Table extends BaseTable {
   id: PkNumber;
@@ -1646,7 +1353,7 @@ export function sqrt(value: NumericParam): DbNumber | DbNull;
 export function tan(value: NumericParam): DbNumber | DbNull;
 export function tanh(value: NumericParam): DbNumber | DbNull;
 export function trunc<T extends NumericParam>(value: T): ToDbType<T>;
-export function json(param: JsonParam | any[]): DbString | DbNull;
+export function toJson(param: JsonParam | any[]): DbString | DbNull;
 export function extract(json: JsonParam | any[], path: string): any;
 export function extract<T, S extends (json: T) => any>(json: T, extractor: S): ReturnType<S>;
 export function each<T extends unknown[], S extends (json: T[number]) => EachSelector>(json: T, extractor: S): ReturnType<S>['select'][];
@@ -1713,3 +1420,139 @@ export function group<T extends AllowedJson>(key: DbString, value: T): Record<st
 export function windowGroup<T extends AllowedJson>(options: WindowOptions & { select: T }): T[];
 export function windowGroup<T>(options: WindowOptions & { select: ToDbInterface<T> }): T[];
 export function windowGroup<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, T>;
+
+export declare const attributes: unique symbol;
+export declare const prefix: unique symbol;
+export declare const tokenizer: unique symbol;
+export declare const externalRowId: unique symbol;
+
+export const text: DbString;
+export const int: DbNumber;
+export const real: DbNumber;
+export const bool: DbBoolean;
+export const json: DbJson;
+export const bigInt: DbBigInt;
+export const blob: DbBlob;
+export const duration: DbDuration;
+export const instant: DbInstant;
+export const plainDate: DbPlainDate;
+export const plainDateTime: DbPlainDateTime;
+export const plainTime: DbPlainTime;
+export const plainYearMonth: DbPlainYearMonth;
+export const zonedDateTime: DbZonedDateTime;
+export const unindexed: DbString;
+
+interface Now {
+  instant: DefaultInstant;
+  plainDate: DefaultPlainDate;
+  plainDateTime: DefaultPlainDateTime;
+  plainTime: DefaultPlainTime;
+  zonedDateTime: DefaultZonedDateTime;
+}
+
+interface NilNow {
+  instant: DefaultInstant | DbNull;
+  plainDate: DefaultPlainDate | DbNull;
+  plainDateTime: DefaultPlainDateTime | DbNull;
+  plainTime: DefaultPlainTime | DbNull;
+  zonedDateTime: DefaultZonedDateTime | DbNull;
+}
+
+export const now: Now;
+
+interface Nil {
+  text: DbString | DbNull;
+  int: DbNumber | DbNull;
+  real: DbNumber | DbNull;
+  bool: DbBoolean | DbNull;
+  json: DbJson | DbNull;
+  bigInt: DbBigInt | DbNull;
+  blob: DbBlob | DbNull;
+  duration: DbDuration | DbNull;
+  instant: DbInstant | DbNull;
+  plainDate: DbPlainDate | DbNull;
+  plainDateTime: DbPlainDateTime | DbNull;
+  plainTime: DbPlainTime | DbNull;
+  plainYearMonth: DbPlainYearMonth | DbNull;
+  zonedDateTime: DbZonedDateTime | DbNull;
+
+  now: NilNow;
+
+  references<T extends abstract new (...args: any[]) => any>(table: T, options?: {
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
+  references<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+    column: K,
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]> | DbNull;
+  cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
+    index?: false
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
+  cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+    column: K,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]> | DbNull;
+
+  init<T extends PrimitiveNull>(value: T): ToDefaultType<T> | DbNull;
+
+  typedArray<T extends TypedJson>(type: T): T[] | DbNull;
+  typedObject<T extends TypedJson>(type: T): T | DbNull;
+}
+
+export const nil: Nil;
+
+interface Primary {
+  text: PkString;
+  int: PkNumber;
+  real: PkNumber;
+  bigInt: PkBigInt;
+  blob: PkBlob;
+  duration: PkDuration;
+  instant: PkInstant;
+  plainDate: PkPlainDate;
+  plainDateTime: PkPlainDateTime;
+  plainTime: PkPlainTime;
+  plainYearMonth: PkPlainYearMonth;
+  zonedDateTime: PkZonedDateTime;
+}
+
+export const primary: Primary;
+
+export function init<T extends PrimitiveNull>(value: T): ToDefaultType<T>;
+
+export function references<T extends abstract new (...args: any[]) => any>(table: T, options?: {
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
+export function references<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+    column: K,
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]>;
+export function cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
+    index?: false
+  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
+export function cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+    column: K,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]>;
+
+export function index<T>(type: T): ToDbType<T>;
+export function index<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
+export function index(...args: [any, ...any[]]): void;
+export function index(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
+export function unique<T>(type: T): ToDbType<T>;
+export function unique<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
+export function unique(...args: [any, ...any[]]): void;
+export function unique(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
+export function check(where: SymbolWhere): void;
+export function check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDbType<T>;
+
+export function typedArray<T extends TypedJson>(type: T): T[];
+export function typedObject<T extends TypedJson>(type: T): T;

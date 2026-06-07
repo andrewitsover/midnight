@@ -1,7 +1,6 @@
 import returnTypes from './types.js';
 import { jsonSelector, nameToSql, temporal, removeCapital, toLiteral, isColumn } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
-import { Table } from './tables.js';
 
 const dateTypes = temporal.map(t => removeCapital(t.name));
 

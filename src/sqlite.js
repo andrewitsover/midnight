@@ -1,6 +1,6 @@
 import { temporal, removeCapital } from './utils.js';
 import { processQuery } from './symbols.js';
-import { process, toSql, toHash, Table } from './tables.js';
+import { process, toSql, toHash, tableRequests } from './tables.js';
 import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
 import functions from './functions.js';
@@ -87,7 +87,7 @@ class Database {
     else {
       this.db.function(name, lambda);
     }
-    const column = Table.requests.get(returnType);
+    const column = tableRequests.get(returnType);
     return (...args) => {
       const request = {
         category: 'Method',
@@ -99,7 +99,7 @@ class Database {
         column
       };
       const symbol = Symbol();
-      Table.requests.set(symbol, request);
+      tableRequests.set(symbol, request);
       return symbol;
     }
   }
@@ -144,7 +144,7 @@ class Database {
         const symbol = Symbol();
         const type = context.columns[property];
         const original = context.original[property];
-        Table.requests.set(symbol, {
+        tableRequests.set(symbol, {
           category: 'SubqueryColumn',
           name: property,
           type,
@@ -167,7 +167,7 @@ class Database {
       }
     }
     const proxy = new Proxy({}, handler);
-    Table.requests.set(proxy, { isProxy: true });
+    tableRequests.set(proxy, { isProxy: true });
     return proxy;
   }
 

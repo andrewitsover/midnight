@@ -25,17 +25,17 @@ Tables are written in JavaScript like this:
 
 ```js
 class Forests extends Table {
-  name = this.Text;
-  address = this.Text;
+  name = text;
+  address = text;
 
-  displayName = this.Concat(this.name, ' - ', this.address);
+  displayName = () => concat(this.name, ' - ', this.address);
 }
 
 class Trees extends Table {
-  name;
-  planted = this.Index(this.PlainDate);
-  forestId = this.Cascade(Forests);
-  alive = this.True;
+  name = text;
+  planted = index(plainDate);
+  forestId = cascade(Forests);
+  alive = init(true);
 }
 ```
 
@@ -99,12 +99,12 @@ Paste the code below into the ```main.js``` file.
 This example will create a ```clouds``` table in a database named ```forest.db``` and then insert and read some rows.
 
 ```js
-import { Database, Table } from '@andrewitsover/midnight';
+import { Database, Table, text } from '@andrewitsover/midnight';
 
 const database = new Database('forest.db');
 
 class Clouds extends Table {
-  name;
+  name = text;
 };
 
 const db = database.getClient({ Clouds });
@@ -385,42 +385,40 @@ See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for
 
 ## Creating tables
 
-In addition to the built-in SQLite types of ```Int```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Bool``` is stored in the database as a 1 or a 0, and ```Json``` is a JSONB blob. 
+In addition to the built-in SQLite types of ```int```, ```real```, ```text```, and ```blob```, Midnight adds a few extra types. ```bool``` is stored in the database as a 1 or a 0, and ```json``` is a JSONB blob. 
 
-```BigInt``` can be used instead of ```Int``` for reading and writing large integers.
+```bigInt``` can be used instead of ```int``` for reading and writing large integers.
 
-All of the Temporal date types are also available and stored as strings internally. This includes ```Duration```, ```Instant```, ```PlainDate```, ```PlainDateTime```, ```PlainMonthDay```, ```PlainTime```, ```PlainYearMonth```, and ```ZonedDateTime```.
+All of the Temporal date types are also available and stored as strings internally. This includes ```duration```, ```instant```, ```plainDate```, ```plainDateTime```, ```plainMonthDay```, ```plainTime```, ```plainYearMonth```, and ```zonedDateTime```.
 
 To create a table, you simply extend either ```Table```, ```FTSTable```, or ```BaseTable```. ```Table``` automatically defines an integer primary key called ```id```. ```FTSTable``` is used for defining fts5 tables. Columns start with a lowercase letter.
 
 ```js
 class Moons extends BaseTable {
-  id = this.IntPrimary;
-  name = this.Unique(this.Text);
-  planetId = this.Null.Cascade(Planets);
-  discovered = this.Now.Instant;
+  id = primary.int;
+  name = unique(text);
+  planetId = nil.cascade(Planets);
+  discovered = now.instant;
 }
 ```
 
-To specify the primary key, you use one of the modified types that has ```Primary``` at the end.
-
 Column types can be wrapped in many different methods:
 
-```Index```: add an index to the column.
+```index```: add an index to the column.
 
-```Unique```: add a unique index to the column.
+```unique```: add a unique index to the column.
 
-```Default```: define a default value. You can often simply use a literal instead.
+```init```: define a default value. You can often simply use a literal instead.
 
 ## Null columns
 
-Standard columns, columns with default values, and foreign keys can be specified as potentially being null by using the built-in ```Null``` interface.
+Standard columns, columns with default values, and foreign keys can be specified as potentially being null by using the built-in ```nil``` interface.
 
 ```js
 class Animals extends Table {
-  name = this.Null.Text;
-  spotted = this.Null.Now.Instant;
-  forestId = this.Null.Cascade(Forests);
+  name = nil.text;
+  spotted = nil.now.instant;
+  forestId = nil.cascade(Forests);
 }
 ```
 
@@ -435,14 +433,14 @@ import { Database, Table } from '@andrewitsover/midnight';
 
 const database = new Database(':memory:');
 const uuid = database.createFunction({
-  returnType: Table.TextPrimary,
+  returnType: primary.text,
   lambda: () => randomUUID()
 });
 
 class Rangers Extends Table {
   id = uuid();
-  name;
-  createdAt = this.ZonedDateTime;
+  name = text;
+  createdAt = zonedDateTime;
 }
 ```
 
@@ -450,7 +448,7 @@ or in symbol queries.
 
 ```js
 const compare = database.createFunction({
-  returnType: Table.Int,
+  returnType: int,
   options: {
     deterministic: true
   },
@@ -482,8 +480,8 @@ Constraints can be represented as either an array of valid values using the ```i
 
 ```js
 class Trees extends Table {
-  height = this.Int;
-  leaves = this.Check(this.Int, { is: this.Gte(0) });
+  height = int;
+  leaves = check(int, { is: gte(0) });
   alive = true;
 }
 ```
@@ -492,15 +490,15 @@ Constraints can also be defined in the ```Attributes``` function and span across
 
 ```js
 class Rangers extends Table {
-  admin = this.False;
-  staffLimit = this.Default(3);
-  createdAt = this.Now.Instant;
+  admin = false;
+  staffLimit = 3;
+  createdAt = now.instant;
 
-  Attributes = () => {
-    this.Check({
+  [attributes] = () => {
+    check({
       or: [
         { [this.admin]: true },
-        { [this.staffLimit]: this.Gt(0) }
+        { [this.staffLimit]: gt(0) }
       ]
     });
   }
@@ -515,14 +513,14 @@ By default, an index is created for the foreign key, and the column is set to no
 
 ```js
 class Sightings extends Table {
-  personId = this.Cascade(People);
-  animalId = this.Cascade(Animals);
-  date = this.Now;
+  personId = cascade(People);
+  animalId = cascade(Animals);
+  date = now.zonedDateTime;
 }
 
 class Animals extends Table {
-  name = this.Text;
-  ownerId = this.References(Sightings, {
+  name = text;
+  ownerId = references(Sightings, {
     column: 'personId',
     index: false,
     onDelete: 'set null',
@@ -531,23 +529,22 @@ class Animals extends Table {
 }
 ```
 
-```Cascade``` is simply a shorthand version of ```References``` that has the ```onDelete``` property set to ```cascade```.
+```cascade``` is simply a shorthand version of ```references``` that has the ```onDelete``` property set to ```cascade```.
 
 ## Indexes
 
-For indexes that span multiple columns or are based on expressions, you can define an ```Attributes``` function on the class.
+For indexes that span multiple columns or are based on expressions, you can define an ```attributes``` function on the class.
 
 ```js
 class Trees extends Table {
-  id = this.IntPrimary;
-  name;
-  category;
-  planted = this.Now.Instant;
+  name = text;
+  category = text;
+  planted = now.instant;
 
-  Attributes = () => {
-    const computed = this.Cast(this.StrfTime('%Y', this.planted), 'integer');
-    this.Index(computed);
-    this.Unique(this.name, this.category);
+  [attributes] = () => {
+    const computed = cast(strfTime('%Y', this.planted), 'integer');
+    index(computed);
+    unique(this.name, this.category);
   }
 }
 ```
@@ -557,27 +554,26 @@ class Trees extends Table {
 Partial indexes can be defined on a class field.
 
 ```js
-class Animals extends Table {
-  id = this.IntPrimary;
-  name = this.Index(this.Text, name => ({
+class Animals extends BaseTable {
+  id = primary.int;
+  name = index(text, name => ({
     where: {
-      [name]: this.Like('%Wolf')
+      [name]: like('%Wolf')
     }
   }));
 }
 ```
 
-Indexes can also be defined inside the ```Attributes``` function if they span across multiple columns.
+Indexes can also be defined inside the ```attributes``` function if they span across multiple columns.
 
 ```js
 class Trees extends Table {
-  id = this.IntPrimary;
-  name;
-  forestId = this.References(Forests);
-  alive = this.True;
+  name = text;
+  forestId = references(Forests);
+  alive = init(true);
 
-  Attributes = () => {
-    this.Index(this.name, {
+  [attributes] = () => {
+    index(this.name, {
       [this.alive]: true
     });
   }
@@ -592,11 +588,10 @@ Computed fields use the built-in SQLite functions and therefore can be used in a
 
 ```js
 class Trees extends Table {
-  id = this.IntPrimary;
-  name = this.Text;
-  category = this.Null.Text;
+  name = text;
+  category = nil.text;
 
-  displayName = this.Concat(this.name, ' (', this.category, ')');
+  displayName = concat(this.name, ' (', this.category, ')');
 }
 ```
 
@@ -863,9 +858,9 @@ The below example creates a fts5 table with three columns, one of which is only 
 
 ```js
 class Emails extends FTSTable {
-  uuid = this.Unindexed;
-  to;
-  body;
+  uuid = unindexed;
+  to = text;
+  body = text;
 }
 ```
 
@@ -877,8 +872,8 @@ To define a fts5 table based on another table, you can do this:
 
 ```js
 export class Forests extends Table {
-  name;
-  otherName;
+  name = text;
+  otherName = text;
 }
 
 const forest = new Forests();
@@ -988,16 +983,16 @@ const id = db.clouds.insert(cloud);
 
 ## Typed JSON
 
-JSON columns can be typed using the ```TypedArray``` and ```TypedObject``` functions like this:
+JSON columns can be typed using the ```typedArray``` and ```typedObject``` functions like this:
 
 ```js
 class Moons extends Table {
-  name;
-  researchPapers = this.TypedArray({
-    id: this.Int,
-    contents: this.Text,
-    createdAt: this.Null.Text,
-    authors: this.TypedArray(this.Text)
+  name = text;
+  researchPapers = typedArray({
+    id: int,
+    contents: text,
+    createdAt: nil.text,
+    authors: typedArray(text)
   });
 }
 ```
