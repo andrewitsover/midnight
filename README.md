@@ -35,7 +35,7 @@ class Trees extends Table {
   name = text;
   planted = index(plainDate);
   forestId = cascade(Forests);
-  alive = init(true);
+  alive = true;
 }
 ```
 
@@ -274,7 +274,7 @@ const trees = db.trees.query({
 });
 ```
 
-While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```match``` or ```glob```.
+While the default interpretation of the query parameters is ```=```, you can use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```match``` or ```glob``` to alter this behaviour.
 
 For example:
 
@@ -412,7 +412,7 @@ Column types can be wrapped in many different methods:
 
 ## Null columns
 
-Standard columns, columns with default values, and foreign keys can be specified as potentially being null by using the built-in ```nil``` interface.
+Standard columns, columns with default values, and foreign keys can be specified as potentially being null by using the ```nil``` interface.
 
 ```js
 class Animals extends Table {
@@ -601,7 +601,7 @@ class Trees extends Table {
   name = text;
   category = nil.text;
 
-  displayName = concat(this.name, ' (', this.category, ')');
+  displayName = () => concat(this.name, ' (', this.category, ')');
 }
 ```
 
