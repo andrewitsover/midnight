@@ -268,7 +268,6 @@ export {
 	now,
 	nil,
 	primary,
-	init,
 	references,
 	cascade,
 	index,

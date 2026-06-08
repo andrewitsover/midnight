@@ -402,13 +402,15 @@ class Moons extends BaseTable {
 }
 ```
 
-Column types can be wrapped in many different methods:
+Column types can be wrapped in different methods:
 
 ```index```: add an index to the column.
 
 ```unique```: add a unique index to the column.
 
-```init```: define a default value. You can often simply use a literal instead.
+```check```: add a check constraint to the column.
+
+```nil.default```: define a default value for a column that can be null. For ```not null``` columns, you simply use a literal value representing the default.
 
 ## Null columns
 
@@ -578,7 +580,7 @@ Indexes can also be defined inside the ```attributes``` function if they span ac
 class Trees extends Table {
   name = text;
   forestId = references(Forests);
-  alive = init(true);
+  alive = true;
 
   [attributes] = () => {
     return index(this.name, {

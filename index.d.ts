@@ -1491,7 +1491,7 @@ interface Nil {
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
-  init<T extends PrimitiveNull>(value: T): ToDefaultType<T> | DbNull;
+  default<T extends PrimitiveNull>(value: T): ToDefaultType<T> | DbNull;
 
   typedArray<T extends TypedJson>(type: T): T[] | DbNull;
   typedObject<T extends TypedJson>(type: T): T | DbNull;
@@ -1516,8 +1516,6 @@ interface Primary {
 
 export const primary: Primary;
 
-export function init<T extends PrimitiveNull>(value: T): ToDefaultType<T>;
-
 export function references<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
@@ -1537,16 +1535,16 @@ export function cascade<T extends abstract new (...args: any[]) => any, K extend
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
 
-export function index<T>(type: T): ToDbType<T>;
-export function index<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
+export function index<T>(type: T): ToDefaultType<T>;
+export function index<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDefaultType<T>;
 export function index(...args: [any, ...any[]]): void;
 export function index(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
-export function unique<T>(type: T): ToDbType<T>;
-export function unique<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDbType<T>;
+export function unique<T>(type: T): ToDefaultType<T>;
+export function unique<T>(type: T, expression: (column: T) => { where: { [key: symbol]: any }}): ToDefaultType<T>;
 export function unique(...args: [any, ...any[]]): void;
 export function unique(...args: [any, ...any[], { where: { [key: symbol]: any }}]): void;
 export function check(where: SymbolWhere): void;
-export function check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDbType<T>;
+export function check<T>(type: T, ...checks: ({ in: DbTypes[] } | { is: any })[]): ToDefaultType<T>;
 
 export function typedArray<T extends TypedJson>(type: T): T[];
 export function typedObject<T extends TypedJson>(type: T): T;

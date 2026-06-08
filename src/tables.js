@@ -142,7 +142,7 @@ class BaseTable {
       }
       let adjusted = value;
       if (typeof value !== 'symbol') {
-        adjusted = symbols.init(value);
+        adjusted = symbols.default(value);
       }
       const request = tableRequests.get(adjusted);
       const symbol = Symbol();
@@ -265,13 +265,13 @@ symbols.now = new Proxy(symbols, {
   }
 });
 
-symbols.init = (value) => {
+symbols.default = (value) => {
   const result = toColumn(value);
   tableRequests.set(result.symbol, result.column);
   return result.symbol;
 }
 
-const reflect = ['references', 'cascade', 'typedArray', 'typedObject', 'now', 'init'];
+const reflect = ['references', 'cascade', 'typedArray', 'typedObject', 'now', 'default'];
 for (const key of reflect) {
   symbols.nil[key] = (...args) => {
     const symbol = symbols[key](...args);
