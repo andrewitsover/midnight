@@ -162,7 +162,7 @@ If you want to update columns based on their existing value, you can pass a func
 ```js
 db.moons.update({
   set: {
-    orbit: (c, f) => f.concat(c.orbit, ' - Circular')
+    orbit: c => concat(c.orbit, ' - Circular')
   },
   where: {
     id: 3
@@ -657,9 +657,9 @@ const tree = db.first(c => {
 });
 ```
 
-The ```c``` parameter of the query represents the context of the database, including both tables and functions.
+The ```c``` parameter of the query represents the tables of the database.
 
-The ```group``` function represents ```json_group_array``` or ```json_group_object``` depending on the number of parameters supplied to the function. As a shortcut to ```group```, you can simply put selected items in an array.
+When columns are enclosed in an array, ```json_group_array``` is used to return an array of items. In the example below, Midnight implicitly uses ```planetId``` to group the rows.
 
 ```js
 const moons = db.subquery(c => {
@@ -679,7 +679,7 @@ const moons = db.subquery(c => {
 });
 ```
 
-There is also an ```object``` function, but it is usually easier to use the function notation to specify structured columns:
+When one of the selected values is a function, ```json_object``` is used to return an object consisting of the specified columns.
 
 ```js
 const trees = db.query(c => {
