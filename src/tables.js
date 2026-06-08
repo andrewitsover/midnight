@@ -190,7 +190,8 @@ class BaseTable {
 
 const symbols = {
   nil: {},
-  primary: {}
+  primary: {},
+  now: {}
 };
 
 symbols.attributes = attributes;
@@ -224,6 +225,22 @@ addTypes(symbols);
 addTypes(symbols.nil, { notNull: false });
 addTypes(symbols.primary, { notNull: true, primaryKey: true });
 
+const nowTypes = ['instant', 'plainDate', 'plainDateTime', 'plainTime', 'zonedDateTime'];
+
+for (const type of nowTypes) {
+  const symbol = Symbol();
+  const adjusted = type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+  const request = {
+    category: 'Column',
+    type,
+    notNull: true,
+    primaryKey: false,
+    default: `(temporal_now_${adjusted}())`
+  };
+  tableRequests.set(symbol, request);
+  symbols.now[type] = symbol;
+}
+
 symbols.references = (instance, options) => {
   const request = {
     category: 'ForeignKey',
@@ -254,18 +271,6 @@ const typed = () => {
 
 symbols.typedArray = typed;
 symbols.typedObject = typed;
-
-symbols.now = new Proxy(symbols, {
-  get(target, prop, receiver) {
-    const symbol = target[prop];
-    const column = { ...tableRequests.get(symbol) };
-    const type = column.type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
-    column.default = `(temporal_now_${type}())`;
-    const updated = Symbol();
-    tableRequests.set(updated, column);
-    return updated;
-  }
-});
 
 symbols.default = (value) => {
   const result = toColumn(value);

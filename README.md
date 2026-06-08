@@ -21,7 +21,7 @@
 ```
 The time after the 11th hour. Midnight is a NodeJS ORM for SQLite with full TypeScript support without needing to generate any code. Even complex SQL queries can be written inside of JavaScript.
 
-Tables are written in JavaScript like this:
+Tables are written like this:
 
 ```js
 class Forests extends Table {
