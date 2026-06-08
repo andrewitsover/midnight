@@ -324,7 +324,10 @@ const insertMany = (args) => {
       }
       continue;
     }
-    let sql = `insert into ${table}(${columns.join(', ')}) select `;
+    const mapped = columns
+      .map(c => nameToSql(c))
+      .join(', ');
+    let sql = `insert into ${table}(${mapped}) select `;
     const select = columns.map(column => {
       if (columnTypes[column] === 'json') {
         return `jsonb(json_each.value ->> '${column}')`;
@@ -655,17 +658,15 @@ const exists = (config) => {
   const params = {};
   const clause = subquery ? `(${subquery.sql})` : table;
   let sql = `select exists(select 1 from ${clause}`;
-  if (query) {
-    const columnTypes = subquery ? subquery.columns : db.columns[table];
-    const where = toWhere({
-      query,
-      params,
-      getPlaceholder,
-      columnTypes
-    });
-    if (where) {
-      sql += ` where ${where}`;
-    }
+  const columnTypes = subquery ? subquery.columns : db.columns[table];
+  const where = toWhere({
+    query,
+    params,
+    getPlaceholder,
+    columnTypes
+  });
+  if (where) {
+    sql += ` where ${where}`;
   }
   sql += ') as exists_result';
   const options = {
@@ -855,7 +856,11 @@ const getVirtualSelect = (args) => {
     const i = getPlaceholder();
     const s = getPlaceholder();
     const e = getPlaceholder();
-    params[i] = keys.findIndex(name => name === highlight.column);
+    const index = keys.findIndex(name => name === highlight.column);
+    if (index === -1) {
+      throw Error(`highlight column "${higlight.column}" doesn't exist`);
+    }
+    params[i] = index;
     params[s] = highlight.tags[0];
     params[e] = highlight.tags[1];
     return {
@@ -1041,7 +1046,9 @@ const match = (config) => {
     if (types[query.return] === 'json') {
       select = `json(${sql})`;
     }
-    select = sql;
+    else {
+      select = sql;
+    }
   }
   if (query.where) {
     const statements = [];
