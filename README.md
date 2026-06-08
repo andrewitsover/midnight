@@ -876,9 +876,29 @@ class Emails extends FTSTable {
 }
 ```
 
-As all columns in a fts5 table are text, there is no need to specify the column type.
+Specific tokenizers such as ```Unicode61```, ```Ascii```, and ```Trigram``` can be defined for the table.
 
-Specific tokenizers such as ```Unicode61```, ```Ascii```, and ```Trigram``` can be imported and passed into the ```Tokenizer``` field of the table class.
+```js
+import { 
+  FTSTable,
+  Unicode61,
+  text,
+  tokenizer
+} from '@andrewitsover/midnight';
+
+const unicode = new Unicode61({
+  removeDiacritics: true,
+  porter: true
+});
+
+export class Emails extends FTSTable {
+  from = text;
+  to = text;
+  body = text;
+
+  [tokenizer] = unicode;
+}
+```
 
 To define a fts5 table based on another table, you can do this:
 
