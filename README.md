@@ -517,7 +517,7 @@ class Rangers extends Table {
 
 Foreign keys do not need to specify a column type, as the type will be determined by the table that is referenced.
 
-By default, an index is created for the foreign key, and the column is set to not null. You can use the ```nil`` interface to make the foreign key optional. Also, the related column in the referenced table is assumed to be the primary key of that table.
+By default, an index is created for the foreign key, and the column is set to not null. You can use the ```nil``` interface to make the foreign key optional. Also, the related column in the referenced table is assumed to be the primary key of that table.
 
 If you want to change this behaviour, you can pass in additional options.
 
