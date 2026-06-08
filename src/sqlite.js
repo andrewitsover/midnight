@@ -79,7 +79,7 @@ class Database {
   }
 
   createFunction(args) {
-    const { returnType, options, lambda } = args;
+    const { returnType, options, function: lambda } = args;
     const name = toHash('function', lambda.toString());
     if (options) {
       this.db.function(name, options, lambda);
