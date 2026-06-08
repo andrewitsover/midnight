@@ -775,7 +775,7 @@ const expandStar = (types, computed = {}) => {
     const adjusted = nameToSql(column);
     const sql = computed[column];
     if (sql) {
-      statements.push(`${sql} as ${column}`);
+      statements.push(`${sql} as ${adjusted}`);
       continue;
     }
     else if (type === 'json') {

@@ -1,8 +1,6 @@
 import { PathLike } from 'node:fs';
 import { FunctionOptions, Session, ApplyChangesetOptions } from 'node:sqlite';
 
-type ExtractKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
-
 interface Keywords<T, K> {
   orderBy?: K | ((column: T) => symbol);
   desc?: boolean;
@@ -316,7 +314,7 @@ type ToDbInterface<T> = {
 };
 
 type ToJsType<T> =
-  T extends AnyNullType ? null :
+  T extends DbNull ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends new (...args: any[]) => Table ? GetReturnType<T> :
   T extends () => infer U ? ToJsType<U> : 
@@ -578,11 +576,6 @@ declare const intPk2: unique symbol;
 
 type PkNumber = typeof intPk1 | typeof intPk2;
 
-declare const intComp1: unique symbol;
-declare const intComp2: unique symbol;
-
-type ComputedNumber = typeof intComp1 | typeof intComp2;
-
 declare const intDefault1: unique symbol;
 declare const intDefault2: unique symbol;
 
@@ -592,11 +585,6 @@ declare const bigIntPk1: unique symbol;
 declare const bigIntPk2: unique symbol;
 
 type PkBigInt = typeof bigIntPk1 | typeof bigIntPk2;
-
-declare const bigIntComp1: unique symbol;
-declare const bigIntComp2: unique symbol;
-
-type ComputedBigInt = typeof bigIntComp1 | typeof bigIntComp2;
 
 declare const bigIntDefault1: unique symbol;
 declare const bigIntDefault2: unique symbol;
@@ -608,11 +596,6 @@ declare const stringPk2: unique symbol;
 
 type PkString = typeof stringPk1 | typeof stringPk2;
 
-declare const stringComp1: unique symbol;
-declare const stringComp2: unique symbol;
-
-type ComputedString = typeof stringComp1 | typeof stringComp2;
-
 declare const stringDefault1: unique symbol;
 declare const stringDefault2: unique symbol;
 
@@ -623,40 +606,20 @@ declare const blobPk2: unique symbol;
 
 type PkBlob = typeof blobPk1 | typeof blobPk2;
 
-declare const blobComp1: unique symbol;
-declare const blobComp2: unique symbol;
-
-type ComputedBlob = typeof blobComp1 | typeof blobComp2;
-
 declare const blobDefault1: unique symbol;
 declare const blobDefault2: unique symbol;
 
 type DefaultBlob = typeof blobDefault1 | typeof blobDefault2;
-
-declare const boolComp1: unique symbol;
-declare const boolComp2: unique symbol;
-
-type ComputedBoolean = typeof boolComp1 | typeof boolComp2;
 
 declare const boolDefault1: unique symbol;
 declare const boolDefault2: unique symbol;
 
 type DefaultBoolean = typeof boolDefault1 | typeof boolDefault2;
 
-declare const jsonComp1: unique symbol;
-declare const jsonComp2: unique symbol;
-
-type ComputedJson = typeof jsonComp1 | typeof jsonComp2;
-
 declare const jsonDefault1: unique symbol;
 declare const jsonDefault2: unique symbol;
 
 type DefaultJson = typeof jsonDefault1 | typeof jsonDefault2;
-
-declare const nullComp1: unique symbol;
-declare const nullComp2: unique symbol;
-
-type ComputedNull = typeof nullComp1 | typeof nullComp2;
 
 declare const dbNumber1: unique symbol;
 declare const dbNumber2: unique symbol;
@@ -798,65 +761,23 @@ declare const zonedDateTimeDefault2: unique symbol;
 
 type DefaultZonedDateTime = typeof zonedDateTimeDefault1 | typeof zonedDateTimeDefault2;
 
-declare const durationComp1: unique symbol;
-declare const durationComp2: unique symbol;
-
-type ComputedDuration = typeof durationComp1 | typeof durationComp2;
-
-declare const instantComp1: unique symbol;
-declare const instantComp2: unique symbol;
-
-type ComputedInstant = typeof instantComp1 | typeof instantComp2;
-
-declare const plainDateComp1: unique symbol;
-declare const plainDateComp2: unique symbol;
-
-type ComputedPlainDate = typeof plainDateComp1 | typeof plainDateComp2;
-
-declare const plainDateTimeComp1: unique symbol;
-declare const plainDateTimeComp2: unique symbol;
-
-type ComputedPlainDateTime = typeof plainDateTimeComp1 | typeof plainDateTimeComp2;
-
-declare const plainMonthDayComp1: unique symbol;
-declare const plainMonthDayComp2: unique symbol;
-
-type ComputedPlainMonthDay = typeof plainMonthDayComp1 | typeof plainMonthDayComp2;
-
-declare const plainTimeComp1: unique symbol;
-declare const plainTimeComp2: unique symbol;
-
-type ComputedPlainTime = typeof plainTimeComp1 | typeof plainTimeComp2;
-
-declare const plainYearMonthComp1: unique symbol;
-declare const plainYearMonthComp2: unique symbol;
-
-type ComputedPlainYearMonth = typeof plainYearMonthComp1 | typeof plainYearMonthComp2;
-
-declare const zonedDateTimeComp1: unique symbol;
-declare const zonedDateTimeComp2: unique symbol;
-
-type ComputedZonedDateTime = typeof zonedDateTimeComp1 | typeof zonedDateTimeComp2;
-
 type DateTypes = DbDuration | DbInstant | DbPlainDate | DbPlainDateTime | DbPlainMonthDay | DbPlainTime | DbPlainYearMonth | DbZonedDateTime;
 type PkDateTypes = PkDuration | PkInstant | PkPlainDate | PkPlainDateTime | PkPlainMonthDay | PkPlainTime | PkPlainYearMonth | PkZonedDateTime;
-type ComputedDateTypes = ComputedDuration | ComputedInstant | ComputedPlainDate | ComputedPlainDateTime | ComputedPlainMonthDay | ComputedPlainTime | ComputedPlainYearMonth | ComputedZonedDateTime;
 type DefaultDateTypes = DefaultDuration | DefaultInstant | DefaultPlainDate | DefaultPlainDateTime | DefaultPlainMonthDay | DefaultPlainTime | DefaultPlainYearMonth | DefaultZonedDateTime;
-type AnyDateType = DateTypes | PkDateTypes | ComputedDateTypes | DefaultDateTypes;
+type AnyDateType = DateTypes | PkDateTypes | DefaultDateTypes;
 type CompatibleDateTypes = DbInstant | DbPlainDate | DbPlainDateTime | DbPlainMonthDay | DbPlainTime | DbPlainYearMonth;
 type CompatiblePrimaryDateTypes = PkInstant | PkPlainDate | PkPlainDateTime | PkPlainMonthDay | PkPlainTime | PkPlainYearMonth;
-type CompatibleComputedDateTypes = ComputedInstant | ComputedPlainDate | ComputedPlainDateTime | ComputedPlainMonthDay | ComputedPlainTime | ComputedPlainYearMonth;
 type CompatibleDefaultDateTypes = DefaultInstant | DefaultPlainDate | DefaultPlainDateTime | DefaultPlainMonthDay | DefaultPlainTime | DefaultPlainYearMonth;
-type CompatibleDate = CompatibleDateTypes | CompatiblePrimaryDateTypes | CompatibleComputedDateTypes | CompatibleDefaultDateTypes;
+type CompatibleDate = CompatibleDateTypes | CompatiblePrimaryDateTypes | CompatibleDefaultDateTypes;
 
-type AnyDurationType = DefaultDuration | ComputedDuration | PkDuration | DbDuration;
-type AnyInstantType = DefaultInstant | ComputedInstant | PkInstant | DbInstant;
-type AnyPlainDateType = DefaultPlainDate | ComputedPlainDate | PkPlainDate | DbPlainDate;
-type AnyPlainDateTimeType = DefaultPlainDateTime | ComputedPlainDateTime | PkPlainDateTime | DbPlainDateTime;
-type AnyPlainMonthDayType = DefaultPlainMonthDay | ComputedPlainMonthDay | PkPlainMonthDay | DbPlainMonthDay;
-type AnyPlainTimeType = DefaultPlainTime | ComputedPlainTime | PkPlainTime | DbPlainTime;
-type AnyPlainYearMonthType = DefaultPlainYearMonth | ComputedPlainYearMonth | PkPlainYearMonth | DbPlainYearMonth;
-type AnyZonedDateTimeType = DefaultZonedDateTime | ComputedZonedDateTime | PkZonedDateTime | DbZonedDateTime;
+type AnyDurationType = DefaultDuration | PkDuration | DbDuration;
+type AnyInstantType = DefaultInstant | PkInstant | DbInstant;
+type AnyPlainDateType = DefaultPlainDate | PkPlainDate | DbPlainDate;
+type AnyPlainDateTimeType = DefaultPlainDateTime | PkPlainDateTime | DbPlainDateTime;
+type AnyPlainMonthDayType = DefaultPlainMonthDay | PkPlainMonthDay | DbPlainMonthDay;
+type AnyPlainTimeType = DefaultPlainTime | PkPlainTime | DbPlainTime;
+type AnyPlainYearMonthType = DefaultPlainYearMonth | PkPlainYearMonth | DbPlainYearMonth;
+type AnyZonedDateTimeType = DefaultZonedDateTime | PkZonedDateTime | DbZonedDateTime;
 type AnyTemporal = Temporal.Duration | Temporal.Instant | Temporal.PlainDate | Temporal.PlainDateTime | Temporal.PlainMonthDay | Temporal.PlainTime | Temporal.PlainYearMonth | Temporal.ZonedDateTime;
 
 declare const dbJson1: unique symbol;
@@ -874,38 +795,37 @@ declare const dbNull2: unique symbol;
 
 type DbNull = typeof dbNull1 | typeof dbNull2;
 
-type AnyNumberType = DbNumber | DefaultNumber | PkNumber | ComputedNumber;
-type AnyBigIntType = DbBigInt | DefaultBigInt | PkBigInt | ComputedBigInt;
-type AnyBooleanType = DbBoolean | DefaultBoolean | ComputedBoolean;
-type AnyStringType = DbString | DefaultString | PkString | ComputedString;
-type AnyBlobType = DbBlob | DefaultBlob | PkBlob | ComputedBlob;
-type AnyJsonType = DbJson | DefaultJson | ComputedJson;
-type AnyNullType = DbNull | ComputedNull;
+type AnyNumberType = DbNumber | DefaultNumber | PkNumber;
+type AnyBigIntType = DbBigInt | DefaultBigInt | PkBigInt;
+type AnyBooleanType = DbBoolean | DefaultBoolean;
+type AnyStringType = DbString | DefaultString | PkString;
+type AnyBlobType = DbBlob | DefaultBlob | PkBlob;
+type AnyJsonType = DbJson | DefaultJson;
 
 type DbAny = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType;
-type AnyParam = DbAny | AnyNullType;
+type AnyParam = DbAny | DbNull;
 
 type AllowedJson = AnyNumberType | AnyBigIntType | AnyBooleanType | AnyStringType | AnyBlobType | AnyJsonType | AnyDateType | DbNull | { [key: string]: AllowedJson | Primitive | null } | AllowedJson[];
 type SelectType = (() => SelectType) | Primitive | AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson | Primitive | (() => SelectType) };
 
 type Numeric = number | bigint | AnyNumberType | AnyBigIntType;
-type NumericParam = number | bigint | AnyNumberType | null | AnyNullType;
+type NumericParam = number | bigint | AnyNumberType | null | DbNull;
 type NumberResult = DbNumber | DbNull;
 
 type OnlyStrings = string | AnyStringType;
-type StringParam = string | AnyStringType | null | AnyNullType;
+type StringParam = string | AnyStringType | null | DbNull;
 type StringResult = DbString | DbNull;
 
-type NumberBlobParam = number | Uint8Array | null | AnyNumberType | AnyBlobType | AnyNullType;
-type StringBlobParam = string | Uint8Array | null | AnyStringType | AnyBlobType | AnyNullType;
+type NumberBlobParam = number | Uint8Array | null | AnyNumberType | AnyBlobType | DbNull;
+type StringBlobParam = string | Uint8Array | null | AnyStringType | AnyBlobType | DbNull;
 
 type AnyResult = DbString | DbNumber | DbBigInt | DateTypes | DbBoolean | DbJson | DbBlob | DbNull;
 
-type DateParam = number | string | null | AnyStringType | AnyNumberType | CompatibleDate | AnyNullType;
+type DateParam = number | string | null | AnyStringType | AnyNumberType | CompatibleDate | DbNull;
 
 type BooleanParam = boolean | AnyBooleanType;
 
-type JsonParam = string | Uint8Array | null | DbString | DbBlob | DbJson | AnyNullType;
+type JsonParam = string | Uint8Array | null | DbString | DbBlob | DbJson | DbNull;
 type ExtractResult = DbString | DbNumber | DbBoolean | DbNull;
 
 type DbTypes = number | bigint | string | boolean | AnyTemporal | Uint8Array | null;
@@ -914,9 +834,9 @@ type DefaultTypes = DefaultNumber | DefaultBigInt | DefaultString | DefaultBoole
 type ParamType = PrimitiveNull | AnyParam;
 
 type ToNumericResult<T> =
-  T extends bigint | AnyBigIntType ? ComputedBigInt :
-  T extends number | AnyNumberType ? ComputedNumber :
-  T extends null | AnyNullType ? ComputedNull :
+  T extends bigint | AnyBigIntType ? DbBigInt :
+  T extends number | AnyNumberType ? DbNumber :
+  T extends null | DbNull ? DbNull :
   never;
 
 type GetReturnType<T> =
@@ -978,10 +898,6 @@ type ToPrimaryKey<T> =
   T extends AnyZonedDateTimeType ? PkZonedDateTime :
   never;
 
-type ClassFields<T extends new (...args: any[]) => any> = {
-  [K in keyof InstanceType<T>]: InstanceType<T>[K];
-};
-
 type RemoveUpperCase<T> = {
   [K in keyof T as K extends string
     ? K extends `${infer First}${infer Second}${string}`
@@ -1004,7 +920,6 @@ type ExtractColumns<T> = {
 };
 
 type PkType = PkNumber | PkBigInt | PkString | PkDateTypes | PkBlob;
-type ComputedType = ComputedNumber | ComputedBigInt | ComputedString | ComputedDateTypes | ComputedBoolean | ComputedJson | ComputedBlob;
 
 type OptionalKeys<T> = {
   [K in keyof T]:
@@ -1066,7 +981,7 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K];
 }
 
-type QueryCompareTypes = AnyTemporal | number | boolean | null | string | Uint8Array | symbol;
+type QueryCompareTypes = AnyTemporal | number | bigint | boolean | null | string | Uint8Array | symbol;
 
 type MakeOptional<T> = {
   [K in keyof T]:
@@ -1109,7 +1024,7 @@ interface QueryReturn {
   offset?: number | bigint | AnyNumberType | AnyBigIntType;
   limit?: number | bigint | AnyNumberType | AnyBigIntType;
   bm25?: { [key: symbol]: number | bigint | AnyNumberType | AnyBigIntType };
-  rank?: boolean | DbBoolean | ComputedBoolean;
+  rank?: boolean | DbBoolean;
   log?: boolean | ((info: LogInfo) => void);
 }
 
@@ -1157,37 +1072,6 @@ interface TypedDb<P, C> {
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (tables: C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>;
   use<S>(query: S): ReadQueries<P, S>;
 }
-
-type ToComputed<T> =
-  T extends AnyStringType ? ComputedString :
-  T extends AnyBooleanType ? ComputedBoolean :
-  T extends DbDuration ? ComputedDuration :
-  T extends DbInstant ? ComputedInstant :
-  T extends DbPlainDate ? ComputedPlainDate :
-  T extends DbPlainDateTime ? ComputedPlainDateTime :
-  T extends DbPlainMonthDay ? ComputedPlainMonthDay :
-  T extends DbPlainTime ? ComputedPlainTime :
-  T extends DbPlainYearMonth ? ComputedPlainYearMonth :
-  T extends DbZonedDateTime ? ComputedZonedDateTime :
-  T extends AnyNullType ? ComputedNull :
-  T extends AnyJsonType ? ComputedJson :
-  T extends AnyNumberType ? ComputedNumber :
-  T extends AnyBigIntType ? ComputedBigInt :
-  T extends boolean ? ComputedBoolean :
-  T extends number ? ComputedNumber :
-  T extends bigint ? ComputedBigInt :
-  T extends string ? ComputedString :
-  T extends Temporal.Duration ? ComputedDuration :
-  T extends Temporal.Instant ? ComputedInstant :
-  T extends Temporal.PlainDate ? ComputedPlainDate :
-  T extends Temporal.PlainDateTime ? ComputedPlainDateTime :
-  T extends Temporal.PlainMonthDay ? ComputedPlainMonthDay :
-  T extends Temporal.PlainTime ? ComputedPlainTime :
-  T extends Temporal.PlainYearMonth ? ComputedPlainYearMonth :
-  T extends Temporal.ZonedDateTime ? ComputedZonedDateTime :
-  T extends Uint8Array ? ComputedBlob :
-  T extends null ? ComputedNull :
-  T;
 
 type ForeignActions = 'no action' | 'restrict' | 'set null' | 'set default' | 'cascade';
 
@@ -1306,8 +1190,8 @@ export function date(time: AnyDateType, ...modifiers: Modifier[]): DbString;
 export function date(time: DateParam, ...modifiers: Modifier[]): DbString | DbNull;
 export function time(): DbString;
 export function time(modifier: 'subsec' | 'subsecond'): DbString;
-export function time(time: AnyDateType, ...modifiers: Modifer[]): DbString;
-export function time(time: DateParam, ...modifiers: Modifer[]): DbString | DbNull;
+export function time(time: AnyDateType, ...modifiers: Modifier[]): DbString;
+export function time(time: DateParam, ...modifiers: Modifier[]): DbString | DbNull;
 export function dateTime(): DbString;
 export function dateTime(time: CompatibleDate, ...modifiers: Modifier[]): DbString;
 export function dateTime(time: DateParam, ...modifiers: Modifier[]): DbString | DbNull;
