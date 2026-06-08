@@ -258,10 +258,12 @@ symbols.typedObject = typed;
 symbols.now = new Proxy(symbols, {
   get(target, prop, receiver) {
     const symbol = target[prop];
-    const column = tableRequests.get(symbol);
+    const column = { ...tableRequests.get(symbol) };
     const type = column.type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
     column.default = `(temporal_now_${type}())`;
-    return symbol;
+    const updated = Symbol();
+    tableRequests.set(updated, column);
+    return updated;
   }
 });
 
@@ -344,6 +346,7 @@ class ExternalFTSTable extends FTSTable {
   [externalRowId] = null;
 
   [transform]() {
+    this[hasTransformed] = true;
     const value = this.rowid;
     const request = tableRequests.get(value);
     const symbol = Symbol();
