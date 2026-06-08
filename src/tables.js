@@ -189,7 +189,9 @@ class BaseTable {
 }
 
 const symbols = {
-  nil: {},
+  nil: {
+    now: {}
+  },
   primary: {},
   now: {}
 };
@@ -225,21 +227,26 @@ addTypes(symbols);
 addTypes(symbols.nil, { notNull: false });
 addTypes(symbols.primary, { notNull: true, primaryKey: true });
 
-const nowTypes = ['instant', 'plainDate', 'plainDateTime', 'plainTime', 'zonedDateTime'];
-
-for (const type of nowTypes) {
-  const symbol = Symbol();
-  const adjusted = type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
-  const request = {
-    category: 'Column',
-    type,
-    notNull: true,
-    primaryKey: false,
-    default: `(temporal_now_${adjusted}())`
-  };
-  tableRequests.set(symbol, request);
-  symbols.now[type] = symbol;
+const addNow = (target, props) => {
+  const nowTypes = ['instant', 'plainDate', 'plainDateTime', 'plainTime', 'zonedDateTime'];
+  for (const type of nowTypes) {
+    const symbol = Symbol();
+    const adjusted = type.replaceAll(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+    const request = {
+      category: 'Column',
+      type,
+      notNull: true,
+      primaryKey: false,
+      default: `(temporal_now_${adjusted}())`,
+      ...props
+    };
+    tableRequests.set(symbol, request);
+    target[type] = symbol;
+  }
 }
+
+addNow(symbols.now);
+addNow(symbols.nil.now, { notNull: false });
 
 symbols.references = (instance, options) => {
   const request = {
@@ -278,7 +285,7 @@ symbols.default = (value) => {
   return result.symbol;
 }
 
-const reflect = ['references', 'cascade', 'typedArray', 'typedObject', 'now', 'default'];
+const reflect = ['references', 'cascade', 'typedArray', 'typedObject', 'default'];
 for (const key of reflect) {
   symbols.nil[key] = (...args) => {
     const symbol = symbols[key](...args);
