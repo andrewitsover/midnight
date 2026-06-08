@@ -1128,8 +1128,8 @@ export class ExternalFTSTable extends FTSTable {
 
 interface FunctionArgs<T, A> {
   returnType: T;
-  options?: FunctionOptions,
-  function: (...args: A) => ToJsType<T> | undefined
+  options?: FunctionOptions;
+  function: (...args: A) => ToJsType<T> | undefined;
 }
 
 export class Database {
