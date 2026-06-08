@@ -696,11 +696,12 @@ const trees = db.query(c => {
 });
 ```
 
-As the table columns are a special type of ```Symbol```, you can use them as keys in objects more than once:
+As the table columns are a special type of ```Symbol```, you can use them as keys in objects more than once. To do this though, you must access the columns from the table object each time rather than extract them and reuse them.
 
 ```js
 const now = Temporal.Now.zonedDateTimeISO();
 const start = now.subtract({ days: 3 });
+
 const trees = db.query(c => {
   const { trees: t } = c;
   return {
