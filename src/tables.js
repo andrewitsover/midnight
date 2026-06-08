@@ -356,7 +356,6 @@ class ExternalFTSTable extends FTSTable {
 
 const getColumns = (constructor) => {
   const instance = new constructor();
-  instance[transform]();
   const columns = [];
   for (const [key, value] of Object.entries(instance)) {
     if (typeof value === 'function') {
@@ -379,7 +378,6 @@ const getColumns = (constructor) => {
 
 const process = (Custom, key, classTable) => {
   const instance = new Custom();
-  instance[transform]();
   const name = removeCapital(key);
   const type = Custom.prototype instanceof FTSTable ? 'fts5' : 'base';
   const external = Custom.prototype instanceof ExternalFTSTable;
@@ -429,7 +427,6 @@ const process = (Custom, key, classTable) => {
         .map(k => classes.get(instance[k]))
         .find(c => c.name !== Custom.name);
       const parent = new constructor();
-      parent[transform]();
       virtualTable = removeCapital(parent.constructor.name);
       const parentKeys = Object.keys(parent);
       const mapped = parentKeys

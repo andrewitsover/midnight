@@ -517,19 +517,15 @@ class Rangers extends Table {
 
 Foreign keys do not need to specify a column type, as the type will be determined by the table that is referenced.
 
-By default, an index is created for the foreign key, and the column is set to not null. You can use the ```Null`` function to make the foreign key optional. Also, the related column in the referenced table is assumed to be the primary key of that table.
+By default, an index is created for the foreign key, and the column is set to not null. You can use the ```nil`` interface to make the foreign key optional. Also, the related column in the referenced table is assumed to be the primary key of that table.
+
+If you want to change this behaviour, you can pass in additional options.
 
 ```js
-class Sightings extends Table {
-  personId = cascade(People);
-  animalId = cascade(Animals);
-  date = now.zonedDateTime;
-}
-
-class Animals extends Table {
-  name = text;
-  ownerId = references(Sightings, {
-    column: 'personId',
+class Books extends Table {
+  title = text;
+  authorId = references(Authors, {
+    column: 'email',
     index: false,
     onDelete: 'set null',
     onUpdate: 'cascade'
