@@ -856,11 +856,7 @@ const getVirtualSelect = (args) => {
     const i = getPlaceholder();
     const s = getPlaceholder();
     const e = getPlaceholder();
-    const index = keys.findIndex(name => name === highlight.column);
-    if (index === -1) {
-      throw Error(`highlight column "${higlight.column}" doesn't exist`);
-    }
-    params[i] = index;
+    params[i] = keys.findIndex(name => name === highlight.column);
     params[s] = highlight.tags[0];
     params[e] = highlight.tags[1];
     return {
