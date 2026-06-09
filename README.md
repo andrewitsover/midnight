@@ -679,7 +679,7 @@ const moons = db.subquery(c => {
 });
 ```
 
-When one of the selected values is a function, ```json_object``` is used to return an object consisting of the specified columns.
+When one of the selected values is an object, ```json_object``` is used to return a structured column.
 
 ```js
 const trees = db.query(c => {
@@ -687,10 +687,10 @@ const trees = db.query(c => {
   return {
     select: {
       ...t,
-      forest: () => ({
+      forest: {
         id: f.id,
         name: f.name
-      })
+      }
     }
   }
 });

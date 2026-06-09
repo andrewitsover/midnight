@@ -334,9 +334,8 @@ const processQuery = (db, expression, firstResult) => {
     else if (Array.isArray(value)) {
       return functions.group(value.at(0));
     }
-    else if (typeof value === 'function') {
-      const result = value();
-      return functions.object(result);
+    else if (typeof value === 'object') {
+      return functions.object(value);
     }
     else {
       throw Error('invalid arguments');
