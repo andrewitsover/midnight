@@ -381,8 +381,6 @@ The client returned from ```getClient``` has three methods that can be used to c
 
 ```migrate```: takes a SQL string representing the migration. This method defers the foreign keys and wraps the SQL in a transaction.
 
-See the [sample project](https://github.com/andrewitsover/midnight-tutorial) for an example of how to use these functions to create a migration system.
-
 ## Creating tables
 
 In addition to the built-in SQLite types of ```int```, ```real```, ```text```, and ```blob```, Midnight adds a few extra types. ```bool``` is stored in the database as a 1 or a 0, and ```json``` is a JSONB blob. 
