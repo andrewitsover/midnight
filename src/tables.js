@@ -149,41 +149,7 @@ class BaseTable {
       const updated = { ...request };
       this[key] = symbol;
       tableRequests.set(symbol, updated);
-      if (request.category === 'Column') {
-        classes.set(symbol, this.constructor);
-      }
-      if (request.category === 'ForeignKey' && request.instance) {
-        const { instance, options, notNull } = request;
-        const { 
-          column,
-          onDelete,
-          onUpdate,
-          index
-        } = options || {};
-        const updated = {
-          category: 'ForeignKey',
-          column: null,
-          references: instance.name,
-          actions: [],
-          index: index === false ? false : true
-        };
-        const columns = getColumns(instance)
-          .filter(c => column ? c.name === column : c.primaryKey);
-        if (columns.length !== 1) {
-          throw Error('the foreign key options are not valid');
-        }
-        const target = { ...columns.at(0) };
-        target.primaryKey = false;
-        target.notNull = notNull;
-        updated.column = target;
-        if (onDelete) {
-          updated.actions.push(`on delete ${onDelete}`);
-        }
-        if (onUpdate) {
-          updated.actions.push(`on update ${onUpdate}`);
-        }
-        tableRequests.set(symbol, updated);
-      }
+      classes.set(symbol, this.constructor);
     }
   }
 }
@@ -249,12 +215,34 @@ addNow(symbols.now);
 addNow(symbols.nil.now, { notNull: false });
 
 symbols.references = (instance, options) => {
+  const { 
+    column,
+    onDelete,
+    onUpdate,
+    index
+  } = options || {};
   const request = {
     category: 'ForeignKey',
-    instance,
-    options,
-    notNull: true
+    column: null,
+    references: instance.name,
+    actions: [],
+    index: index === false ? false : true
   };
+  const columns = getColumns(instance)
+    .filter(c => column ? c.name === column : c.primaryKey);
+  if (columns.length !== 1) {
+    throw Error('the foreign key options are not valid');
+  }
+  const target = columns.at(0);
+  target.primaryKey = false;
+  target.notNull = true;
+  request.column = target;
+  if (onDelete) {
+    request.actions.push(`on delete ${onDelete}`);
+  }
+  if (onUpdate) {
+    request.actions.push(`on update ${onUpdate}`);
+  }
   const symbol = Symbol();
   tableRequests.set(symbol, request);
   return symbol;
@@ -290,7 +278,12 @@ for (const key of reflect) {
   symbols.nil[key] = (...args) => {
     const symbol = symbols[key](...args);
     const request = tableRequests.get(symbol);
-    request.notNull = false;
+    if (['references', 'cascade'].includes(key)) {
+      request.column.notNull = false;
+    }
+    else {
+      request.notNull = false;
+    }
     return symbol;
   }
 }
