@@ -500,14 +500,12 @@ class Rangers extends Table {
   staffLimit = 3;
   createdAt = now.instant;
 
-  [attributes] = () => {
-    return check({
-      or: [
-        { [this.admin]: true },
-        { [this.staffLimit]: gt(0) }
-      ]
-    });
-  }
+  [attributes] = () => check({
+    or: [
+      { [this.admin]: true },
+      { [this.staffLimit]: gt(0) }
+    ]
+  });
 }
 ```
 
