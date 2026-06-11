@@ -136,6 +136,9 @@ const toLiteral = (value) => {
   if (type === 'number') {
     return `${value}`;
   }
+  if (type === 'bigint') {
+    return `${value.toString()}`;
+  }
   const exists = temporal.some(type => value instanceof type);
   if (exists) {
     return `'${value.toString()}'`;

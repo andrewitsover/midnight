@@ -31,6 +31,9 @@ const getParamType = (param) => {
   if (type === 'number') {
     return 'real';
   }
+  if (type === 'bigint') {
+    return 'bigInt';
+  }
   if (type === 'boolean') {
     return type;
   }
@@ -718,8 +721,20 @@ const processMethod = (options) => {
     }
   }
   const statements = processed.map(p => p.sql);
+  const types = processed.map(p => p.type);
   let sql;
   if (operator) {
+    if (types.every(t => t === 'bigInt')) {
+      type = 'bigInt';
+    }
+    else {
+      if (types.some(t => t === 'real')) {
+        type = 'real';
+      }
+      else {
+        type = 'integer';
+      }
+    }
     sql = statements.join(` ${operator} `);
   }
   else {
@@ -727,21 +742,14 @@ const processMethod = (options) => {
   }
   if (['coalesce', 'min', 'max'].includes(name)) {
     if (processed.length > 1) {
-      const types = processed.map(p => p.type);
       const unique = new Set(types);
       if (unique.size === 1) {
-        const current = types.at(0);
-        if (current === 'boolean' || dateTypes.includes(current)) {
-          type = current;
-        }
+        type = types.at(0);
       }
     }
   }
   if (name === 'nullif') {
-    const current = processed.map(p => p.type).at(0);
-    if (current === 'boolean' || dateTypes.includes(current)) {
-      type = current;
-    }
+    type = processed.map(p => p.type).at(0);
   }
   return {
     sql,

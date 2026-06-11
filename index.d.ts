@@ -271,23 +271,34 @@ type ToJson<T> =
 
 type ToDbType<T> =
   T extends null ? DbNull :
-  T extends infer U ? (
-    U extends number ? DbNumber :
-    U extends bigint ? DbBigInt :
-    U extends string ? DbString :
-    U extends Temporal.Duration ? DbDuration :
-    U extends Temporal.Instant ? DbInstant :
-    U extends Temporal.PlainDate ? DbPlainDate :
-    U extends Temporal.PlainDateTime ? DbPlainDateTime :
-    U extends Temporal.PlainMonthDay ? DbPlainMonthDay :
-    U extends Temporal.PlainTime ? DbPlainTime :
-    U extends Temporal.PlainYearMonth ? DbPlainYearMonth :
-    U extends Temporal.ZonedDateTime ? DbZonedDateTime :
-    U extends boolean ? DbBoolean :
-    U extends null ? DbNull :
-    U extends Json ? DbJson :
-    U
-  ) : T;
+  T extends AnyStringType ? DbString :
+  T extends AnyNumberType ? DbNumber :
+  T extends AnyBigIntType ? DbBigInt :
+  T extends AnyBlobType ? DbBlob :
+  T extends AnyBooleanType ? DbBoolean :
+  T extends AnyDurationType ? DbDuration :
+  T extends AnyInstantType ? DbInstant :
+  T extends AnyPlainDateType ? DbPlainDate :
+  T extends AnyPlainDateTimeType ? DbPlainDateTime :
+  T extends AnyPlainMonthDayType ? DbPlainMonthDay :
+  T extends AnyPlainTimeType ? DbPlainTime :
+  T extends AnyPlainYearMonthType ? DbPlainYearMonth :
+  T extends AnyZonedDateTimeType ? DbZonedDateTime :
+  T extends number ? DbNumber :
+  T extends bigint ? DbBigInt :
+  T extends string ? DbString :
+  T extends Temporal.Duration ? DbDuration :
+  T extends Temporal.Instant ? DbInstant :
+  T extends Temporal.PlainDate ? DbPlainDate :
+  T extends Temporal.PlainDateTime ? DbPlainDateTime :
+  T extends Temporal.PlainMonthDay ? DbPlainMonthDay :
+  T extends Temporal.PlainTime ? DbPlainTime :
+  T extends Temporal.PlainYearMonth ? DbPlainYearMonth :
+  T extends Temporal.ZonedDateTime ? DbZonedDateTime :
+  T extends boolean ? DbBoolean :
+  T extends null ? DbNull :
+  T extends Json ? DbJson :
+  T;
 
 type ToDefaultType<T> =
   T extends null ? DbNull :
@@ -1153,11 +1164,39 @@ export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<T>>>>;
 export type Where<T> = ToWhere<ToJsType<ExtractColumns<T>>>;
 export type Select<T> = ToJsType<ExtractColumns<T>>;
 
+type ToType<T> = ToJsType<T> | null | T | DbNull;
+
+type NumberType = ToType<AnyNumberType>;
+type BigIntType = ToType<AnyBigIntType>;
+type StringType = ToType<AnyStringType>;
+type BlobType = ToType<AnyBlobType>;
+type BooleanType = ToType<AnyBooleanType>;
+type DurationType = ToType<AnyDurationType>;
+type InstantType = ToType<AnyInstantType>;
+type PlainDateType = ToType<AnyPlainDateType>;
+type PlainDateTimeType = ToType<AnyPlainDateTimeType>;
+type PlainMonthDayType = ToType<AnyPlainMonthDayType>;
+type PlainTimeType = ToType<AnyPlainTimeType>;
+type PlainYearMonthType = ToType<AnyPlainYearMonthType>;
+type ZonedDateTimeType = ToType<AnyZonedDateTimeType>;
+
 export function pick<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Pick<T, K[number]>;
 export function omit<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Omit<T, K[number]>;
 export function abs<T extends NumericParam>(n: T): ToDbType<T>;
 export function cast(value: any, to: 'real' | 'integer'): DbNumber;
-export function coalesce<T extends (AnyParam | DbTypes)[]>(...args: T): ToDbType<T[number]>;
+export function coalesce<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends StringType, B extends StringType, T extends readonly StringType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends BlobType, B extends BlobType, T extends readonly BlobType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends BooleanType, B extends BooleanType, T extends readonly BooleanType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends DurationType, B extends DurationType, T extends readonly DurationType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends InstantType, B extends InstantType, T extends readonly InstantType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends PlainDateType, B extends PlainDateType, T extends readonly PlainDateType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends PlainDateTimeType, B extends PlainDateTimeType, T extends readonly PlainDateTimeType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends PlainMonthDayType, B extends PlainMonthDayType, T extends readonly PlainMonthDayType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends PlainTimeType, B extends PlainTimeType, T extends readonly PlainTimeType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends PlainYearMonthType, B extends PlainYearMonthType, T extends readonly PlainYearMonthType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function coalesce<A extends ZonedDateTimeType, B extends ZonedDateTimeType, T extends readonly ZonedDateTimeType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
 export function concat(...args: any[]): DbString;
 export function concatWs(...args: any[]): DbString;
 export function format<T extends StringParam>(format: T, ...args: any[]): ToDbType<T>;
@@ -1171,8 +1210,26 @@ export function instr(a: StringBlobParam, b: StringBlobParam): DbNumber | DbNull
 export function length(value: any): DbNumber | DbNull;
 export function lower<T extends StringParam>(value: T): ToDbType<T>;
 export function ltrim(value: StringParam, remove?: StringParam): DbString | DbNull;
-export function max<A extends DbTypes | AnyParam, B extends DbTypes | AnyParam, T extends readonly (DbTypes | AnyParam)[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
-export function min<A extends DbTypes | AnyParam, B extends DbTypes | AnyParam, T extends readonly (DbTypes | AnyParam)[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends StringType, B extends StringType, T extends readonly StringType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends StringType, B extends StringType, T extends readonly StringType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends BlobType, B extends BlobType, T extends readonly BlobType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends BlobType, B extends BlobType, T extends readonly BlobType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends InstantType, B extends InstantType, T extends readonly InstantType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends InstantType, B extends InstantType, T extends readonly InstantType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends PlainDateType, B extends PlainDateType, T extends readonly PlainDateType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends PlainDateType, B extends PlainDateType, T extends readonly PlainDateType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends PlainDateTimeType, B extends PlainDateTimeType, T extends readonly PlainDateTimeType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends PlainDateTimeType, B extends PlainDateTimeType, T extends readonly PlainDateTimeType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends PlainMonthDayType, B extends PlainMonthDayType, T extends readonly PlainMonthDayType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends PlainMonthDayType, B extends PlainMonthDayType, T extends readonly PlainMonthDayType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends PlainTimeType, B extends PlainTimeType, T extends readonly PlainTimeType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends PlainTimeType, B extends PlainTimeType, T extends readonly PlainTimeType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function max<A extends PlainYearMonthType, B extends PlainYearMonthType, T extends readonly PlainYearMonthType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
+export function min<A extends PlainYearMonthType, B extends PlainYearMonthType, T extends readonly PlainYearMonthType[]>(a: A, b: B, ...rest: T): ToDbType<A | B | T[number]>;
 export function nullif<T>(a: T, b: any): ToDbType<T> | DbNull;
 export function octetLength(value: any): DbNumber | DbNull;
 export function replace<T extends StringParam>(value: T, occurrences: T, substitute: T): ToDbType<T>;
@@ -1235,14 +1292,14 @@ export function toJson(param: JsonParam | any[]): DbString | DbNull;
 export function extract(json: JsonParam | any[], path: string): DbString | DbNumber | DbNull;
 export function extract<T, S extends (json: T) => any>(json: T, extractor: S): ReturnType<S>;
 export function each<T extends unknown[], S extends (json: T[number]) => EachSelector>(json: T, extractor: S): ReturnType<S>['select'][];
-export function plus<T extends Numeric>(first: T, ...rest: Numeric[]): ToDbType<T>;
-export function plus<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToDbType<T | null>;
-export function minus<T extends Numeric>(first: T, ...rest: Numeric[]): ToDbType<T>;
-export function minus<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToDbType<T | null>;
-export function divide<T extends Numeric>(first: T, ...rest: Numeric[]): ToDbType<T>;
-export function divide<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToDbType<T | null>;
-export function multiply<T extends Numeric>(first: T, ...rest: Numeric[]): ToDbType<T>;
-export function multiply<T extends NumericParam>(first: T, ...rest: NumericParam[]): ToDbType<T | null>;
+export function plus<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function plus<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function minus<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function minus<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function divide<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function divide<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function multiply<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
+export function multiply<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
 export function object<T extends { [key: string]: AllowedJson }>(select: T): ToDbType<T>;
 export function arrayLength(param: JsonParam | any[]): DbNumber | DbNull;
 export function highlight(column: DbString, before: string, after: string): DbString;
