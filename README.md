@@ -574,13 +574,11 @@ class Trees extends Table {
   forestId = references(Forests);
   alive = true;
 
-  [attributes] = () => {
-    return index(this.name, {
-      where: {
-        [this.alive]: true
-      }
-    });
-  }
+  [attributes] = () => index(this.name, {
+    where: {
+      [this.alive]: true
+    }
+  });
 }
 ```
 
