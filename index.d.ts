@@ -270,12 +270,12 @@ type ToJson<T> =
   } : T;
 
 type ToDbType<T> =
-  T extends null ? DbNull :
   T extends AnyStringType ? DbString :
   T extends AnyNumberType ? DbNumber :
   T extends AnyBigIntType ? DbBigInt :
-  T extends AnyBlobType ? DbBlob :
   T extends AnyBooleanType ? DbBoolean :
+  T extends AnyBlobType ? DbBlob :
+  T extends AnyJsonType ? DbJson :
   T extends AnyDurationType ? DbDuration :
   T extends AnyInstantType ? DbInstant :
   T extends AnyPlainDateType ? DbPlainDate :
