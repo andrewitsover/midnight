@@ -699,8 +699,14 @@ const processMethod = (options) => {
   if (method.name === 'iif') {
     if (args.length > 0) {
       adjusted = [];
-      const flat = args.at(0).flat();
-      adjusted.push(...flat);
+      const first = args.at(0);
+      if (Array.isArray(first.at(0))) {
+        const flat = args.at(0).flat();
+        adjusted.push(...flat);
+      }
+      else {
+        adjusted.push(...first);
+      }
       const second = args.at(1);
       if (second) {
         adjusted.push(second);

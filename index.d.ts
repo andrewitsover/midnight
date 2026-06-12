@@ -76,7 +76,7 @@ type MakeOptionalNullable<T> = {
 };
 
 type AddComputed<T> = {
-  [K in keyof T]: T[K] | ((column: T) => void);
+  [K in keyof T]: T[K] | ((column: T) => DbAny);
 };
 
 interface UpdateQuery<W, T> {
@@ -1200,30 +1200,30 @@ export function coalesce<A extends ZonedDateTimeType, B extends ZonedDateTimeTyp
 export function concat(...args: any[]): DbString;
 export function concatWs(...args: any[]): DbString;
 export function format<T extends StringParam>(format: T, ...args: any[]): ToDbType<T>;
-export function iif(pairs: [BooleanType, NumberType][]): DbNumber | DbNull;
-export function iif(pairs: [BooleanType, NumberType][], otherwise: AnyNumberType | number): DbNumber;
-export function iif(pairs: [BooleanType, BigIntType][]): DbBigInt | DbNull;
-export function iif(pairs: [BooleanType, BigIntType][], otherwise: AnyBigIntType | bigint): DbBigInt;
-export function iif(pairs: [BooleanType, StringType][]): DbString | DbNull;
-export function iif(pairs: [BooleanType, StringType][], otherwise: AnyStringType | string): DbString;
-export function iif(pairs: [BooleanType, BlobType][]): DbBlob | DbNull;
-export function iif(pairs: [BooleanType, BlobType][], otherwise: AnyBlobType | Uint8Array): DbBlob;
-export function iif(pairs: [BooleanType, DurationType][]): DbDuration | DbNull;
-export function iif(pairs: [BooleanType, DurationType][], otherwise: AnyDurationType | Temporal.Duration): DbDuration;
-export function iif(pairs: [BooleanType, InstantType][]): DbInstant | DbNull;
-export function iif(pairs: [BooleanType, InstantType][], otherwise: AnyInstantType | Temporal.Instant): DbInstant;
-export function iif(pairs: [BooleanType, PlainDateType][]): DbPlainDate | DbNull;
-export function iif(pairs: [BooleanType, PlainDateType][], otherwise: AnyPlainDateType | Temporal.PlainDate): DbPlainDate;
-export function iif(pairs: [BooleanType, PlainDateTimeType][]): DbPlainDateTime | DbNull;
-export function iif(pairs: [BooleanType, PlainDateTimeType][], otherwise: AnyPlainDateTimeType | Temporal.PlainDateTime): DbPlainDateTime;
-export function iif(pairs: [BooleanType, PlainMonthDayType][]): DbPlainMonthDay | DbNull;
-export function iif(pairs: [BooleanType, PlainMonthDayType][], otherwise: AnyPlainMonthDayType | Temporal.PlainMonthDay): DbPlainMonthDay;
-export function iif(pairs: [BooleanType, PlainTimeType][]): DbPlainTime | DbNull;
-export function iif(pairs: [BooleanType, PlainTimeType][], otherwise: AnyPlainTimeType | Temporal.PlainTime): DbPlainTime;
-export function iif(pairs: [BooleanType, PlainYearMonthType][]): DbPlainYearMonth | DbNull;
-export function iif(pairs: [BooleanType, PlainYearMonthType][], otherwise: AnyPlainYearMonthType | Temporal.PlainYearMonth): DbPlainYearMonth;
-export function iif(pairs: [BooleanType, ZonedDateTimeType][]): DbZonedDateTime | DbNull;
-export function iif(pairs: [BooleanType, ZonedDateTimeType][], otherwise: AnyZonedDateTimeType | Temporal.ZonedDateTime): DbZonedDateTime;
+export function iif(pairs: [BooleanType, NumberType] | [BooleanType, NumberType][]): DbNumber | DbNull;
+export function iif(pairs: [BooleanType, NumberType] | [BooleanType, NumberType][], otherwise: AnyNumberType | number): DbNumber;
+export function iif(pairs: [BooleanType, BigIntType] | [BooleanType, BigIntType][]): DbBigInt | DbNull;
+export function iif(pairs: [BooleanType, BigIntType] | [BooleanType, BigIntType][], otherwise: AnyBigIntType | bigint): DbBigInt;
+export function iif(pairs: [BooleanType, StringType] | [BooleanType, StringType][]): DbString | DbNull;
+export function iif(pairs: [BooleanType, StringType] | [BooleanType, StringType][], otherwise: AnyStringType | string): DbString;
+export function iif(pairs: [BooleanType, BlobType] | [BooleanType, BlobType][]): DbBlob | DbNull;
+export function iif(pairs: [BooleanType, BlobType] | [BooleanType, BlobType][], otherwise: AnyBlobType | Uint8Array): DbBlob;
+export function iif(pairs: [BooleanType, DurationType] | [BooleanType, DurationType][]): DbDuration | DbNull;
+export function iif(pairs: [BooleanType, DurationType] | [BooleanType, DurationType][], otherwise: AnyDurationType | Temporal.Duration): DbDuration;
+export function iif(pairs: [BooleanType, InstantType] | [BooleanType, InstantType][]): DbInstant | DbNull;
+export function iif(pairs: [BooleanType, InstantType] | [BooleanType, InstantType][], otherwise: AnyInstantType | Temporal.Instant): DbInstant;
+export function iif(pairs: [BooleanType, PlainDateType] | [BooleanType, PlainDateType][]): DbPlainDate | DbNull;
+export function iif(pairs: [BooleanType, PlainDateType] | [BooleanType, PlainDateType][], otherwise: AnyPlainDateType | Temporal.PlainDate): DbPlainDate;
+export function iif(pairs: [BooleanType, PlainDateTimeType] | [BooleanType, PlainDateTimeType][]): DbPlainDateTime | DbNull;
+export function iif(pairs: [BooleanType, PlainDateTimeType] | [BooleanType, PlainDateTimeType][], otherwise: AnyPlainDateTimeType | Temporal.PlainDateTime): DbPlainDateTime;
+export function iif(pairs: [BooleanType, PlainMonthDayType] | [BooleanType, PlainMonthDayType][]): DbPlainMonthDay | DbNull;
+export function iif(pairs: [BooleanType, PlainMonthDayType] | [BooleanType, PlainMonthDayType][], otherwise: AnyPlainMonthDayType | Temporal.PlainMonthDay): DbPlainMonthDay;
+export function iif(pairs: [BooleanType, PlainTimeType] | [BooleanType, PlainTimeType][]): DbPlainTime | DbNull;
+export function iif(pairs: [BooleanType, PlainTimeType] | [BooleanType, PlainTimeType][], otherwise: AnyPlainTimeType | Temporal.PlainTime): DbPlainTime;
+export function iif(pairs: [BooleanType, PlainYearMonthType] | [BooleanType, PlainYearMonthType][]): DbPlainYearMonth | DbNull;
+export function iif(pairs: [BooleanType, PlainYearMonthType] | [BooleanType, PlainYearMonthType][], otherwise: AnyPlainYearMonthType | Temporal.PlainYearMonth): DbPlainYearMonth;
+export function iif(pairs: [BooleanType, ZonedDateTimeType] | [BooleanType, ZonedDateTimeType][]): DbZonedDateTime | DbNull;
+export function iif(pairs: [BooleanType, ZonedDateTimeType] | [BooleanType, ZonedDateTimeType][], otherwise: AnyZonedDateTimeType | Temporal.ZonedDateTime): DbZonedDateTime;
 export function instr(a: OnlyStrings, b: OnlyStrings): DbNumber;
 export function instr(a: StringBlobParam, b: StringBlobParam): DbNumber | DbNull;
 export function length(value: any): DbNumber | DbNull;
