@@ -429,11 +429,12 @@ const processMethod = (options) => {
       root,
       getRequest
     });
-    const type = args.at(1);
-    if (!['real', 'integer'].includes(type)) {
-      throw Error(`invalid cast type: ${type}`);
+    const to = args.at(1);
+    if (!['real', 'integer', 'text', 'none'].includes(to)) {
+      throw Error(`invalid cast type: ${to}`);
     }
-    const sql = `cast(${result.sql} as ${type})`;
+    const type = to === 'none' ? 'blob' : to;
+    const sql = `cast(${result.sql} as ${to})`;
     return {
       sql,
       type

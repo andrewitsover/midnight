@@ -2,7 +2,7 @@ import { PathLike } from 'node:fs';
 import { FunctionOptions, Session, ApplyChangesetOptions } from 'node:sqlite';
 
 interface Keywords<T, K> {
-  orderBy?: K | ((column: ToDbType<T>) => DbAny);
+  orderBy?: K | ((column: T) => DbAny);
   desc?: boolean;
   limit?: number | bigint;
   offset?: number | bigint;
@@ -75,13 +75,13 @@ type MakeOptionalNullable<T> = {
   [K in keyof T]: undefined extends T[K] ? T[K] | null : T[K];
 };
 
-type AddComputed<T> = {
-  [K in keyof T]: T[K] | ((column: ToDbType<T>) => DbAny);
+type AddComputed<T, U> = {
+  [K in keyof T]: T[K] | ((column: U) => DbAny);
 };
 
-interface UpdateQuery<W, T> {
+interface UpdateQuery<W, T, U> {
   where?: W | null;
-  set: Partial<AddComputed<MakeOptionalNullable<T>>>;
+  set: Partial<AddComputed<MakeOptionalNullable<T>, U>>;
   log?: boolean | ((info: LogInfo) => void);
 }
 
@@ -297,32 +297,24 @@ type ToDbType<T> =
   T extends Temporal.ZonedDateTime ? DbZonedDateTime :
   T extends boolean ? DbBoolean :
   T extends null ? DbNull :
-  T extends Json ? DbJson :
-  T extends object
-    ? {
-        [K in keyof T]: ToDbType<T[K]>
-      }
-  : T;
+  DbJson;
 
 type ToDefaultType<T> =
+  T extends number ? DefaultNumber :
+  T extends bigint ? DefaultBigInt :
+  T extends string ? DefaultString :
+  T extends Temporal.Duration ? DefaultDuration :
+  T extends Temporal.Instant ? DefaultInstant :
+  T extends Temporal.PlainDate ? DefaultPlainDate :
+  T extends Temporal.PlainDateTime ? DefaultPlainDateTime :
+  T extends Temporal.PlainMonthDay ? DefaultPlainMonthDay :
+  T extends Temporal.PlainTime ? DefaultPlainTime :
+  T extends Temporal.PlainYearMonth ? DefaultPlainYearMonth :
+  T extends Temporal.ZonedDateTime ? DefaultZonedDateTime :
+  T extends boolean ? DefaultBoolean :
   T extends null ? DbNull :
-  T extends infer U ? (
-    U extends number ? DefaultNumber :
-    U extends bigint ? DefaultBigInt :
-    U extends string ? DefaultString :
-    U extends Temporal.Duration ? DefaultDuration :
-    U extends Temporal.Instant ? DefaultInstant :
-    U extends Temporal.PlainDate ? DefaultPlainDate :
-    U extends Temporal.PlainDateTime ? DefaultPlainDateTime :
-    U extends Temporal.PlainMonthDay ? DefaultPlainMonthDay :
-    U extends Temporal.PlainTime ? DefaultPlainTime :
-    U extends Temporal.PlainYearMonth ? DefaultPlainYearMonth :
-    U extends Temporal.ZonedDateTime ? DefaultZonedDateTime :
-    U extends boolean ? DefaultBoolean :
-    U extends null ? DbNull :
-    U extends Json ? DefaultJson :
-    U
-  ) : T;
+  T extends Json ? DefaultJson :
+  T;
 
 type ToDbInterface<T> = {
   [K in keyof T]: ToDbType<T[K]>;
@@ -429,71 +421,71 @@ interface MatchAnyKeywords {
   near?: any;
 }
 
-interface MatchQuery<T> extends MatchKeywords, VirtualKeywords<T & { rowid: number }> {
+interface MatchQuery<T> extends MatchKeywords, VirtualKeywords<T & { rowid: DbNumber }> {
   where?: {
     [K in keyof T]?: MatchKeywords | string;
   }
 }
 
-interface MatchAnyQuery<T> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: number }> {
+interface MatchAnyQuery<T> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: DbNumber }> {
   where?: {
     [K in keyof T]?: MatchAnyKeywords | string;
   }
 }
 
-interface MatchQuerySelect<T, K> extends MatchKeywords, VirtualKeywords<T & { rowid: number }> {
+interface MatchQuerySelect<T, K> extends MatchKeywords, VirtualKeywords<T & { rowid: DbNumber }> {
   select: (keyof T)[] | K[];
   where?: {
     [K in keyof T]?: MatchKeywords | string;
   }
 }
 
-interface MatchQueryAnySelect<T, K> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: number }> {
+interface MatchQueryAnySelect<T, K> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: DbNumber }> {
   select: (keyof T)[] | K[];
   where?: {
     [K in keyof T]?: MatchAnyKeywords | string;
   }
 }
 
-interface MatchQueryValue<T, K> extends MatchKeywords, VirtualKeywords<T & { rowid: number }> {
+interface MatchQueryValue<T, K> extends MatchKeywords, VirtualKeywords<T & { rowid: DbNumber }> {
   return: K;
   column?: {
     [K in keyof T]?: MatchKeywords | string;
   }
 }
 
-interface MatchQueryAnyValue<T, K> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: number }> {
+interface MatchQueryAnyValue<T, K> extends MatchAnyKeywords, VirtualKeywords<T & { rowid: DbNumber }> {
   return: K;
   column?: {
     [K in keyof T]?: MatchAnyKeywords | string;
   }
 }
 
-interface VirtualQueries<T, E, W> {
-  match(query: MatchQuery<T>): T[];
-  match(query: MatchAnyQuery<T>): T[];
-  match<K extends keyof E>(query: MatchQuerySelect<T, K>): Pick<E, K>[];
-  match<K extends keyof E>(query: MatchQueryAnySelect<T, K>): Pick<E, K>[];
-  match<K extends keyof E>(query: MatchQueryValue<T, K>): E[K][];
-  match<K extends keyof E>(query: MatchQueryAnyValue<T, K>): E[K][];
-  get(query: HighlightQuery<W, T>): { id: number, highlight: string } | undefined;
-  get(query: SnippetQuery<W, T>): { id: number, snippet: string } | undefined;
-  query(query: HighlightQuery<W, T>): Array<{ id: number, highlight: string }>;
-  query(query: SnippetQuery<W, T>): Array<{ id: number, snippet: string }>;
+interface VirtualQueries<T, E, W, U> {
+  match(query: MatchQuery<U>): T[];
+  match(query: MatchAnyQuery<U>): T[];
+  match<K extends keyof E>(query: MatchQuerySelect<U, K>): Pick<E, K>[];
+  match<K extends keyof E>(query: MatchQueryAnySelect<U, K>): Pick<E, K>[];
+  match<K extends keyof E>(query: MatchQueryValue<U, K>): E[K][];
+  match<K extends keyof E>(query: MatchQueryAnyValue<U, K>): E[K][];
+  get(query: HighlightQuery<W, U>): { id: number, highlight: string } | undefined;
+  get(query: SnippetQuery<W, U>): { id: number, snippet: string } | undefined;
+  query(query: HighlightQuery<W, U>): Array<{ id: number, highlight: string }>;
+  query(query: SnippetQuery<W, U>): Array<{ id: number, snippet: string }>;
 }
 
-interface WriteQueries<T, I, W, R> {
+interface WriteQueries<T, I, W, R, U> {
   insert(params: I): R;
   returnInsert(params: I) : T;
   insertMany(params: Array<I>): void;
   returnInsertMany(params: Array<I>): T[];
-  update(options: UpdateQuery<W, I>): number;
+  update(options: UpdateQuery<W, I, U>): number;
   upsert<K extends keyof T>(options: UpsertQuery<I, K>): R;
   returnUpsert<K extends keyof T>(options: UpsertQuery<I, K>): T;
   delete(params?: W): number;
 }
 
-interface Queries<T, E, W, Y> {
+interface Queries<T, E, W, Y, U> {
   get(params?: W | null): T | undefined;
   get<K extends keyof E>(params: W | null, column: K): E[K] | undefined;
   get<K extends keyof E>(params: W | null, columns: (keyof E)[] | K[]): Pick<E, K> | undefined;
@@ -501,15 +493,15 @@ interface Queries<T, E, W, Y> {
   many<K extends keyof E>(params: W | null, columns: (keyof E)[] | K[]): Array<Pick<E, K>>;
   many<K extends keyof E>(params: W | null, column: K): Array<E[K]>;
   query(): Array<T>;
-  query<K extends keyof E>(query: ComplexQueryValue<W, K, T>): Array<E[K]>;
-  query<K extends keyof E>(query: ComplexQueryObject<W, K, T>): Array<Pick<E, K>>;
-  query<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, T>): Array<Omit<E, K>>;
-  query(query: ComplexQuery<W, E>): Array<T>;
+  query<K extends keyof E>(query: ComplexQueryValue<W, K, U>): Array<E[K]>;
+  query<K extends keyof E>(query: ComplexQueryObject<W, K, U>): Array<Pick<E, K>>;
+  query<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, U>): Array<Omit<E, K>>;
+  query(query: ComplexQuery<W, U>): Array<T>;
   first(): T | undefined;
-  first<K extends keyof E>(query: ComplexQueryValue<W, K, T>): E[K] | undefined;
-  first<K extends keyof E>(query: ComplexQueryObject<W, K, T>): Pick<E, K> | undefined;
-  first<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, T>): Omit<E, K> | undefined;
-  first(query: ComplexQuery<W, E>): T | undefined;
+  first<K extends keyof E>(query: ComplexQueryValue<W, K, U>): E[K] | undefined;
+  first<K extends keyof E>(query: ComplexQueryObject<W, K, U>): Pick<E, K> | undefined;
+  first<K extends keyof E>(query: ComplexQueryObjectOmit<W, K, U>): Omit<E, K> | undefined;
+  first(query: ComplexQuery<W, U>): T | undefined;
   count<K extends keyof E>(query?: AggregateQuery<W, K>): number;
   avg<K extends keyof E>(query: AggregateQuery<W, K>): number;
   max<K extends keyof E>(query: AggregateQuery<W, K>): E[K];
@@ -928,10 +920,11 @@ type RemoveUpperCase<T> = {
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 type ExtractColumns<T> = {
-  [K in StringKeys<T>]:
-    IsAny<ToDbType<T[K]>> extends true
-      ? DbString
-      : ToDefaultType<T[K]>;
+  [K in StringKeys<T>]: ToDefaultType<T[K]>;
+};
+
+type ExtractDbTypes<T> = {
+  [K in StringKeys<T>]: T[K];
 };
 
 type PkType = PkNumber | PkBigInt | PkString | PkDateTypes | PkBlob;
@@ -967,12 +960,12 @@ type ExcludeComputed<T> = {
   [K in keyof T as T[K] extends DbTypes | DefaultTypes | AnyResult | PkType ? K : never]: T[K]
 };
 
-type ToQuery<Y, T> = Queries<ToJsType<T>, ToJsType<T>, ToWhere<ToJsType<T>>, Y> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>>;
-type ToVirtualQuery<Y, T, E> = Queries<ToJsType<E>, ToJsType<E> & { rowid: number }, ToWhere<ToJsType<T>>, Y> & WriteQueries<ToJsType<E>, ToJsType<ToInsert<ExcludeComputed<E>>> & { rowid: number }, ToWhere<ToJsType<T>>, number>;
+type ToQuery<Y, T> = Queries<ToJsType<T>, ToJsType<T>, ToWhere<ToJsType<T>>, Y, T> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>, T>;
+type ToVirtualQuery<Y, T, E> = Queries<ToJsType<E>, ToJsType<E> & { rowid: number }, ToWhere<ToJsType<T>>, Y, E> & WriteQueries<ToJsType<E>, ToJsType<ToInsert<ExcludeComputed<E>>> & { rowid: number }, ToWhere<ToJsType<T>>, number, E>;
 
-type ToFTS<Y, T, E> = VirtualQueries<ToJsType<E>, ToJsType<E> & { rowid: number }, ToWhere<ToJsType<T>>> & ToVirtualQuery<Y, T, E>;
+type ToFTS<Y, T, E> = VirtualQueries<ToJsType<E>, ToJsType<E> & { rowid: number }, ToWhere<ToJsType<T>>, E> & ToVirtualQuery<Y, T, E>;
 
-type ToExternalFTS<Y, T, E> = VirtualQueries<ToJsType<E>, ToJsType<E>  & { rowid: number }, ToWhere<ToJsType<T>>> & Queries<ToJsType<E>, ToJsType<E>, ToWhere<ToJsType<T>>, Y>;
+type ToExternalFTS<Y, T, E> = VirtualQueries<ToJsType<E>, ToJsType<E>  & { rowid: number }, ToWhere<ToJsType<T>>, E> & Queries<ToJsType<E>, ToJsType<E>, ToWhere<ToJsType<T>>, Y>;
 
 type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }> = {
   [K in keyof T as K extends string
@@ -1187,7 +1180,9 @@ type ZonedDateTimeType = ToType<AnyZonedDateTimeType>;
 export function pick<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Pick<T, K[number]>;
 export function omit<T extends ExtractColumns<BaseTable>, K extends readonly (keyof T)[]>(table: T, columns: K): Omit<T, K[number]>;
 export function abs<T extends NumericParam>(n: T): ToDbType<T>;
-export function cast(value: any, to: 'real' | 'integer'): DbNumber;
+export function cast(value: DbAny, to: 'real' | 'integer'): DbNumber;
+export function cast(value: DbAny, to: 'text'): DbString;
+export function cast(value: DbAny, to: 'none'): DbBlob;
 export function coalesce<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
 export function coalesce<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
 export function coalesce<A extends StringType, B extends StringType, T extends readonly StringType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
