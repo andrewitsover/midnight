@@ -2,7 +2,7 @@ import { PathLike } from 'node:fs';
 import { FunctionOptions, Session, ApplyChangesetOptions } from 'node:sqlite';
 
 interface Keywords<T, K> {
-  orderBy?: K | ((column: T) => symbol);
+  orderBy?: K | ((column: ToDbType<T>) => DbAny);
   desc?: boolean;
   limit?: number | bigint;
   offset?: number | bigint;
@@ -76,7 +76,7 @@ type MakeOptionalNullable<T> = {
 };
 
 type AddComputed<T> = {
-  [K in keyof T]: T[K] | ((column: T) => DbAny);
+  [K in keyof T]: T[K] | ((column: ToDbType<T>) => DbAny);
 };
 
 interface UpdateQuery<W, T> {
@@ -298,7 +298,11 @@ type ToDbType<T> =
   T extends boolean ? DbBoolean :
   T extends null ? DbNull :
   T extends Json ? DbJson :
-  T;
+  T extends object
+    ? {
+        [K in keyof T]: ToDbType<T[K]>
+      }
+  : T;
 
 type ToDefaultType<T> =
   T extends null ? DbNull :
