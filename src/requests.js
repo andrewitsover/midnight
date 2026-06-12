@@ -695,7 +695,19 @@ const processMethod = (options) => {
       type
     };
   }
-  const processed = args.map(arg => processArg({
+  let adjusted = args;
+  if (method.name === 'iif') {
+    if (args.length > 0) {
+      adjusted = [];
+      const flat = args.at(0).flat();
+      adjusted.push(...flat);
+      const second = args.at(1);
+      if (second) {
+        adjusted.push(second);
+      }
+    }
+  }
+  const processed = adjusted.map(arg => processArg({
     db,
     arg,
     params,
@@ -704,22 +716,6 @@ const processMethod = (options) => {
     root,
     getRequest
   }));
-  if (method.name === 'iif') {
-    const length = args.length;
-    if (length <= 13) {
-      const types = [];
-      for (let i = 1; i < processed.length; i += 2) {
-        types.push(processed[i].type);
-      }
-      if (length % 2 === 1) {
-        types.push(processed.at(-1).type);
-      }
-      const unique = new Set(types);
-      if (unique.size === 1) {
-        type = types.at(0);
-      }
-    }
-  }
   const statements = processed.map(p => p.sql);
   const types = processed.map(p => p.type);
   let sql;
@@ -748,8 +744,11 @@ const processMethod = (options) => {
       }
     }
   }
-  if (name === 'nullif') {
-    type = processed.map(p => p.type).at(0);
+  else if (name === 'nullif') {
+    type = types.at(0);
+  }
+  else if (name === 'iif') {
+    type = types.at(1);
   }
   return {
     sql,
