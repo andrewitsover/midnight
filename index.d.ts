@@ -262,6 +262,7 @@ interface WindowOptions {
 }
 
 type ToDbType<T> =
+  T extends DbNull ? DbNull :
   T extends AnyStringType ? DbString :
   T extends AnyNumberType ? DbNumber :
   T extends AnyBigIntType ? DbBigInt :
