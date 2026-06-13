@@ -262,21 +262,6 @@ interface WindowOptions {
 }
 
 type ToDbType<T> =
-  T extends DbNull ? DbNull :
-  T extends AnyStringType ? DbString :
-  T extends AnyNumberType ? DbNumber :
-  T extends AnyBigIntType ? DbBigInt :
-  T extends AnyBooleanType ? DbBoolean :
-  T extends AnyBlobType ? DbBlob :
-  T extends AnyJsonType ? DbJson :
-  T extends AnyDurationType ? DbDuration :
-  T extends AnyInstantType ? DbInstant :
-  T extends AnyPlainDateType ? DbPlainDate :
-  T extends AnyPlainDateTimeType ? DbPlainDateTime :
-  T extends AnyPlainMonthDayType ? DbPlainMonthDay :
-  T extends AnyPlainTimeType ? DbPlainTime :
-  T extends AnyPlainYearMonthType ? DbPlainYearMonth :
-  T extends AnyZonedDateTimeType ? DbZonedDateTime :
   T extends number ? DbNumber :
   T extends bigint ? DbBigInt :
   T extends string ? DbString :
@@ -291,7 +276,20 @@ type ToDbType<T> =
   T extends boolean ? DbBoolean :
   T extends null ? DbNull :
   T extends Uint8Array ? DbBlob :
+  T;
+
+type ConvertJson<T> = 
+  T extends DbAny ? T :
+  T extends DbNull ? T :
+  T extends Primitive ? T :
+  T extends Uint8Array ? T :
+  T extends null ? T :
   DbJson;
+
+type ConvertTyped<T> = 
+  {
+    [K in keyof T]: ConvertJson<T[K]>
+  };
 
 type ToDefaultType<T> =
   T extends number ? DefaultNumber :
@@ -943,8 +941,8 @@ type ExcludeComputed<T> = {
   [K in keyof T as T[K] extends DbTypes | DefaultTypes | AnyResult | PkType ? K : never]: T[K]
 };
 
-type ToQuery<Y, T> = Queries<ToJsType<T>, ToJsType<T>, ToWhere<ToJsType<T>>, Y, T> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>, T>;
-type ToVirtualQuery<Y, T, E> = Queries<ToJsType<E>, ToJsType<E> & { rowid: number }, ToWhere<ToJsType<T>>, Y, E> & WriteQueries<ToJsType<E>, ToJsType<ToInsert<ExcludeComputed<E>>> & { rowid: number }, ToWhere<ToJsType<T>>, number, E>;
+type ToQuery<Y, T> = Queries<ToJsType<T>, ToJsType<T>, ToWhere<ToJsType<T>>, Y, T> & WriteQueries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<ConvertTyped<T>>>>, ToWhere<ToJsType<T>>, GetReturnType<T>, T>;
+type ToVirtualQuery<Y, T, E> = Queries<ToJsType<E>, ToJsType<E> & { rowid: number }, ToWhere<ToJsType<T>>, Y, E> & WriteQueries<ToJsType<E>, ToJsType<ToInsert<ExcludeComputed<ConvertTyped<E>>>> & { rowid: number }, ToWhere<ToJsType<T>>, number, E>;
 
 type ToFTS<Y, T, E> = VirtualQueries<ToJsType<E>, ToJsType<E> & { rowid: number }, ToWhere<ToJsType<T>>, E> & ToVirtualQuery<Y, T, E>;
 
@@ -1140,7 +1138,7 @@ export class Database {
   applyChangeset(changeset: Uint8Array, options?: ApplyChangesetOptions): boolean;
 }
 
-export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<T>>>>;
+export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<ConvertTyped<T>>>>>;
 export type Where<T> = ToWhere<ToJsType<ExtractColumns<T>>>;
 export type Select<T> = ToJsType<ExtractColumns<T>>;
 
@@ -1292,7 +1290,7 @@ export function tanh(value: NumericParam): DbNumber | DbNull;
 export function trunc<T extends NumericParam>(value: T): ToDbType<T>;
 export function toJson(param: JsonParam | any[]): DbString | DbNull;
 export function extract(json: JsonParam | any[], path: string): DbString | DbNumber | DbNull;
-export function extract<T, S extends (json: T) => any>(json: T, extractor: S): ReturnType<S>;
+export function extract<T, S extends (json: T) => any>(json: T, extractor: S): Exclude<ReturnType<S>, undefined>;
 export function each<T extends unknown[], S extends (json: T[number]) => EachSelector>(json: T, extractor: S): ReturnType<S>['select'][];
 export function plus<A extends NumberType, B extends NumberType, T extends readonly NumberType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
 export function plus<A extends BigIntType, B extends BigIntType, T extends readonly BigIntType[]>(a: A, b: B, ...args: T): ToDbType<A | B | T[number]>;
