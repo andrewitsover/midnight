@@ -290,6 +290,7 @@ type ToDbType<T> =
   T extends Temporal.ZonedDateTime ? DbZonedDateTime :
   T extends boolean ? DbBoolean :
   T extends null ? DbNull :
+  T extends Uint8Array ? DbBlob :
   DbJson;
 
 type ToDefaultType<T> =
