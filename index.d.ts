@@ -1355,6 +1355,9 @@ export function group<T extends AllowedJson>(key: DbString, value: T): Record<st
 export function windowGroup<T extends AllowedJson>(options: WindowOptions & { select: T }): T[];
 export function windowGroup<T>(options: WindowOptions & { select: ToDbInterface<T> }): T[];
 export function windowGroup<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, T>;
+export function unistr<T extends StringParam>(value: T): ToDbType<T>;
+export function unistrQuote<T extends StringParam>(value: T): ToDbType<T>;
+export function quote<T extends StringParam>(value: T): ToDbType<T>;
 
 export declare const attributes: unique symbol;
 export declare const prefix: unique symbol;
