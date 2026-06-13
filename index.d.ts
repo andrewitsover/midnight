@@ -261,14 +261,6 @@ interface WindowOptions {
   frame?: FrameOptions;
 }
 
-type ToJson<T> =
-  T extends AnyDateType | AnyBigIntType ? DbString :
-  T extends (infer U)[] ? U extends AnyDateType | AnyBigIntType ? DbString[] : U[] :
-  T extends object ? { 
-    [K in keyof T]: T[K] extends AnyDateType | AnyBigIntType
-      ? DbString : T[K] 
-  } : T;
-
 type ToDbType<T> =
   T extends AnyStringType ? DbString :
   T extends AnyNumberType ? DbNumber :
@@ -848,6 +840,7 @@ type ToNumericResult<T> =
 
 type GetReturnType<T> =
   PkNumber extends T[keyof T] ? number :
+  PkBigInt extends T[keyof T] ? bigint :
   PkString extends T[keyof T] ? string :
   PkBlob extends T[keyof T] ? Uint8Array :
   PkDuration extends T[keyof T] ? Temporal.Duration :
@@ -904,18 +897,6 @@ type ToPrimaryKey<T> =
   T extends AnyPlainYearMonthType ? PkPlainYearMonth :
   T extends AnyZonedDateTimeType ? PkZonedDateTime :
   never;
-
-type RemoveUpperCase<T> = {
-  [K in keyof T as K extends string
-    ? K extends `${infer First}${infer Second}${string}`
-      ? First extends Uppercase<First>
-        ? Second extends Lowercase<Second>
-          ? never
-          : K
-        : K
-      : K
-    : never]: T[K];
-};
 
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
@@ -1256,7 +1237,7 @@ export function rtrim<T extends StringParam>(value: T, remove?: StringParam): To
 export function sign(value: Numeric): DbNumber;
 export function sign(value: NumericParam): DbNumber | DbNull;
 export function substring<T extends StringParam>(value: T, start: NumericParam, length?: NumericParam): ToDbType<T>;
-export function trim<T extends StringParam>(value: T, remove?: StringParam): T;
+export function trim<T extends StringParam>(value: T, remove?: StringParam): ToDbType<T>;
 export function unhex(hex: StringParam, ignore?: StringParam): DbBlob | DbNull;
 export function unicode(value: OnlyStrings): DbNumber;
 export function unicode(value: StringParam): DbNumber | DbNull;
@@ -1436,8 +1417,8 @@ interface Nil {
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
-  references<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  references<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
@@ -1445,8 +1426,8 @@ interface Nil {
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
   cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>> | DbNull;
-  cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  cascade<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
     column: K,
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
@@ -1480,8 +1461,8 @@ export function references<T extends abstract new (...args: any[]) => any>(table
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
-export function references<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+  }): GetPrimaryKey<InstanceType<T>>;
+export function references<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
@@ -1489,8 +1470,8 @@ export function references<T extends abstract new (...args: any[]) => any, K ext
   }): PkToDbType<InstanceType<T>[K]>;
 export function cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     index?: false
-  }): GetPrimaryKey<RemoveUpperCase<InstanceType<T>>>;
-export function cascade<T extends abstract new (...args: any[]) => any, K extends keyof RemoveUpperCase<InstanceType<T>>>(table: T, options?: {
+  }): GetPrimaryKey<InstanceType<T>>;
+export function cascade<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
     column: K,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
