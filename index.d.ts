@@ -1123,7 +1123,7 @@ interface FunctionArgs<T, A> {
 
 export class Database {
   constructor(path?: PathLike, options?: SQLiteConfig);
-  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C>;
+  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C> & Disposable;
   run(args: { query: any, params?: any }): number;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Array<T>;
   exec(query: string): void;
@@ -1136,6 +1136,8 @@ export class Database {
   deserialize(buffer: Uint8Array): void;
   createSession(options?: { table?: string, db?: string }): Session;
   applyChangeset(changeset: Uint8Array, options?: ApplyChangesetOptions): boolean;
+
+  [Symbol.dispose](): void;
 }
 
 export type Insert<T> = ToJsType<ToInsert<ExcludeComputed<ExtractColumns<ConvertTyped<T>>>>>;
