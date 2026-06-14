@@ -69,7 +69,7 @@ class Database {
     if (path) {
       this.db = new DatabaseSync(path, options);
       for (const item of functions) {
-        this.db.function(item.name, { deterministic: true }, item.lambda);
+        this.db.function(item.name, { deterministic: true }, item.function);
       }
     }
   }

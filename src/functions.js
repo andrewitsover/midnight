@@ -3,46 +3,46 @@ const cache = new Map();
 const functions = [
   {
     name: 'temporal_now_instant',
-    lambda: () => Temporal.Now.instant().toString()
+    function: () => Temporal.Now.instant().toString()
   },
   {
     name: 'temporal_now_plain_date',
-    lambda: () => Temporal.Now.plainDateISO().toString()
+    function: () => Temporal.Now.plainDateISO().toString()
   },
   {
     name: 'temporal_now_plain_date_time',
-    lambda: () => Temporal.Now.plainDateTimeISO().toString()
+    function: () => Temporal.Now.plainDateTimeISO().toString()
   },
   {
     name: 'temporal_now_plain_time',
-    lambda: () => Temporal.Now.plainTimeISO().toString()
+    function: () => Temporal.Now.plainTimeISO().toString()
   },
   {
     name: 'temporal_now_zoned_date_time',
-    lambda: () => Temporal.Now.zonedDateTimeISO().toString()
+    function: () => Temporal.Now.zonedDateTimeISO().toString()
   },
   {
     name: 'base64',
-    lambda: (blob) => blob === null ? null : blob.toBase64()
+    function: (blob) => blob === null ? null : blob.toBase64()
   },
   {
     name: 'regex',
-    lambda: (text, source, flags) => {
+    function: (text, source, flags) => {
       if (text === null || source === null) {
         return null;
       }
       const key = `/${source}/${flags}`;
-      let pattern = cache.get(key);
-      if (!pattern) {
-        pattern = new RegExp(source, flags);
-        cache.set(key, pattern);
+      let regex = cache.get(key);
+      if (!regex) {
+        regex = new RegExp(source, flags);
+        cache.set(key, regex);
       }
-      return pattern.test(text) ? 1 : 0;
+      return regex.test(text) ? 1 : 0;
     }
   },
   {
     name: 'temporal_compare',
-    lambda: (a, b) => {
+    function: (a, b) => {
       if (a === null || b === null) {
         return null;
       }
@@ -54,7 +54,7 @@ const functions = [
   },
   {
     name: 'temporal_nanoseconds',
-    lambda: (text) => {
+    function: (text) => {
       if (text === null) {
         return null;
       }
