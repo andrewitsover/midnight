@@ -4,7 +4,7 @@ import {
   nameToSql
 } from './utils.js';
 import { compareOperators } from './methods.js';
-import { tableRequests } from './tables.js';
+import { getRequest, setCurrent } from './tables.js';
 import { makeTableProxy } from './symbols.js';
 import { processMethod } from './requests.js';
 
@@ -419,8 +419,7 @@ const toWhere = (options) => {
       conditions.push(`(${filters.join(` ${column} `)})`);
     }
     else if (typeof param === 'symbol') {
-      const request = tableRequests.get(param);
-      tableRequests.delete(param);
+      const request = getRequest(param);
       const query = {
         method: request.name,
         arg: request.args.at(0)
@@ -470,28 +469,17 @@ const processFunction = (args) => {
     getPlaceholder,
     lambda
   } = args;
-  const requests = new Map();
+  using context = setCurrent();
   const proxy = makeTableProxy({
     db,
-    table,
-    requests
+    table
   });
   const symbol = lambda(proxy);
-  const request = tableRequests.get(symbol);
-  tableRequests.delete(symbol);
-  const getRequest = (symbol) => {
-    let request = requests.get(symbol);
-    if (!request) {
-      request = tableRequests.get(symbol);
-      tableRequests.delete(symbol);
-    }
-    return request;
-  }
+  const request = getRequest(symbol);
   const result = processMethod({
     db,
     method: request,
     params,
-    requests,
     getRequest,
     getPlaceholder
   });

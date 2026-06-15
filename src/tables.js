@@ -2,6 +2,7 @@ import { compareMethods, computeMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
 import { nameToSql, temporal, removeCapital, toLiteral } from './utils.js';
 import { createHash } from 'node:crypto';
+import { TableProxy } from './symbols.js';
 
 const toHash = (table, sql) => {
   table = table.replaceAll(/([a-z])([A-Z])/gm, '$1_$2').toLowerCase();
@@ -16,6 +17,12 @@ const toHash = (table, sql) => {
     .digest('hex')
     .slice(0, 8);
   return `${table}_${hash}`;
+}
+
+class Subquery {
+  constructor(context) {
+    this[attributes] = context;
+  }
 }
 
 const types = [
@@ -64,10 +71,10 @@ const toColumn = (literal) => {
       throw Error(`invalid default value: ${literal}`);
     }
   }
-  const request = { ...tableRequests.get(symbol) };
+  const request = { ...getRequest(symbol) };
   request.default = toLiteral(literal);
   const updated = Symbol();
-  tableRequests.set(updated, request);
+  current.set(updated, request);
   return {
     symbol: updated,
     column: request
@@ -117,8 +124,44 @@ const externalRowId = Symbol();
 const transform = Symbol();
 const hasTransformed = Symbol();
 
-const tableRequests = new WeakMap();
+const stable = new Map();
+const current = new WeakMap();
 const classes = new WeakMap();
+let context;
+
+const getRequest = (symbol) => {
+  if (symbol instanceof Subquery || symbol instanceof TableProxy) {
+    return { isProxy: true };
+  }
+  let value = stable.get(symbol);
+  if (value === undefined) {
+    if (context !== undefined) {
+      return context.get(symbol);
+    }
+    return current.get(symbol);
+  }
+  return value;
+}
+
+const setRequest = (symbol, value) => {
+  if (context !== undefined) {
+    context.set(symbol, value);
+  }
+  else {
+    current.set(symbol, value);
+  }
+}
+
+const setCurrent = () => {
+  context = new Map();
+  return {
+    [Symbol.dispose]() {
+      context = undefined;
+    }
+  }
+}
+
+const currentRequests = () => Array.from(context.values());
 
 class BaseTable {
   [hasTransformed] = false;
@@ -144,11 +187,11 @@ class BaseTable {
       if (typeof value !== 'symbol') {
         adjusted = symbols.default(value);
       }
-      const request = tableRequests.get(adjusted);
+      const request = getRequest(adjusted);
       const symbol = Symbol();
       const updated = { ...request };
       this[key] = symbol;
-      tableRequests.set(symbol, updated);
+      current.set(symbol, updated);
       classes.set(symbol, this.constructor);
     }
   }
@@ -185,7 +228,7 @@ const addTypes = (target, props) => {
     };
     const symbol = Symbol();
     target[type] = symbol;
-    tableRequests.set(symbol, request);
+    stable.set(symbol, request);
   }
 }
 
@@ -206,7 +249,7 @@ const addNow = (target, props) => {
       default: `(temporal_now_${adjusted}())`,
       ...props
     };
-    tableRequests.set(symbol, request);
+    stable.set(symbol, request);
     target[type] = symbol;
   }
 }
@@ -244,7 +287,7 @@ symbols.references = (instance, options) => {
     request.actions.push(`on update ${onUpdate}`);
   }
   const symbol = Symbol();
-  tableRequests.set(symbol, request);
+  current.set(symbol, request);
   return symbol;
 }
 
@@ -260,7 +303,7 @@ const typed = () => {
     notNull: true,
     structure: true
   };
-  tableRequests.set(symbol, request);
+  current.set(symbol, request);
   return symbol;
 }
 
@@ -269,7 +312,7 @@ symbols.typedObject = typed;
 
 symbols.default = (value) => {
   const result = toColumn(value);
-  tableRequests.set(result.symbol, result.column);
+  current.set(result.symbol, result.column);
   return result.symbol;
 }
 
@@ -277,7 +320,7 @@ const reflect = ['references', 'cascade', 'typedArray', 'typedObject', 'default'
 for (const key of reflect) {
   symbols.nil[key] = (...args) => {
     const symbol = symbols[key](...args);
-    const request = tableRequests.get(symbol);
+    const request = current.get(symbol);
     if (['references', 'cascade'].includes(key)) {
       request.column.notNull = false;
     }
@@ -299,7 +342,7 @@ const makeIndex = (args, category) => {
   if (!isDate && !isBlob && ['function', 'object'].includes(type)) {
     expression = args.pop();
   }
-  tableRequests.set(symbol, {
+  current.set(symbol, {
     category,
     columns,
     expression
@@ -313,13 +356,13 @@ symbols.unique = (...args) => makeIndex(args, 'Unique');
 symbols.check = (column, ...checks) => {
   const symbol = Symbol();
   if (typeof column === 'object' && checks.length === 0) {
-    tableRequests.set(symbol, {
+    current.set(symbol, {
       category: 'Check',
       checks: column
     });
   }
   else {
-    tableRequests.set(symbol, {
+    current.set(symbol, {
       category: 'Check',
       column,
       checks
@@ -329,10 +372,10 @@ symbols.check = (column, ...checks) => {
 }
 
 const makeUnindexed = () => {
-  const request = tableRequests.get(symbols.text);
+  const request = stable.get(symbols.text);
   const updated = { ...request, unindexed: true };
   const symbol = Symbol();
-  tableRequests.set(symbol, updated);
+  stable.set(symbol, updated);
   return symbol;
 }
 
@@ -353,11 +396,11 @@ class ExternalFTSTable extends FTSTable {
   [transform]() {
     this[hasTransformed] = true;
     const value = this.rowid;
-    const request = tableRequests.get(value);
+    const request = getRequest(value);
     const symbol = Symbol();
     const updated = { ...request };
     this.rowid = symbol;
-    tableRequests.set(symbol, updated);
+    current.set(symbol, updated);
     classes.set(symbol, this.constructor);
   }
 }
@@ -371,7 +414,7 @@ const getColumns = (constructor) => {
     }
     let request;
     if (typeof value === 'symbol') {
-      request = tableRequests.get(value);
+      request = getRequest(value);
     }
     else {
       const result = toColumn(value);
@@ -389,7 +432,6 @@ const process = (Custom, key, classTable) => {
   const name = removeCapital(key);
   const type = Custom.prototype instanceof FTSTable ? 'fts5' : 'base';
   const external = Custom.prototype instanceof ExternalFTSTable;
-  const getRequest = (symbol) => tableRequests.get(symbol);
   const table = {
     name,
     type,
@@ -440,7 +482,7 @@ const process = (Custom, key, classTable) => {
       const mapped = parentKeys
         .map(key => {
           const symbol = parent[key];
-          const request = tableRequests.get(symbol);
+          const request = getRequest(symbol);
           const column = { name: key, ...request };
           return {
             key,
@@ -463,14 +505,14 @@ const process = (Custom, key, classTable) => {
     for (const check of checks) {
       if (check.is !== undefined) {
         if (typeof check.is === 'symbol') {
-          const method = tableRequests.get(check.is);
+          const method = getRequest(check.is);
           if (method.category === 'Column') {
             statements.push(`${sql} = ${method.name}`);
           }
           else {
             const result = processMethod({
               method,
-              requests: tableRequests,
+              requests: current,
               getRequest
             });
             statements.push(`${sql} ${result.sql}`);
@@ -505,7 +547,7 @@ const process = (Custom, key, classTable) => {
         ...result
       };
     }
-    const request = tableRequests.get(value);
+    const request = getRequest(value);
     const { category, subcategory } = request;
     if (subcategory === 'User-Defined Function') {
       const column = { ...request.column, name: key };
@@ -570,7 +612,7 @@ const process = (Custom, key, classTable) => {
         }
         where = toWhere({
           where: result.where,
-          requests: tableRequests,
+          requests: current,
           getRequest
         });
       }
@@ -584,7 +626,7 @@ const process = (Custom, key, classTable) => {
     if (category === 'Method') {
       const { type, sql } = processMethod({
         method: request,
-        requests: tableRequests,
+        requests: current,
         getRequest
       });
       return {
@@ -603,12 +645,12 @@ const process = (Custom, key, classTable) => {
     }
     if (result.category === 'Literal') {
       table.columns.push(result.column);
-      tableRequests.set(result.symbol, result.column);
+      current.set(result.symbol, result.column);
     }
     else {
       if (result.name !== 'rowid') {
         table.columns.push(result);
-        tableRequests.set(value, result);
+        current.set(value, result);
       }
     }
   }
@@ -617,7 +659,7 @@ const process = (Custom, key, classTable) => {
     const result = getColumn(key, value);
     result.category = 'Column';
     table.computed.push(result);
-    tableRequests.set(value, result);
+    current.set(value, result);
   }
   const found = [];
   if (instance[attributes]) {
@@ -630,7 +672,7 @@ const process = (Custom, key, classTable) => {
     }
   }
   for (const symbol of found) {
-    const request = tableRequests.get(symbol);
+    const request = getRequest(symbol);
     const category = request.category;
     if (['Index', 'Unique'].includes(category)) {
       const type = category === 'Unique' ? 'unique' : undefined;
@@ -638,7 +680,7 @@ const process = (Custom, key, classTable) => {
         .columns
         .map(arg => processArg({
           arg,
-          requests: tableRequests,
+          requests: current,
           getRequest
         }))
         .map(r => r.sql || r.name)
@@ -657,7 +699,7 @@ const process = (Custom, key, classTable) => {
         }
         where = toWhere({
           where: result.where,
-          requests: tableRequests,
+          requests: current,
           getRequest
         });
       }
@@ -671,7 +713,7 @@ const process = (Custom, key, classTable) => {
       if (!request.column) {
         const where = toWhere({
           where: request.checks,
-          requests: tableRequests,
+          requests: current,
           getRequest
         });
         table.checks.push({
@@ -882,5 +924,10 @@ export {
   indexToSql,
   columnToSql,
   symbols,
-  tableRequests
+  getRequest,
+  setRequest,
+  currentRequests,
+  Subquery,
+  attributes,
+  setCurrent
 }

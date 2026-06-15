@@ -1,6 +1,7 @@
 import returnTypes from './types.js';
 import { jsonSelector, nameToSql, temporal, removeCapital, toLiteral, isColumn } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
+import { currentRequests, setRequest } from './tables.js';
 
 const dateTypes = temporal.map(t => removeCapital(t.name));
 
@@ -52,7 +53,6 @@ const processArg = (options) => {
     db,
     arg,
     params,
-    requests,
     inJson,
     getPlaceholder,
     root,
@@ -64,7 +64,6 @@ const processArg = (options) => {
       db,
       method: request,
       params,
-      requests,
       getPlaceholder,
       root,
       getRequest
@@ -78,7 +77,7 @@ const processArg = (options) => {
         column: request,
         method: root
       };
-      requests.set(symbol, item);
+      setRequest(symbol, item);
     }
     let sql = request.selector || request.sql || nameToSql(request.name);
     const type = request.type;
@@ -115,7 +114,6 @@ const getObjectBody = (options) => {
     db,
     select,
     params,
-    requests,
     getPlaceholder,
     root,
     getRequest
@@ -128,7 +126,6 @@ const getObjectBody = (options) => {
       const valueArg = processArg({
         db,
         arg: value,
-        requests,
         inJson: true,
         getPlaceholder,
         root,
@@ -142,7 +139,6 @@ const getObjectBody = (options) => {
         db,
         select: value,
         params,
-        requests,
         getPlaceholder,
         root,
         getRequest
@@ -165,7 +161,6 @@ const processWindow = (options) => {
     db,
     query,
     params,
-    requests,
     getPlaceholder,
     root,
     getRequest
@@ -183,7 +178,6 @@ const processWindow = (options) => {
       db,
       where,
       params,
-      requests,
       getPlaceholder,
       getRequest
     });
@@ -196,7 +190,6 @@ const processWindow = (options) => {
           db,
           arg,
           params,
-          requests,
           getPlaceholder,
           root,
           getRequest
@@ -263,7 +256,6 @@ const processMethod = (options) => {
     db,
     method,
     params,
-    requests,
     getPlaceholder,
     left,
     getRequest
@@ -287,7 +279,6 @@ const processMethod = (options) => {
       db,
       arg,
       params,
-      requests,
       getPlaceholder,
       root,
       getRequest
@@ -297,7 +288,6 @@ const processMethod = (options) => {
         db,
         arg: args.at(1),
         params,
-        requests,
         getPlaceholder,
         root,
         getRequest
@@ -342,7 +332,6 @@ const processMethod = (options) => {
       db,
       arg: to,
       params,
-      requests,
       getPlaceholder,
       root,
       getRequest
@@ -393,7 +382,6 @@ const processMethod = (options) => {
       db,
       arg: arg.symbol,
       params,
-      requests,
       getPlaceholder,
       root,
       getRequest
@@ -424,7 +412,6 @@ const processMethod = (options) => {
       db,
       arg,
       params,
-      requests,
       getPlaceholder,
       root,
       getRequest
@@ -465,7 +452,6 @@ const processMethod = (options) => {
           db,
           arg: valueArg,
           params,
-          requests,
           inJson: true,
           getPlaceholder,
           root,
@@ -479,7 +465,6 @@ const processMethod = (options) => {
           db,
           select: selectArg,
           params,
-          requests,
           root,
           getRequest
         });
@@ -491,7 +476,6 @@ const processMethod = (options) => {
           db,
           query: arg,
           params,
-          requests,
           getPlaceholder,
           root,
           getRequest
@@ -499,7 +483,8 @@ const processMethod = (options) => {
         sql += ` ${clause}`;
       }
       else if (left) {
-        const used = Array.from(requests.values())
+        const requests = currentRequests();
+        const used = requests
           .filter(r => r.category === 'UsedColumn')
           .filter(r => r.method === root)
           .map(r => r.column)
@@ -530,7 +515,6 @@ const processMethod = (options) => {
         db,
         arg: key,
         params,
-        requests,
         getPlaceholder,
         root,
         getRequest
@@ -539,7 +523,6 @@ const processMethod = (options) => {
         db,
         arg: value,
         params,
-        requests,
         getPlaceholder,
         root,
         getRequest
@@ -551,7 +534,6 @@ const processMethod = (options) => {
           db,
           query: arg,
           params,
-          requests,
           getPlaceholder,
           root,
           getRequest
@@ -569,7 +551,6 @@ const processMethod = (options) => {
         db,
         select: arg,
         params,
-        requests,
         getPlaceholder,
         root,
         getRequest
@@ -601,7 +582,6 @@ const processMethod = (options) => {
           db,
           arg,
           params,
-          requests,
           getPlaceholder,
           root,
           getRequest
@@ -625,7 +605,6 @@ const processMethod = (options) => {
           db,
           arg,
           params,
-          requests,
           getPlaceholder,
           root,
           getRequest
@@ -638,7 +617,6 @@ const processMethod = (options) => {
         db,
         arg,
         params,
-        requests,
         getPlaceholder,
         root,
         getRequest
@@ -666,7 +644,6 @@ const processMethod = (options) => {
         db,
         arg: field,
         params,
-        requests,
         getPlaceholder,
         root,
         getRequest
@@ -683,7 +660,6 @@ const processMethod = (options) => {
       db,
       query: arg,
       params,
-      requests,
       getPlaceholder,
       root,
       getRequest
@@ -718,7 +694,6 @@ const processMethod = (options) => {
     db,
     arg,
     params,
-    requests,
     getPlaceholder,
     root,
     getRequest
@@ -768,7 +743,6 @@ const toWhere = (options) => {
     db,
     where,
     params,
-    requests,
     getPlaceholder,
     internal,
     getRequest
@@ -794,7 +768,6 @@ const toWhere = (options) => {
           db,
           method: request,
           params,
-          requests,
           getPlaceholder,
           getRequest
         });
@@ -815,7 +788,6 @@ const toWhere = (options) => {
             db,
             arg: param,
             params,
-            requests,
             getPlaceholder,
             getRequest
           });
@@ -827,7 +799,6 @@ const toWhere = (options) => {
             db,
             arg: param,
             params,
-            requests,
             getPlaceholder,
             getRequest
           });
@@ -835,7 +806,6 @@ const toWhere = (options) => {
             db,
             arg: args.at(1),
             params,
-            requests,
             getPlaceholder,
             getRequest
           });
@@ -860,7 +830,6 @@ const toWhere = (options) => {
             db,
             arg: param,
             params,
-            requests,
             getPlaceholder,
             getRequest
           });
@@ -887,7 +856,6 @@ const toWhere = (options) => {
           db,
           arg: param,
           params,
-          requests,
           getPlaceholder,
           getRequest
         });
@@ -904,7 +872,6 @@ const toWhere = (options) => {
         db,
         method: valueRequest,
         params,
-        requests,
         getPlaceholder,
         getRequest
       });
@@ -971,7 +938,6 @@ const toWhere = (options) => {
           where, 
           type,
           params,
-          requests,
           getPlaceholder,
           internal: true,
           getRequest

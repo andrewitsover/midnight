@@ -1,7 +1,7 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
 import { addAlias, nameToSql, createPlaceholder, temporal, removeCapital, isColumn } from './utils.js';
-import { getRequest, setRequest, currentRequests, attributes, setCurrent } from './tables.js';
+import { tableRequests } from './tables.js';
 import reserved from './reserved.js';
 
 const dateParsers = temporal.map(type => {
@@ -40,15 +40,13 @@ class Structured {
   }
 }
 
-class TableProxy {};
-
 const makeTableProxy = (args) => {
-  const { table, db, makeAlias } = args;
+  const { table, db, requests, makeAlias } = args;
   let tableAlias;
   if (makeAlias) {
     tableAlias = makeAlias ? makeAlias(table) : undefined;
     const symbol = Symbol();
-    setRequest(symbol, {
+    requests.set(symbol, {
       category: 'Table',
       name: table,
       alias: tableAlias
@@ -56,10 +54,7 @@ const makeTableProxy = (args) => {
   }
   const keys = Object.keys(db.columns[table]);
   const handler = {
-    get: function(target, property, receiver) {
-      if (typeof property === 'symbol') {
-        return Reflect.get(target, property, receiver);
-      }
+    get: function(target, property) {
       const isVirtualColumn = db.virtualSet.has(table) && property === removeCapital(table);
       if ((!db.tables[table] || !db.columns[table][property]) && !isVirtualColumn) {
         throw Error(`table or column does not exist: ${table}.${property}`);
@@ -86,7 +81,7 @@ const makeTableProxy = (args) => {
         type,
         tableAlias
       };
-      setRequest(symbol, request);
+      requests.set(symbol, request);
       if (db.structured[table][property]) {
         return new Structured(symbol);
       }
@@ -105,13 +100,10 @@ const makeTableProxy = (args) => {
       return undefined;
     }
   };
-  const target = new TableProxy();
-  const proxy = new Proxy(target, handler);
+  const proxy = new Proxy({}, handler);
   if (makeAlias) {
-    target[attributes] = {
-      name: table,
-      alias: tableAlias
-    };
+    const tableKey = `${table} ${tableAlias}`;
+    requests.set(proxy, { isProxy: true, tableKey });
   }
   return proxy;
 }
@@ -119,14 +111,21 @@ const makeTableProxy = (args) => {
 const makeProxy = (options) => {
   const {
     db,
+    requests,
     makeAlias
   } = options;
   const handler = {
     get: function(target, property) {
+      const symbol = Symbol();
       const proxy = makeTableProxy({
         table: property,
         db,
+        requests,
         makeAlias
+      });
+      requests.set(symbol, {
+        category: 'TableProxy',
+        proxy
       });
       return proxy;
     }
@@ -172,7 +171,7 @@ const handler = {
         args,
         alias: null
       }
-      setRequest(symbol, request);
+      tableRequests.set(symbol, request);
       if (['min', 'max'].includes(property) && args.length === 1) {
         request.subcategory = 'Window';
       }
@@ -269,8 +268,8 @@ const toKey = (column) => {
 }
 
 const processQuery = (db, expression, firstResult) => {
-  using context = setCurrent();
   const getPlaceholder = createPlaceholder();
+  const requests = new Map();
   const subqueries = [];
   const existing = Object.keys(db.columns);
   const usedAliases = new Set(existing);
@@ -301,6 +300,7 @@ const processQuery = (db, expression, firstResult) => {
   }
   const proxy = makeProxy({
     db,
+    requests,
     makeAlias
   });
   const params = {};
@@ -316,8 +316,16 @@ const processQuery = (db, expression, firstResult) => {
     offset,
     limit
   } = result;
+  const mapped = requests
+    .values()
+    .filter(r => r.category === 'TableProxy')
+    .map(r => r.proxy);
+  const tableProxies = new Set(mapped);
   const getSymbol = (value) => {
-    if (typeof value === 'symbol') {
+    if (tableProxies.has(value)) {
+      return functions.group(value);
+    }
+    else if (typeof value === 'symbol') {
       return value;
     }
     else if (value instanceof Structured) {
@@ -365,59 +373,72 @@ const processQuery = (db, expression, firstResult) => {
   const parsers = {};
   const columnTypes = {};
   const original = {};
-  const includeSubquery = (request, join = true) => {
-    request.join = join;
-    const context = request.subquery;
-    let subquery = subqueries.find(s => s.context === context);
-    if (!subquery) {
-      const tableAlias = makeAlias();
-      subquery = {
-        alias: tableAlias,
-        sql: context.sql,
-        params: context.params,
-        context
-      };
-      subqueries.push(subquery);
-      for (const key of Object.keys(context.columns)) {
-        if (key === request.name) {
-          continue;
-        }
-        const symbol = Symbol();
-        const type = context.columns[key];
-        const original = context.original[key];
-        setRequest(symbol, {
-          category: 'SubqueryColumn',
-          name: key,
-          type,
-          original,
-          subquery: context,
-          tableAlias,
-          selector: `${tableAlias}.${key}`,
-          join
-        });
-      }
+  const includeSubquery = (symbol, join = true) => {
+    const request = tableRequests.get(symbol);
+    if (request) {
+      requests.set(symbol, request);
+      tableRequests.delete(symbol);
     }
-    request.selector = `${subquery.alias}.${request.name}`;
-    request.tableAlias = subquery.alias;
-    return request;
-  }
-  const getIncludeRequest = (symbol, join = true) => {
-    const request = getRequest(symbol);
     if (request && request.category === 'SubqueryColumn') {
-      includeSubquery(request, join);
+      request.join = join;
+      const context = request.subquery;
+      let subquery = subqueries.find(s => s.context === context);
+      if (!subquery) {
+        const tableAlias = makeAlias();
+        subquery = {
+          alias: tableAlias,
+          sql: context.sql,
+          params: context.params,
+          context
+        };
+        subqueries.push(subquery);
+        for (const key of Object.keys(context.columns)) {
+          if (key === request.name) {
+            continue;
+          }
+          const symbol = Symbol();
+          const type = context.columns[key];
+          const original = context.original[key];
+          requests.set(symbol, {
+            category: 'SubqueryColumn',
+            name: key,
+            type,
+            original,
+            subquery: context,
+            tableAlias,
+            selector: `${tableAlias}.${key}`,
+            join
+          });
+        }
+      }
+      request.selector = `${subquery.alias}.${request.name}`;
+      request.tableAlias = subquery.alias;
+      return request;
+    }
+    else {
+      return request;
+    }
+  }
+  const getRequest = (symbol, join = true) => {
+    const request = requests.get(symbol);
+    if (!request) {
+      return includeSubquery(symbol, join);
     }
     return request;
   }
   for (const [key, symbol] of Object.entries(select)) {
     let parser;
     let type;
-    const request = getIncludeRequest(symbol);
-    if (request && request.category === 'SubqueryColumn') {
-      statements.push(`${request.selector} as ${nameToSql(key)}`);
-      columnTypes[key] = request.type;
-      original[key] = request.original || request;
-      parser = db.getDbToJsParser(request.type);
-      continue;
+    let request = requests.get(symbol);
+    if (!request) {
+      request = includeSubquery(symbol);
+      if (request && request.category === 'SubqueryColumn') {
+        statements.push(`${request.selector} as ${nameToSql(key)}`);
+        columnTypes[key] = request.type;
+        original[key] = request.original || request;
+        parser = db.getDbToJsParser(request.type);
+        continue;
+      }
     }
     if (request.category !== 'Column') {
       const left = request.name === 'group' && maybeSymbols.has(symbol);
@@ -425,9 +446,10 @@ const processQuery = (db, expression, firstResult) => {
         db,
         method: request,
         params,
+        requests,
         getPlaceholder,
         left,
-        getRequest: getIncludeRequest
+        getRequest
       });
       request.alias = key;
       request.type = valueArg.type;
@@ -476,8 +498,9 @@ const processQuery = (db, expression, firstResult) => {
       db,
       where,
       params,
+      requests,
       getPlaceholder,
-      getRequest: getIncludeRequest
+      getRequest
     });
   }
   if (groupBy) {
@@ -487,8 +510,9 @@ const processQuery = (db, expression, firstResult) => {
         db,
         arg: c,
         params,
+        requests,
         getPlaceholder,
-        getRequest: getIncludeRequest
+        getRequest
       }))
       .map(a => a.sql);
     clauses.groupBy = statements.join(', ');
@@ -498,8 +522,9 @@ const processQuery = (db, expression, firstResult) => {
       db,
       where: having,
       params,
+      requests,
       getPlaceholder,
-      getRequest: getIncludeRequest
+      getRequest
     });
   }
   if (orderBy) {
@@ -509,8 +534,9 @@ const processQuery = (db, expression, firstResult) => {
         db,
         arg,
         params,
+        requests,
         getPlaceholder,
-        getRequest: getIncludeRequest
+        getRequest
       }))
       .map(arg => {
         if (arg.type === 'zonedDateTime') {
@@ -529,7 +555,7 @@ const processQuery = (db, expression, firstResult) => {
       .getOwnPropertySymbols(bm25)
       .map(s => {
         return {
-          column: getIncludeRequest(s),
+          column: requests.get(s),
           value: bm25[s]
         }
       });
@@ -542,8 +568,9 @@ const processQuery = (db, expression, firstResult) => {
       db,
       arg: offset,
       params,
+      requests,
       getPlaceholder,
-      getRequest: getIncludeRequest
+      getRequest
     });
     clauses.offset = result.sql;
   }
@@ -552,8 +579,9 @@ const processQuery = (db, expression, firstResult) => {
       db,
       arg: limit,
       params,
+      requests,
       getPlaceholder,
-      getRequest: getIncludeRequest
+      getRequest
     });
     clauses.limit = result.sql;
   }
@@ -573,13 +601,13 @@ const processQuery = (db, expression, firstResult) => {
     join = join.map(tuple => {
       if (!Array.isArray(tuple)) {
         if (!first) {
-          first = getColumns(tuple, getIncludeRequest).at(0);
+          first = getColumns(tuple, getRequest).at(0);
           used.add(toKey(first));
         }
         return tuple;
       }
       const [l, r, type] = tuple;
-      const processed = [getIncludeRequest(l), getIncludeRequest(r), type];
+      const processed = [getRequest(l), getRequest(r), type];
       if (!first) {
         first = processed[0];
         used.add(toKey(first));
@@ -591,7 +619,7 @@ const processQuery = (db, expression, firstResult) => {
     processJoin(result.join);
   }
   else {
-    const values = currentRequests();
+    const values = Array.from(requests.values());
     const set = new Set();
     const columns = [];
     for (const value of values) {
@@ -618,7 +646,7 @@ const processQuery = (db, expression, firstResult) => {
     const left = new Set();
     if (adjusted.maybe) {
       for (const symbol of Object.values(adjusted.maybe)) {
-        const request = getRequest(symbol);
+        const request = requests.get(symbol);
         if (request.category === 'Method') {
           for (const item of used) {
             if (item.method === request) {
@@ -650,7 +678,7 @@ const processQuery = (db, expression, firstResult) => {
         .filter(c => !grouped.includes(c.table));
       let base;
       if (select) {
-        const first = getRequest(Object.values(select).at(0));
+        const first = requests.get(Object.values(select).at(0));
         base = ungrouped.find(c => c === first);
       }
       if (!base) {
@@ -671,7 +699,7 @@ const processQuery = (db, expression, firstResult) => {
       }
       else {
         const first = Object.values(select)
-          .map(s => getRequest(s))
+          .map(s => requests.get(s))
           .filter(s => s.category !== 'Method' || s.subcategory !== 'Window')
           .at(0);
         if (first) {
@@ -691,7 +719,7 @@ const processQuery = (db, expression, firstResult) => {
     let ordered;
     const makeKey = (request) => {
       const symbol = Symbol();
-      setRequest(symbol, request);
+      requests.set(symbol, request);
       return symbol;
     }
     if (tables.length === 1) {
@@ -867,14 +895,15 @@ const processQuery = (db, expression, firstResult) => {
     for (const tuple of join) {
       if (!Array.isArray(tuple)) {
         const joinType = tuple.type ? `${tuple.type} join` : 'join';
-        const columns = getColumns(tuple, getIncludeRequest);
+        const columns = getColumns(tuple, getRequest);
         const { type, ...where } = tuple;
         const whereClause = toWhere({
           db,
           where,
           params,
+          requests,
           getPlaceholder,
-          getRequest: getIncludeRequest
+          getRequest
         });
         const from = columns.find(c => !used.has(toKey(c)));
         const table = from.table || from.tableAlias;
@@ -896,7 +925,7 @@ const processQuery = (db, expression, firstResult) => {
   if (having && !clauses.groupBy) {
     const columns = Object
       .values(select)
-      .map(v => getRequest(v))
+      .map(v => requests.get(v))
       .filter(r => isColumn(r));
     if (columns.length === 1) {
       clauses.groupBy = columns.at(0).selector;
@@ -910,7 +939,7 @@ const processQuery = (db, expression, firstResult) => {
         clauses.groupBy = `${column.table}.${nameToSql(primaryKey)}`;
       }
     }
-    const request = getRequest(Object.values(select).at(0));
+    const request = requests.get(Object.values(select).at(0));
     if (isColumn(request)) {
       clauses.groupBy = request.selector;
     }
@@ -945,6 +974,5 @@ const processQuery = (db, expression, firstResult) => {
 export {
   processQuery,
   functions,
-  makeTableProxy,
-  TableProxy
+  makeTableProxy
 }

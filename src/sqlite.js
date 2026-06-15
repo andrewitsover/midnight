@@ -1,6 +1,6 @@
 import { temporal, removeCapital } from './utils.js';
 import { processQuery } from './symbols.js';
-import { process, toSql, toHash, tableRequests } from './tables.js';
+import { process, toSql, toHash, getRequest, setRequest, Subquery } from './tables.js';
 import toMigration from './migrate.js';
 import { DatabaseSync } from 'node:sqlite';
 import functions from './functions.js';
@@ -87,7 +87,7 @@ class Database {
     else {
       this.db.function(name, lambda);
     }
-    const column = tableRequests.get(returnType);
+    const column = getRequest(returnType);
     return (...args) => {
       const request = {
         category: 'Method',
@@ -99,7 +99,7 @@ class Database {
         column
       };
       const symbol = Symbol();
-      tableRequests.set(symbol, request);
+      setRequest(symbol, request);
       return symbol;
     }
   }
@@ -140,11 +140,14 @@ class Database {
     const context = processQuery(this, expression);
     const keys = Object.keys(context.columns);
     const handler = {
-      get: function(target, property) {
+      get: function(target, property, receiver) {
+        if (typeof property === 'symbol') {
+          return Reflect.get(target, property, receiver);
+        }
         const symbol = Symbol();
         const type = context.columns[property];
         const original = context.original[property];
-        tableRequests.set(symbol, {
+        setRequest(symbol, {
           category: 'SubqueryColumn',
           name: property,
           type,
@@ -166,8 +169,7 @@ class Database {
         return undefined;
       }
     }
-    const proxy = new Proxy({}, handler);
-    tableRequests.set(proxy, { isProxy: true });
+    const proxy = new Proxy(new Subquery(context), handler);
     return proxy;
   }
 
