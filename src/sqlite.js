@@ -311,14 +311,16 @@ class Database {
   }
 
   migrate(sql) {
+    this.exec('pragma foreign_keys = off');
     this.begin();
     try {
-      this.exec('pragma defer_foreign_keys = true');
       this.exec(sql);
       this.commit();
+      this.exec('pragma foreign_keys = on');
     }
     catch (e) {
       this.rollback();
+      this.exec('pragma foreign_keys = on');
       throw e;
     }
   }
