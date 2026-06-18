@@ -16,7 +16,6 @@ const recreate = (table, current) => {
   for (const index of table.indexes) {
     sql += indexToSql(table.name, index);
   }
-  sql += 'pragma foreign_key_check;\n';
   return sql;
 }
 

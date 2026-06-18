@@ -315,6 +315,7 @@ class Database {
     this.begin();
     try {
       this.exec(sql);
+      this.exec('pragma foreign_key_check');
       this.commit();
       this.exec('pragma foreign_keys = on');
     }
