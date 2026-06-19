@@ -1046,14 +1046,20 @@ type GetDefined<T> =
     (T extends { maybe: any } ? NonNullable<T['maybe']> | DbNull : unknown)
   >;
 
+interface Loss {
+  tables: string[],
+  columns: string[],
+  total: number
+}
+
 interface TypedDb<P, C> {
   exec(sql: string): void;
   begin(type?: 'deferred' | 'immediate'): void;
   commit(): void;
   rollback(): void;
-  migrate(sql: string): void;
+  migrate(migration: string | { sql: string, losses: Loss }): void;
   getSchema(): any[];
-  diff(schema?: any[]): string;
+  diff(schema?: any[]): { sql: string, losses: Loss };
   first<S extends SelectType, K extends ObjectReturn<S>, T extends (tables: C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>> | undefined;
   firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (tables: C) => K>(expression: T): GetDefined<ReturnType<T>> | undefined;
   query<S extends SelectType, K extends ObjectReturn<S>, T extends (tables: C) => K>(expression: T): ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['maybe']>> & RemoveNull<ReturnType<T>['certain']>>[];

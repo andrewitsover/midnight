@@ -131,7 +131,14 @@ class Database {
         const sql = toSql(table);
         statements.push(sql);
       }
-      return statements.join('\n');
+      return {
+        sql: statements.join('\n'),
+        losses: {
+          tables: [],
+          columns: [],
+          total: 0
+        }
+      }
     }
     return toMigration(previous, current);
   }
@@ -310,7 +317,8 @@ class Database {
     return adjusted;
   }
 
-  migrate(sql) {
+  migrate(migration) {
+    const sql = typeof migration === 'string' ? migration : migration.sql;
     this.exec('pragma foreign_keys = off');
     this.begin();
     try {

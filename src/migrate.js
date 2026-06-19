@@ -1,14 +1,22 @@
 import { toSql, columnToSql, indexToSql, toHash } from './tables.js';
 import { toLiteral } from './utils.js';
 
-const recreate = (table, current) => {
+const recreate = (table, current, losses) => {
   const temp = `temp_${table.name}`;
   let sql = toSql({ ...table, name: temp, indexes: [] });
   const shared = current
     .columns
-    .filter(c => table.columns.map(c => c.name).includes(c.name))
+    .filter(c => table.columns.map(e => e.name).includes(c.name))
     .map(c => c.name)
     .join(', ');
+  const dropped = table
+    .columns
+    .filter(e => current.columns.map(c => c.name).includes(e.name))
+    .map(e => e.name);
+  for (const name of dropped) {
+    losses.columns.push(`${table.name}.${name}`);
+    losses.total++;
+  }
   sql += '\n';
   sql += `insert into ${temp} (${shared}) select ${shared} from ${table.name};\n`;
   sql += `drop table ${table.name};\n`;
@@ -40,6 +48,11 @@ const attributesEqual = (c1, c2) => {
 }
 
 const toMigration = (existing, updated) => {
+  const losses = {
+    tables: [],
+    columns: [],
+    total: 0
+  };
   let migrations = '';
   const newTables = updated.filter(u => !existing.map(e => e.name).includes(u.name));
   for (const table of newTables) {
@@ -47,6 +60,8 @@ const toMigration = (existing, updated) => {
   }
   const removedTables = existing.filter(e => !updated.map(u => u.name).includes(e.name));
   for (const table of removedTables) {
+    losses.tables.push(table.name);
+    losses.total++;
     migrations += `drop table ${table.name};\n`;
   }
   for (const table of updated) {
@@ -85,7 +100,7 @@ const toMigration = (existing, updated) => {
       .filter(c => !c.default.startsWith(`'`))
       .some(c => c.default.includes('('));
     if (removePrimary || removeForeign || alterColumns || expressionDefault) {
-      migrations += recreate(table, current);
+      migrations += recreate(table, current, losses);
       continue;
     }
     for (const column of table.columns) {
@@ -143,10 +158,15 @@ const toMigration = (existing, updated) => {
       if (renameColumns.includes(column.name)) {
         continue;
       }
+      losses.columns.push(`${table.name}.${column.name}`);
+      losses.total++;
       migrations += `alter table ${table.name} drop column ${column.name};\n`;
     }
   }
-  return migrations;
+  return {
+    sql: migrations,
+    losses
+  }
 }
 
 export default toMigration;

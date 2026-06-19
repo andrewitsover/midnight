@@ -379,7 +379,7 @@ The client returned from ```getClient``` has three methods that can be used to c
 
 ```diff```: takes a saved schema and diffs it with the currently loaded schema to create a migration.
 
-```migrate```: takes a SQL string representing the migration. This method defers the foreign keys and wraps the SQL in a transaction.
+```migrate```: takes a SQL string representing the migration.
 
 ## Creating tables
 
