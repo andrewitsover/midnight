@@ -4,15 +4,13 @@ import { toLiteral } from './utils.js';
 const recreate = (table, current, losses) => {
   const temp = `temp_${table.name}`;
   let sql = toSql({ ...table, name: temp, indexes: [] });
-  const shared = current
-    .columns
-    .filter(c => table.columns.map(e => e.name).includes(c.name))
-    .map(c => c.name)
+  const currentNames = current.columns.map(c => c.name);
+  const updatedNames = table.columns.map(c => c.name);
+  const shared = updatedNames
+    .filter(c => currentNames.includes(c))
     .join(', ');
-  const dropped = table
-    .columns
-    .filter(e => !current.columns.map(c => c.name).includes(e.name))
-    .map(e => e.name);
+  const dropped = currentNames
+    .filter(c => !updatedNames.includes(c));
   for (const name of dropped) {
     losses.columns.push(`${table.name}.${name}`);
     losses.total++;
