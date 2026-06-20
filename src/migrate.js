@@ -11,7 +11,7 @@ const recreate = (table, current, losses) => {
     .join(', ');
   const dropped = table
     .columns
-    .filter(e => current.columns.map(c => c.name).includes(e.name))
+    .filter(e => !current.columns.map(c => c.name).includes(e.name))
     .map(e => e.name);
   for (const name of dropped) {
     losses.columns.push(`${table.name}.${name}`);
